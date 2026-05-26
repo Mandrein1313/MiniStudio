@@ -34,6 +34,21 @@ android {
 }
 
 dependencies {
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.11.0'
+       implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.9.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    
+    // ไลบรารี JGit สำหรับบริหารจัดการคำสั่ง Git หลังบ้านแอป
+    implementation 'org.eclipse.jgit:org.eclipse.jgit:6.5.0.202303070854-r'
+    
+    // ไลบรารีจำเป็นสำหรับทำ FileProvider เพื่อเรียกคำสั่งขอติดตั้งแอปภายนอกอัตโนมัติ
+    implementation 'androidx.core:core:1.10.1'
+    
+    // บังคับผูกขาดใช้ Kotlin กล่องเดียวเป็นแกนหลักเพื่อป้องกัน Duplicate Class Error
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.8.10'
+	
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}
 }
