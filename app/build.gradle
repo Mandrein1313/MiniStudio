@@ -47,8 +47,6 @@ dependencies {
     // บังคับผูกขาดใช้ Kotlin กล่องเดียวเป็นแกนหลักเพื่อป้องกัน Duplicate Class Error
     implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.8.10'
 	
-    testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    
 }
 
