@@ -28,6 +28,7 @@ import com.dev.ministudio.editor.SyntaxHighlighter;
 import com.dev.ministudio.fs.FileSystemManager;
 import com.dev.ministudio.model.ProjectModel;
 import com.dev.ministudio.model.FileNode;
+import com.dev.ministudio.R;
 
 import java.io.BufferedReader;
 import java.io.File;
