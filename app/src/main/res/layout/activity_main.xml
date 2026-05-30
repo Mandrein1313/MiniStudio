@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.drawerlayout.widget.DrawerLayout 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/drawer_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#121212"
+    android:fitsSystemWindows="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:fitsSystemWindows="true">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="#1E1E1E"
+            app:title="Projects"
+            app:titleTextColor="#BB86FC"
+            app:contentInsetStartWithNavigation="0dp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/tabRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            android:background="#212121" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="6dp"
+            android:background="#1A1A1A"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tvSaveStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Saved"
+                android:textColor="#4CAF50"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="10dp"
+                android:layout_marginStart="6dp" />
+
+            <TextView
+                android:id="@+id/tvFilePath"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="No file open"
+                android:textColor="#888888"
+                android:textSize="11sp"
+                android:typeface="monospace"
+                android:singleLine="true"
+                android:ellipsize="start" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/searchBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:background="#252525"
+            android:padding="6dp"
+            android:visibility="gone"
+            android:gravity="center_vertical">
+
+            <EditText
+                android:id="@+id/etFind"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:hint="ค้นหาคำ..."
+                android:textColor="#FFFFFF"
+                android:textColorHint="#666666"
+                android:background="#1E1E1E"
+                android:paddingHorizontal="8dp"
+                android:textSize="14sp"
+                android:layout_marginEnd="4dp" />
+
+            <EditText
+                android:id="@+id/etReplace"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:hint="แทนที่ด้วย..."
+                android:textColor="#FFFFFF"
+                android:textColorHint="#666666"
+                android:background="#1E1E1E"
+                android:paddingHorizontal="8dp"
+                android:textSize="14sp"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/btnNext"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="ค้นหา"
+                android:textSize="12sp"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/btnReplace"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="แทนที่"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <io.github.rosemoe.sora.widget.CodeEditor
+                android:id="@+id/codeEditor"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_margin="0dp"/>
+
+            <LinearLayout
+                android:id="@+id/consolePanel"
+                android:layout_width="match_parent"
+                android:layout_height="160dp"
+                android:orientation="horizontal"
+                android:background="#141414"
+                android:visibility="gone"
+                android:elevation="4dp">
+
+                <LinearLayout
+                    android:layout_width="45dp"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:background="#1A1A1A"
+                    android:gravity="center_horizontal"
+                    android:paddingTop="8dp">
+
+                    <ImageButton
+                        android:id="@+id/btnCloseConsole"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:layout_marginBottom="12dp"
+                        android:src="@drawable/ic_close_console"
+                        android:tint="#4CAF50"
+                        android:background="?android:attr/selectableItemBackground"
+                        android:contentDescription="Hide Console" />
+
+                    <ImageButton
+                        android:id="@+id/btnConsoleRun"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:src="@android:drawable/ic_media_play"
+                        android:tint="#4CAF50"
+                        android:background="?android:attr/selectableItemBackground"
+                        android:contentDescription="Run Project" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:background="#252525" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="28dp"
+                        android:orientation="horizontal"
+                        android:background="#1A1A1A"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="12dp">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:background="#141414"
+                            android:paddingHorizontal="10dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Console"
+                                android:textColor="#E0E0E0"
+                                android:textSize="11sp" />
+
+                            <TextView
+                                android:id="@+id/btnClearConsole"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text=" ✕"
+                                android:textColor="#9E9E9E"
+                                android:textSize="11sp"
+                                android:paddingLeft="8dp"
+                                android:clickable="true"
+                                android:focusable="true"/>
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <ScrollView
+                        android:id="@+id/consoleScrollView"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:padding="8dp"
+                        android:background="#141414">
+
+                        <TextView
+                            android:id="@+id/tvConsoleLog"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="#FFFFFF"
+                            android:textSize="12sp"
+                            android:typeface="monospace"
+                            android:lineSpacingExtra="3dp" />
+                    </ScrollView>
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="46dp"
+            android:background="#1E1E1E"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/shortcutBar"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="4dp" />
+        </HorizontalScrollView>
+
+    </LinearLayout>
+
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/file_nav_view"
+        android:layout_width="280dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="#1A1A1A">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#212121"
+                android:paddingTop="44dp"
+                android:paddingBottom="16dp"
+                android:paddingHorizontal="20dp"
+                android:elevation="2dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="MINISTUDIO"
+                    android:textColor="#BB86FC"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.15" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Project Files"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
+
+            <ListView
+                android:id="@+id/treeView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:choiceMode="singleChoice"
+                android:divider="@android:color/transparent"
+                android:dividerHeight="0dp"
+                android:paddingVertical="6dp"
+                android:clipToPadding="false" />
+        </LinearLayout>
+    </com.google.android.material.navigation.NavigationView>
+
+</androidx.drawerlayout.widget.DrawerLayout>
