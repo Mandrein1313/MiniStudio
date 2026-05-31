@@ -4,20 +4,9 @@ import android.graphics.Color;
 
 public class BuildSummaryAnalyzer {
 
-    // 🛠️ ปรับปรุง Interface: สร้างเมทอดดักไว้ทุกชื่อที่โค้ดเก่าใน MainActivity อาจจะเรียกใช้
+    // 🌟 ใช้ Interface นี้เป็นหลักตัวเดียวเพื่อตัดปัญหาความคลุมเครือ (Ambiguous)
     public interface LogOutputListener {
-        // รองรับกรณีเรียกใช้ชื่อเมทอด onLogAppend
         void onLogAppend(String text, int color);
-        
-        // รองรับกรณีเรียกใช้ชื่อเมทอด onAppend (ใส่เป็น default เมทอดไว้เพื่อไม่ให้บังคับเขียนซ้ำ)
-        default void onAppend(String text, int color) {
-            onLogAppend(text, color);
-        }
-    }
-
-    // Interface รูปแบบใหม่
-    public interface LogCallback {
-        void onAppend(String text, int color);
     }
 
     private boolean hasError = false;
@@ -29,28 +18,10 @@ public class BuildSummaryAnalyzer {
     private final int COLOR_SUCCESS = Color.parseColor("#81C784");
 
     /**
-     * เมทอดดักอ่าน Log สำหรับรองรับรูปแบบใหม่ (LogCallback)
-     */
-    public boolean analyzeLine(String line, int defaultColor, LogCallback callback) {
-        return processLineAnalysis(line, defaultColor, new LogOutputListener() {
-            @Override
-            public void onLogAppend(String text, int color) {
-                callback.onAppend(text, color);
-            }
-        });
-    }
-
-    /**
-     * เมทอดดักอ่าน Log สำหรับรองรับรูปแบบเดิม (LogOutputListener)
+     * เมทอดดักอ่าน Log ทีละบรรทัด (รองรับโครงสร้างดั้งเดิม 100%)
      */
     public boolean analyzeLine(String line, int defaultColor, LogOutputListener listener) {
-        return processLineAnalysis(line, defaultColor, listener);
-    }
-
-    /**
-     * กลไกหลักในการสแกนข้อความและวิเคราะห์หาจุด Error
-     */
-    private boolean processLineAnalysis(String line, int defaultColor, LogOutputListener internalListener) {
+        // 1. ตรวจสอบ: ลืมระบุลิงก์ Git Repository
         if (line.contains("ใส่_URL_Git_Repository_ของคุณตรงนี้") || line.contains("not found")) {
             hasError = true;
             errorType = "GIT_URL_MISSING";
@@ -58,6 +29,7 @@ public class BuildSummaryAnalyzer {
             return true; 
         }
 
+        // 2. ตรวจสอบ: ซอร์สโค้ด Java พังคอมไพล์ไม่ผ่าน
         if (line.contains("error: class, interface, enum, or record expected") || 
             line.contains("Compilation failed") || 
             line.contains("ข้อผิดพลาด:") || 
@@ -74,6 +46,7 @@ public class BuildSummaryAnalyzer {
             return false; 
         }
 
+        // 3. ตรวจสอบ: สิทธิ์เข้าถึงล้มเหลว (Token ผิดพลาด)
         if (line.contains("Authentication failed") || line.contains("401 Unauthorized") || line.contains("Bad credentials")) {
             hasError = true;
             errorType = "AUTH_ERROR";
@@ -81,6 +54,7 @@ public class BuildSummaryAnalyzer {
             return true;
         }
 
+        // 4. ตรวจสอบ: โครงสร้างโปรเจกต์พังหาไฟล์หลักไม่เจอ
         if (line.contains("Build file") || line.contains("build.gradle' not found")) {
             hasError = true;
             errorType = "GRADLE_STRUCTURE_ERROR";
@@ -88,20 +62,14 @@ public class BuildSummaryAnalyzer {
             return true;
         }
 
-        // 🛠️ เรียกทำงานโดยดักส่งไปยังเมทอดหลักที่มีข้อมูล
-        internalListener.onLogAppend(line + "\n", defaultColor);
+        // พ่น Log ข้อความดิบส่งกลับไปแสดงผลที่หน้าจอตามปกติ
+        listener.onLogAppend(line + "\n", defaultColor);
         return false;
     }
 
-    public void printSummary(LogCallback callback) {
-        printSummary(new LogOutputListener() {
-            @Override
-            public void onLogAppend(String text, int color) {
-                callback.onAppend(text, color);
-            }
-        });
-    }
-
+    /**
+     * เมทอดพิมพ์สรุปผลลัพธ์ฉบับแปลภาษาไทย
+     */
     public void printSummary(LogOutputListener listener) {
         if (!hasError) return;
 
