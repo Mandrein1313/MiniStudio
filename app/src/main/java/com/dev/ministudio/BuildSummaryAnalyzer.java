@@ -4,9 +4,15 @@ import android.graphics.Color;
 
 public class BuildSummaryAnalyzer {
 
-    // Interface สำหรับรองรับ MainActivity ชุดเดิม
+    // 🛠️ ปรับปรุง Interface: สร้างเมทอดดักไว้ทุกชื่อที่โค้ดเก่าใน MainActivity อาจจะเรียกใช้
     public interface LogOutputListener {
+        // รองรับกรณีเรียกใช้ชื่อเมทอด onLogAppend
         void onLogAppend(String text, int color);
+        
+        // รองรับกรณีเรียกใช้ชื่อเมทอด onAppend (ใส่เป็น default เมทอดไว้เพื่อไม่ให้บังคับเขียนซ้ำ)
+        default void onAppend(String text, int color) {
+            onLogAppend(text, color);
+        }
     }
 
     // Interface รูปแบบใหม่
@@ -45,7 +51,6 @@ public class BuildSummaryAnalyzer {
      * กลไกหลักในการสแกนข้อความและวิเคราะห์หาจุด Error
      */
     private boolean processLineAnalysis(String line, int defaultColor, LogOutputListener internalListener) {
-        // 1. ตรวจสอบ: ลืมระบุลิงก์ Git Repository
         if (line.contains("ใส่_URL_Git_Repository_ของคุณตรงนี้") || line.contains("not found")) {
             hasError = true;
             errorType = "GIT_URL_MISSING";
@@ -53,7 +58,6 @@ public class BuildSummaryAnalyzer {
             return true; 
         }
 
-        // 2. ตรวจสอบ: ซอร์สโค้ด Java พังคอมไพล์ไม่ผ่าน
         if (line.contains("error: class, interface, enum, or record expected") || 
             line.contains("Compilation failed") || 
             line.contains("ข้อผิดพลาด:") || 
@@ -70,7 +74,6 @@ public class BuildSummaryAnalyzer {
             return false; 
         }
 
-        // 3. ตรวจสอบ: สิทธิ์เข้าถึงล้มเหลว (Token ผิดพลาด)
         if (line.contains("Authentication failed") || line.contains("401 Unauthorized") || line.contains("Bad credentials")) {
             hasError = true;
             errorType = "AUTH_ERROR";
@@ -78,7 +81,6 @@ public class BuildSummaryAnalyzer {
             return true;
         }
 
-        // 4. ตรวจสอบ: โครงสร้างโปรเจกต์พังหาไฟล์หลักไม่เจอ
         if (line.contains("Build file") || line.contains("build.gradle' not found")) {
             hasError = true;
             errorType = "GRADLE_STRUCTURE_ERROR";
@@ -86,15 +88,11 @@ public class BuildSummaryAnalyzer {
             return true;
         }
 
-        // ส่งข้อความดิบไปพิมพ์บนหน้าจอตามปกติ
+        // 🛠️ เรียกทำงานโดยดักส่งไปยังเมทอดหลักที่มีข้อมูล
         internalListener.onLogAppend(line + "\n", defaultColor);
         return false;
     }
 
-    /**
-     * 🛠️ แก้จุดพังบรรทัดที่ 94: เปลี่ยนมาประกาศใช้ Anonymous Class แทน Lambda 
-     * เพื่อเจาะจงเรียกไปยังเมทอดของพิมพ์สรุปฝั่ง LogOutputListener อย่างชัดเจน ไม่ให้คอมไพเลอร์สับสน
-     */
     public void printSummary(LogCallback callback) {
         printSummary(new LogOutputListener() {
             @Override
@@ -104,9 +102,6 @@ public class BuildSummaryAnalyzer {
         });
     }
 
-    /**
-     * เมทอดพิมพ์สรุปผลลัพธ์ฉบับแปลภาษาไทยหลัก
-     */
     public void printSummary(LogOutputListener listener) {
         if (!hasError) return;
 
