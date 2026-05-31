@@ -109,7 +109,8 @@ public class BuildTaskManager {
             long startTime = System.currentTimeMillis();
             long runId = -1;
 
-            while (System.currentTimeMillis() - startTime < 60000) {
+            //  แก้ไขตรงนี้: เปลี่ยนจาก 60000 เป็น 180000 (ขยายเวลารอเพิ่มเป็น 3 นาที)
+            while (System.currentTimeMillis() - startTime < 180000) {
                 Thread.sleep(5000);
                 HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
                 conn.setRequestProperty("Authorization", "Bearer " + token);

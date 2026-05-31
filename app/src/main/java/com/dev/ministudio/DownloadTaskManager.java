@@ -46,6 +46,8 @@ public class DownloadTaskManager {
 
     public void startFetchAndInstall() {
         new Thread(() -> {
+            HttpURLConnection conn = null;
+            HttpURLConnection dlConn = null;
             try {
                 SharedPreferences prefs = context.getSharedPreferences("GitHubPrefs", Context.MODE_PRIVATE);
                 String username = prefs.getString("username", "").trim();
@@ -57,24 +59,27 @@ public class DownloadTaskManager {
                     return;
                 }
 
-                sendProgress("🔍 กำลังดึง Build ล่าสุด...", COLOR_INFO);
+                sendProgress("🔍 กำลังดึงข้อมูลบิวด์ล่าสุดจากคลาวด์...", COLOR_INFO);
 
                 String releasesUrl = "https://api.github.com/repos/" + username + "/" + projectName + "/releases?per_page=5";
                 
-                HttpURLConnection conn = (HttpURLConnection) new URL(releasesUrl).openConnection();
+                conn = (HttpURLConnection) new URL(releasesUrl).openConnection();
                 conn.setRequestProperty("Authorization", "Bearer " + token);
                 conn.setRequestProperty("Accept", "application/vnd.github+json");
                 conn.setRequestProperty("Cache-Control", "no-cache, no-store");
+                // ✅ แก้ไขข้อ 3: ตั้งเวลา Timeout เครือข่าย
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(15000);
 
                 if (conn.getResponseCode() != 200) {
-                    sendProgress("❌ ไม่พบ Release", COLOR_ERROR);
+                    sendProgress("❌ ไม่สามารถเข้าถึงข้อมูลคลาวด์บิวด์ได้ (HTTP " + conn.getResponseCode() + ")", COLOR_ERROR);
                     uiHandler.post(() -> listener.onDownloadFinished(false, null));
                     return;
                 }
 
                 JSONArray releases = new JSONArray(readStream(conn.getInputStream()));
                 if (releases.length() == 0) {
-                    sendProgress("⏳ ยังไม่มี Build", COLOR_WARNING);
+                    sendProgress("⏳ ไม่พบประวัติการบิวด์บนระบบคลาวด์", COLOR_WARNING);
                     uiHandler.post(() -> listener.onDownloadFinished(false, null));
                     return;
                 }
@@ -96,21 +101,38 @@ public class DownloadTaskManager {
                 }
 
                 if (downloadUrl == null) {
-                    sendProgress("⏳ พบ Release แต่ยังไม่มี APK", COLOR_WARNING);
+                    sendProgress("⏳ พบสถานะบิวด์สำเร็จ แต่ไม่พบไฟล์ APK สำหรับติดตั้ง", COLOR_WARNING);
                     uiHandler.post(() -> listener.onDownloadFinished(false, null));
                     return;
                 }
 
-                sendProgress("📥 กำลังดาวน์โหลด: " + apkName, COLOR_SUCCESS);
+                sendProgress("📥 ตรวจพบไฟล์: " + apkName + " (กำลังเตรียมดาวน์โหลด...)", COLOR_INFO);
 
-                HttpURLConnection dlConn = (HttpURLConnection) new URL(downloadUrl).openConnection();
+                dlConn = (HttpURLConnection) new URL(downloadUrl).openConnection();
                 dlConn.setRequestProperty("Authorization", "Bearer " + token);
                 dlConn.setRequestProperty("Cache-Control", "no-cache");
+                dlConn.setConnectTimeout(15000);
+                dlConn.setReadTimeout(15000);
+
+                // ✅ แก้ไขข้อ 2: จัดการระบบ Redirect (HTTP 302/301) ไปยัง AWS S3 อย่างปลอดภัย
+                int status = dlConn.getResponseCode();
+                if (status == HttpURLConnection.HTTP_MOVED_TEMP || status == HttpURLConnection.HTTP_MOVED_PERM) {
+                    String redirectedUrl = dlConn.getHeaderField("Location");
+                    dlConn.disconnect(); // ปิดการเชื่อมต่อเดิมที่ติด Token
+                    
+                    // เปิดการเชื่อมต่อตรงเข้าสู่ตู้เก็บไฟล์จริง โดยไม่แอบส่ง Token ติดไปให้โดนบล็อก
+                    dlConn = (HttpURLConnection) new URL(redirectedUrl).openConnection();
+                    dlConn.setConnectTimeout(15000);
+                    dlConn.setReadTimeout(15000);
+                }
 
                 File outputDir = new File(context.getExternalFilesDir(null), "build_output");
-                outputDir.mkdirs();
+                if (!outputDir.exists()) {
+                    outputDir.mkdirs();
+                }
                 File apkFile = new File(outputDir, apkName);
 
+                // เริ่มดาวน์โหลดข้อมูลผ่านกลไกบัฟเฟอร์ความเร็วสูง
                 try (InputStream in = new BufferedInputStream(dlConn.getInputStream());
                      FileOutputStream fos = new FileOutputStream(apkFile)) {
 
@@ -119,44 +141,59 @@ public class DownloadTaskManager {
                     int count;
                     int fileLength = Math.max(dlConn.getContentLength(), 1);
 
+                    lastBytesProgress = -1; // รีเซ็ตตัวนับการแสดงผล
+
                     while ((count = in.read(data)) != -1) {
                         total += count;
                         fos.write(data, 0, count);
 
                         int progress = (int) (total * 100 / fileLength);
-                        if (progress % 10 == 0 && progress != lastBytesProgress) {
-                            sendProgress("📥 ดาวน์โหลด " + progress + "%", COLOR_INFO);
+                        
+                        // ✅ แก้ไขข้อ 1: ปรับวิธีนับ % ใหม่ ป้องกันการโดดข้ามเลขและทำให้แถบเปอร์เซ็นต์ลื่นไหลขึ้น
+                        if (progress != lastBytesProgress && progress % 5 == 0) {
+                            sendProgress("📥 กำลังดาวน์โหลดไฟล์ APK... " + progress + "%", COLOR_INFO);
                             lastBytesProgress = progress;
                         }
                     }
                 }
 
                 if (apkFile.exists() && apkFile.length() > 50000) {
-                    sendProgress("🎉 ดาวน์โหลดสำเร็จ! กำลังติดตั้ง...", COLOR_SUCCESS);
+                    sendProgress("🎉 ดาวน์โหลดสำเร็จเรียบร้อย! กำลังเรียกตัวติดตั้งระบบ...", COLOR_SUCCESS);
                     uiHandler.post(() -> listener.onDownloadFinished(true, apkFile));
                     installApk(apkFile);
                 } else {
-                    sendProgress("⚠️ ไฟล์ APK ยังไม่สมบูรณ์ (ขนาด: " + apkFile.length() + " bytes)", COLOR_WARNING);
+                    sendProgress("⚠️ ตรวจพบความเสียหาย: ไฟล์ APK มีขนาดเล็กผิดปกติ (" + apkFile.length() + " bytes)", COLOR_WARNING);
                     uiHandler.post(() -> listener.onDownloadFinished(false, null));
                 }
 
             } catch (Exception e) {
-                sendProgress("❌ Error: " + e.getMessage(), COLOR_ERROR);
+                sendProgress("❌ เกิดข้อผิดพลาดขณะดาวน์โหลด: " + e.getMessage(), COLOR_ERROR);
                 e.printStackTrace();
                 uiHandler.post(() -> listener.onDownloadFinished(false, null));
+            } finally {
+                // ✅ แก้ไขข้อ 4: สั่งปิด Connection ทิ้งอย่างสมบูรณ์เพื่อเคลียร์แรมของ Network Socket
+                if (conn != null) {
+                    try { conn.disconnect(); } catch (Exception ignored) {}
+                }
+                if (dlConn != null) {
+                    try { dlConn.disconnect(); } catch (Exception ignored) {}
+                }
             }
         }).start();
     }
 
     private String readStream(InputStream in) throws Exception {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = reader.readLine()) != null) {
-            sb.append(line).append("\n");
+        // ใช้ try-with-resources เพื่อให้แน่ใจว่า Reader จะถูกปิดทันทีหลังอ่านเสร็จ
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line).append("\n");
+            }
+            return sb.toString();
+        } finally {
+            try { in.close(); } catch (Exception ignored) {}
         }
-        in.close();
-        return sb.toString();
     }
 
     private void installApk(File file) {
@@ -168,7 +205,7 @@ public class DownloadTaskManager {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(intent);
         } catch (Exception e) {
-            sendProgress("❌ ไม่สามารถเปิดหน้าติดตั้ง: " + e.getMessage(), COLOR_ERROR);
+            sendProgress("❌ ไม่สามารถเปิดหน้าต่างติดตั้งแอปพลิเคชันได้: " + e.getMessage(), COLOR_ERROR);
         }
     }
 

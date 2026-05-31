@@ -22,7 +22,7 @@ public class BuildEnvironmentManager {
 
             File buildYamlFile = new File(workflowDir, "build.yml");
 
-            // สคริปต์บิวด์เวอร์ชันคลีน ใช้คำสั่ง gradle เพียวๆ ไม่ต้องพึ่ง gradle-wrapper.jar
+            // สคริปต์บิวด์เวอร์ชันคลีน เพิ่มประสิทธิภาพโดยใช้ --build-cache และยุบรวมขั้นตอนให้คอมไพล์เร็วขึ้น
             String workflowContent = "name: Android Cloud Build Pipeline\n\n" +
                     "on:\n" +
                     "  push:\n" +
@@ -45,10 +45,8 @@ public class BuildEnvironmentManager {
                     "      uses: gradle/actions/setup-gradle@v4\n" +
                     "      with:\n" +
                     "        gradle-version: '8.13'\n\n" +
-                    "    - name: Clean\n" +
-                    "      run: gradle clean\n\n" +
-                    "    - name: Build Debug APK\n" +
-                    "      run: gradle assembleDebug --no-daemon\n\n" +
+                    "    - name: Clean & Build Debug APK\n" +
+                    "      run: gradle clean assembleDebug --no-daemon --build-cache\n\n" +
                     "    - name: Generate Timestamp\n" +
                     "      id: timestamp\n" +
                     "      run: echo \"timestamp=$(date +'%Y%m%d-%H%M%S')\" >> $GITHUB_OUTPUT\n\n" +
@@ -206,12 +204,14 @@ public class BuildEnvironmentManager {
             writeFile(appBuildGradleFile, appBuildGradle.toString());
         }
 
-        // 4. สร้าง gradle.properties
+        // 4. สร้าง gradle.properties (เปิดใช้งานระบบคู่ขนานและระบบแคชความเร็วสูง)
         String gradlePropertiesContent = """
                 android.useAndroidX=true
                 android.enableJetifier=true
                 android.nonTransitiveRClass=true
                 org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
+                org.gradle.caching=true
+                org.gradle.parallel=true
                 """;
         writeFile(new File(rootPath, "gradle.properties"), gradlePropertiesContent);
 
