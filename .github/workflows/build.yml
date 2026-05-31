@@ -27,11 +27,8 @@ jobs:
       with:
         gradle-version: '8.13'
 
-    - name: Clean
-      run: gradle clean
-
-    - name: Build Debug APK
-      run: gradle assembleDebug --no-daemon
+    - name: Clean & Build Debug APK
+      run: gradle clean assembleDebug --no-daemon --build-cache
 
     - name: Generate Timestamp
       id: timestamp
