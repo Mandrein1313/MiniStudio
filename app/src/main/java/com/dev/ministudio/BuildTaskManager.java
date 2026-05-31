@@ -91,8 +91,8 @@ public class BuildTaskManager {
                 // ดึงพิกัดรายละเอียดของ Repository ออกมาใช้งาน
                 String repoPath = repoUrl.replace("https://github.com/", "").replace(".git", "");
                 
-                // เริ่มติดตามและดูสถานะความคืบหน้าของกระบวนการบิวด์
-                monitorWorkflowRuns(githubToken, repoPath);
+                // 🛠️ แก้ไขจุดที่ 1: ส่งพารามิเตอร์ projectName ต่อไปให้ระบบติดตามด้วยเพื่อนำไปใช้ดาวน์โหลดไฟล์
+                monitorWorkflowRuns(githubToken, repoPath, projectName);
 
             } catch (Exception e) {
                 sendProgress("❌ เกิดข้อผิดพลาดในระบบการนำส่งข้อมูล: " + e.getMessage() + "\n", COLOR_ERROR);
@@ -101,7 +101,8 @@ public class BuildTaskManager {
         }).start();
     }
 
-    private void monitorWorkflowRuns(String token, String repoPath) {
+    // 🛠️ แก้ไขจุดที่ 2: เพิ่มพารามิเตอร์ String projectName เข้ามาในเมทอดนี้
+    private void monitorWorkflowRuns(String token, String repoPath, String projectName) {
         try {
             String urlStr = "https://api.github.com/repos/" + repoPath + "/actions/runs?per_page=1";
             sendProgress("⏳ กำลังรอคิวและจัดเตรียมตู้คอนเทนเนอร์บิวด์บนคลาวด์...\n", COLOR_INFO);
@@ -109,7 +110,6 @@ public class BuildTaskManager {
             long startTime = System.currentTimeMillis();
             long runId = -1;
 
-            //  แก้ไขตรงนี้: เปลี่ยนจาก 60000 เป็น 180000 (ขยายเวลารอเพิ่มเป็น 3 นาที)
             while (System.currentTimeMillis() - startTime < 180000) {
                 Thread.sleep(5000);
                 HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
@@ -136,7 +136,25 @@ public class BuildTaskManager {
                             String conclusion = latestRun.getString("conclusion");
                             if ("success".equals(conclusion)) {
                                 sendProgress("🎉 บิวด์สำเร็จสมบูรณ์! กำลังนำเข้าไฟล์ APK ลงสู่ตัวเครื่อง...\n", COLOR_SUCCESS);
-                                postUiEvent(l -> l.onBuildFinished(true, ""));
+                                
+                                // 🛠️ แก้ไขจุดที่ 3: เรียกใช้งาน DownloadTaskManager เพื่อดาวน์โหลดและติดตั้งทันที!
+                                DownloadTaskManager downloadTask = new DownloadTaskManager(context, projectName, new DownloadTaskManager.DownloadListener() {
+                                    @Override
+                                    public void onDownloadLog(String text, int color) {
+                                        // นำ Log การดาวน์โหลดมาพ่นแสดงบนหน้าจอเดียวกับบิวด์ทาสก์
+                                        sendProgress(text + "\n", color);
+                                    }
+
+                                    @Override
+                                    public void onDownloadFinished(boolean success, File apkFile) {
+                                        // เมื่อดาวน์โหลดเสร็จสิ้น (ไม่ว่าจะสำเร็จหรือล้มเหลว) ให้ส่งสัญญาณจบงานหน้า UI
+                                        postUiEvent(l -> l.onBuildFinished(success, apkFile != null ? apkFile.getAbsolutePath() : null));
+                                    }
+                                });
+                                
+                                // สั่งเริ่มกระบวนการดาวน์โหลดผ่าน Background Thread ของตัวจัดการดาวน์โหลด
+                                downloadTask.startFetchAndInstall();
+                                
                             } else {
                                 sendProgress("❌ บิวด์ล้มเหลว! กำลังสืบค้นพิกัดข้อผิดพลาดจาก Log บนเซิร์ฟเวอร์...\n", COLOR_ERROR);
                                 fetchAndParseBuildLogs(token, repoPath, runId);
@@ -157,7 +175,6 @@ public class BuildTaskManager {
 
     private void fetchAndParseBuildLogs(String token, String repoPath, long runId) {
         try {
-            // 1. ตรวจค้นและหา Job ID ที่ทำงานพลาด
             String jobsUrl = "https://api.github.com/repos/" + repoPath + "/actions/runs/" + runId + "/jobs";
             HttpURLConnection conn = (HttpURLConnection) new URL(jobsUrl).openConnection();
             conn.setRequestProperty("Authorization", "Bearer " + token);
@@ -175,29 +192,22 @@ public class BuildTaskManager {
                     JSONObject job = jobs.getJSONObject(0);
                     long jobId = job.getLong("id");
 
-                    // 2. เรียกดาวน์โหลด Log ทั้งหมดของ Job นั้นออกมาสแกนแบบเรียลไทม์
                     String logUrl = "https://api.github.com/repos/" + repoPath + "/actions/jobs/" + jobId + "/logs";
                     HttpURLConnection logConn = (HttpURLConnection) new URL(logUrl).openConnection();
                     logConn.setRequestProperty("Authorization", "Bearer " + token);
 
                     if (logConn.getResponseCode() == 200) {
                         BufferedReader logReader = new BufferedReader(new InputStreamReader(logConn.getInputStream()));
-                        
-                        // 🌟 นำออบเจกต์ตัวสแกนใหม่มาเตรียมวิเคราะห์
                         BuildSummaryAnalyzer analyzer = new BuildSummaryAnalyzer();
                         
                         while ((line = logReader.readLine()) != null) {
-                            // นำ Log แต่ละบรรทัดเข้าสู่ตัวประมวลผล
-                            // 🛑 ตรวจเช็คค่าคืนกลับ (Return Value): หากเป็น true สั่งตัดตอนและหยุดดึงข้อมูลทันที!
                             boolean shouldStop = analyzer.analyzeLine(line, COLOR_WARNING, (txt, col) -> sendProgress(txt, col));
-                            
                             if (shouldStop) {
-                                break; // สั่งหยุดดึง Log บรรทัดที่เหลือเพื่อล็อกผลลัพธ์แรกสุดไว้
+                                break;
                             }
                         }
                         logReader.close();
 
-                        // 🌟 แสดงกรอบหน้าต่างคำแนะนำการแก้ไขให้ผู้ใช้งานทราบพิกัดแบบแม่นยำตรงตาม GitHub Actions
                         analyzer.printSummary((txt, col) -> sendProgress(txt, col));
                         return;
                     }
