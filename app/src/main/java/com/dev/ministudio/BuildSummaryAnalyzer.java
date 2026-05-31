@@ -4,12 +4,12 @@ import android.graphics.Color;
 
 public class BuildSummaryAnalyzer {
 
-    // 🌟 แก้จุดพัง: เพิ่ม Interface ชื่อเก่ากลับเข้ามา เพื่อให้ MainActivity.java (บรรทัด 262) เรียกใช้งานได้เหมือนเดิม
+    // Interface สำหรับรองรับ MainActivity ชุดเดิม
     public interface LogOutputListener {
         void onLogAppend(String text, int color);
     }
 
-    // เก็บรักษารูปแบบใหม่เอาไว้ด้วยเพื่อความปลอดภัย
+    // Interface รูปแบบใหม่
     public interface LogCallback {
         void onAppend(String text, int color);
     }
@@ -26,15 +26,19 @@ public class BuildSummaryAnalyzer {
      * เมทอดดักอ่าน Log สำหรับรองรับรูปแบบใหม่ (LogCallback)
      */
     public boolean analyzeLine(String line, int defaultColor, LogCallback callback) {
-        return processLineAnalysis(line, defaultColor, (txt, col) -> callback.onAppend(txt, col));
+        return processLineAnalysis(line, defaultColor, new LogOutputListener() {
+            @Override
+            public void onLogAppend(String text, int color) {
+                callback.onAppend(text, color);
+            }
+        });
     }
 
     /**
-     * 🌟 แก้จุดพัง: เพิ่มเมทอด analyzeLine พารามิเตอร์ตัวเดิม (LogOutputListener) เข้ามา 
-     * เพื่อรองรับโค้ดเก่าใน BuildTaskManager และ MainActivity ไม่ให้คอมไพล์พัง
+     * เมทอดดักอ่าน Log สำหรับรองรับรูปแบบเดิม (LogOutputListener)
      */
     public boolean analyzeLine(String line, int defaultColor, LogOutputListener listener) {
-        return processLineAnalysis(line, defaultColor, (txt, col) -> listener.onLogAppend(txt, col));
+        return processLineAnalysis(line, defaultColor, listener);
     }
 
     /**
@@ -88,14 +92,20 @@ public class BuildSummaryAnalyzer {
     }
 
     /**
-     * เมทอดพิมพ์สรุปผลลัพธ์ฉบับแปลภาษาไทยสำหรับ Interface รูปแบบใหม่
+     * 🛠️ แก้จุดพังบรรทัดที่ 94: เปลี่ยนมาประกาศใช้ Anonymous Class แทน Lambda 
+     * เพื่อเจาะจงเรียกไปยังเมทอดของพิมพ์สรุปฝั่ง LogOutputListener อย่างชัดเจน ไม่ให้คอมไพเลอร์สับสน
      */
     public void printSummary(LogCallback callback) {
-        printSummary((txt, col) -> callback.onAppend(txt, col));
+        printSummary(new LogOutputListener() {
+            @Override
+            public void onLogAppend(String text, int color) {
+                callback.onAppend(text, color);
+            }
+        });
     }
 
     /**
-     * เมทอดพิมพ์สรุปผลลัพธ์ฉบับแปลภาษาไทยสำหรับ Interface รูปแบบเดิม
+     * เมทอดพิมพ์สรุปผลลัพธ์ฉบับแปลภาษาไทยหลัก
      */
     public void printSummary(LogOutputListener listener) {
         if (!hasError) return;
