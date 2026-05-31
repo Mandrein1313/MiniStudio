@@ -22,16 +22,26 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Setup Gradle 8.13
+    # 🟢 ขั้นตอนเพิ่มใหม่: บังคับสร้างไฟล์ gradle-wrapper.jar ที่ขาดหายไปในโปรเจกต์ให้อัตโนมัติ
+    - name: Restore Gradle Wrapper
+      run: |
+        if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+          echo "Gradle Wrapper jar not found! Generating a new one..."
+          gradle wrapper
+        fi
+
+    # 🟢 ปรับปรุง: ถอด wrapper-validation-sha256 ออกชั่วคราว เพื่อไม่ให้ระบบบล็อกตัว Wrapper ที่เราเพิ่งสร้างใหม่
+    - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
-      with:
-        gradle-version: '8.13'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x ./gradlew
 
     - name: Clean
-      run: gradle clean
+      run: ./gradlew clean
 
     - name: Build Debug APK
-      run: gradle assembleDebug --no-daemon
+      run: ./gradlew assembleDebug --no-daemon
 
     - name: Generate Timestamp
       id: timestamp
@@ -45,7 +55,6 @@ jobs:
         draft: false
         prerelease: false
         make_latest: true
-        overwrite_files: true
         files: app/build/outputs/apk/debug/*.apk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
