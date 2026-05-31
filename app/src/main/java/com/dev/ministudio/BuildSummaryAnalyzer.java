@@ -4,7 +4,12 @@ import android.graphics.Color;
 
 public class BuildSummaryAnalyzer {
 
-    // สร้าง Interface สำหรับส่ง Log กลับไปแสดงผลบนหน้าจอ Console
+    // 🌟 แก้จุดพัง: เพิ่ม Interface ชื่อเก่ากลับเข้ามา เพื่อให้ MainActivity.java (บรรทัด 262) เรียกใช้งานได้เหมือนเดิม
+    public interface LogOutputListener {
+        void onLogAppend(String text, int color);
+    }
+
+    // เก็บรักษารูปแบบใหม่เอาไว้ด้วยเพื่อความปลอดภัย
     public interface LogCallback {
         void onAppend(String text, int color);
     }
@@ -13,93 +18,117 @@ public class BuildSummaryAnalyzer {
     private String errorType = "UNKNOWN";
     private String errorDetails = "";
     
-    // สีกรอบข้อความเพื่อความสวยงาม
     private final int COLOR_ERROR = Color.parseColor("#FF8A80");
     private final int COLOR_WARNING = Color.parseColor("#FFB74D");
     private final int COLOR_SUCCESS = Color.parseColor("#81C784");
 
     /**
-     * เมทอดสำหรับอ่านและวิเคราะห์ Log ทีละบรรทัด
-     * @return true ถ้าเจอ Error วิกฤตและต้องการให้ระบบหยุดอ่าน Log ทันที เพื่อประหยัดเวลา
+     * เมทอดดักอ่าน Log สำหรับรองรับรูปแบบใหม่ (LogCallback)
      */
     public boolean analyzeLine(String line, int defaultColor, LogCallback callback) {
-        // 1. ตรวจสอบ Error: ลืมใส่พิกัด URL ของ Git Repository
+        return processLineAnalysis(line, defaultColor, (txt, col) -> callback.onAppend(txt, col));
+    }
+
+    /**
+     * 🌟 แก้จุดพัง: เพิ่มเมทอด analyzeLine พารามิเตอร์ตัวเดิม (LogOutputListener) เข้ามา 
+     * เพื่อรองรับโค้ดเก่าใน BuildTaskManager และ MainActivity ไม่ให้คอมไพล์พัง
+     */
+    public boolean analyzeLine(String line, int defaultColor, LogOutputListener listener) {
+        return processLineAnalysis(line, defaultColor, (txt, col) -> listener.onLogAppend(txt, col));
+    }
+
+    /**
+     * กลไกหลักในการสแกนข้อความและวิเคราะห์หาจุด Error
+     */
+    private boolean processLineAnalysis(String line, int defaultColor, LogOutputListener internalListener) {
+        // 1. ตรวจสอบ: ลืมระบุลิงก์ Git Repository
         if (line.contains("ใส่_URL_Git_Repository_ของคุณตรงนี้") || line.contains("not found")) {
             hasError = true;
             errorType = "GIT_URL_MISSING";
-            errorDetails = "คุณยังไม่ได้แก้ไขหรือระบุ URL ของ GitHub Repository ให้ถูกต้องในหน้าตั้งค่า";
-            return true; // เจอจุดตายแล้ว สั่งหยุดดึง Log บรรทัดที่เหลือได้เลย
+            errorDetails = "คุณยังไม่ได้ระบุ URL ของ GitHub Repository ให้ถูกต้องในหน้าตั้งค่า";
+            return true; 
         }
 
-        // 2. ตรวจสอบ Error: โค้ด Java พัง (Compilation Failed)
-        if (line.contains("error: class, interface, enum, or record expected") || line.contains("Compilation failed")) {
+        // 2. ตรวจสอบ: ซอร์สโค้ด Java พังคอมไพล์ไม่ผ่าน
+        if (line.contains("error: class, interface, enum, or record expected") || 
+            line.contains("Compilation failed") || 
+            line.contains("ข้อผิดพลาด:") || 
+            line.contains("error:")) {
+            
             hasError = true;
             errorType = "JAVA_COMPILE_ERROR";
-            // พยายามจับเอาชื่อไฟล์ที่พังมาแสดงผล
+            
             if (line.contains(".java:")) {
-                errorDetails = "พบข้อผิดพลาดทางไวยากรณ์ (Syntax Error) ในซอร์สโค้ดของคุณ: \n" + line.trim();
-            } else {
-                errorDetails = "โค้ด Java ไม่สามารถคอมไพล์ได้ กรุณาตรวจสอบวงเล็บปีกกา {} หรือเครื่องหมาย semicolon (;)";
+                errorDetails = "พบข้อผิดพลาดทางไวยากรณ์ (Syntax Error) ในไฟล์โค้ดของคุณ: \n" + line.trim();
+            } else if (errorDetails.isEmpty()) {
+                errorDetails = "โค้ด Java บางจุดไม่สามารถคอมไพล์ได้ กรุณาตรวจสอบคำสะกด วงเล็บปีกกา {} หรือเครื่องหมายเซมิโคลอน (;)";
             }
-            return false; // ปล่อยให้อ่านต่อเผื่อเจอจุดที่พังเพิ่มเติม
+            return false; 
         }
 
-        // 3. ตรวจสอบ Error: ปัญหาเรื่องสิทธิ์เข้าถึง (Bad credentials / Token พัง)
+        // 3. ตรวจสอบ: สิทธิ์เข้าถึงล้มเหลว (Token ผิดพลาด)
         if (line.contains("Authentication failed") || line.contains("401 Unauthorized") || line.contains("Bad credentials")) {
             hasError = true;
             errorType = "AUTH_ERROR";
-            errorDetails = "Personal Access Token (PAT) ไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าถึง Repository นี้ (กรุณาเช็คสิทธิ์ repo และ workflow)";
+            errorDetails = "Personal Access Token (PAT) ไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าถึงพิกัดโปรเจกต์นี้";
             return true;
         }
 
-        // 4. ตรวจสอบ Error: โครงสร้างโปรเจกต์พัง หรือหา build.gradle ไม่เจอ
+        // 4. ตรวจสอบ: โครงสร้างโปรเจกต์พังหาไฟล์หลักไม่เจอ
         if (line.contains("Build file") || line.contains("build.gradle' not found")) {
             hasError = true;
             errorType = "GRADLE_STRUCTURE_ERROR";
-            errorDetails = "ไม่พบไฟล์ build.gradle ในโฟลเดอร์หลัก กรุณาตรวจสอบโครงสร้างโฟลเดอร์โปรเจกต์ของคุณ";
+            errorDetails = "ไม่พบไฟล์ควบคุมสคริปต์หลัก (build.gradle) กรุณาตรวจสอบโฟลเดอร์โปรเจกต์ของคุณ";
             return true;
         }
 
-        // พ่น Log ดิบแสดงผลบนหน้าจอตามปกติไปเรื่อยๆ
-        callback.onAppend(line + "\n", defaultColor);
+        // ส่งข้อความดิบไปพิมพ์บนหน้าจอตามปกติ
+        internalListener.onLogAppend(line + "\n", defaultColor);
         return false;
     }
 
     /**
-     * เมทอดสำหรับพิมพ์สรุปผลหลังจากอ่าน Log ทั้งหมดเสร็จสิ้นแล้ว
+     * เมทอดพิมพ์สรุปผลลัพธ์ฉบับแปลภาษาไทยสำหรับ Interface รูปแบบใหม่
      */
     public void printSummary(LogCallback callback) {
+        printSummary((txt, col) -> callback.onAppend(txt, col));
+    }
+
+    /**
+     * เมทอดพิมพ์สรุปผลลัพธ์ฉบับแปลภาษาไทยสำหรับ Interface รูปแบบเดิม
+     */
+    public void printSummary(LogOutputListener listener) {
         if (!hasError) return;
 
-        callback.onAppend("\n======================================\n", COLOR_ERROR);
-        callback.onAppend("🔍 [Error Parser] วิเคราะห์พบสาเหตุการบิวด์ล้มเหลว:\n", COLOR_ERROR);
+        listener.onLogAppend("\n======================================\n", COLOR_ERROR);
+        listener.onLogAppend("🔍 [Error Parser] วิเคราะห์พบสาเหตุการบิวด์ล้มเหลว:\n", COLOR_ERROR);
         
         switch (errorType) {
             case "GIT_URL_MISSING":
-                callback.onAppend("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
-                callback.onAppend("💡 วิธีแก้ไข: ไปที่หน้าแอปหลัก -> กดไอคอนตั้งค่า (รูปเฟืองหรือประแจ) -> ตรวจสอบช่อง Git Repository URL และกรอกลิงก์ให้ถูกต้อง เช่น https://github.com/ユーザー名/リポジトリ名.git\n", COLOR_SUCCESS);
+                listener.onLogAppend("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
+                listener.onLogAppend("💡 วิธีแก้ไข: เข้าสู่หน้าแอปหลัก -> เปิดเมนูตั้งค่าบัญชี GitHub -> ตรวจสอบและกรอกที่อยู่ Git Repository URL ให้เรียบร้อย\n", COLOR_SUCCESS);
                 break;
                 
             case "JAVA_COMPILE_ERROR":
-                callback.onAppend("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
-                callback.onAppend("💡 วิธีแก้ไข: เปิดไฟล์ตามที่ระบบแจ้งเตือนด้านบน แล้วตรวจสอบโค้ดจุดล่าสุดที่คุณแก้ไขว่าพิมพ์อะไรตกหล่นไปหรือไม่\n", COLOR_SUCCESS);
+                listener.onLogAppend("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
+                listener.onLogAppend("💡 วิธีแก้ไข: ตรวจสอบบันทึก Log บรรทัดสีแดงด้านบน ค้นหาชื่อไฟล์ .java ที่ระบบรายงานว่าพัง แล้วเข้าไปเช็คโค้ดจุดล่าสุดที่คุณแก้ไขครับ\n", COLOR_SUCCESS);
                 break;
 
             case "AUTH_ERROR":
-                callback.onAppend("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
-                callback.onAppend("💡 วิธีแก้ไข: เจนเนอเรต GitHub Token (Classic) ชุดใหม่ และตรวจสอบว่าได้ติ๊กเลือกสิทธิ์ 'repo', 'workflow' และ 'write:packages' เรียบร้อยแล้วก่อนนำมาบันทึกในแอป\n", COLOR_SUCCESS);
+                listener.onLogAppend("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
+                listener.onLogAppend("💡 วิธีแก้ไข: ทำการสร้าง Token (Classic) ชุดใหม่บน GitHub โดยติ๊กเลือกเปิดสิทธิ์ 'repo' และ 'workflow' ให้ครบถ้วน\n", COLOR_SUCCESS);
                 break;
 
             case "GRADLE_STRUCTURE_ERROR":
-                callback.onAppend("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
-                callback.onAppend("💡 วิธีแก้ไข: ตรวจสอบให้แน่ใจว่าได้สร้างโปรเจกต์ในโฟลเดอร์ที่แอปกำหนด และมีไฟล์เซ็ตอัปพื้นฐานครบถ้วน\n", COLOR_SUCCESS);
+                listener.onLogAppend("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
+                listener.onLogAppend("💡 วิธีแก้ไข: ตรวจสอบดูว่าไฟล์ build.gradle มีการเผลอกดลบ หรืออยู่ในตำแหน่งที่ถูกต้องหรือไม่\n", COLOR_SUCCESS);
                 break;
                 
             default:
-                callback.onAppend("📌 สาเหตุ: เกิดข้อผิดพลาดที่ไม่รู้จักในขั้นตอนคอมไพล์\n", COLOR_WARNING);
-                callback.onAppend("💡 วิธีแก้ไข: กรุณากดเข้าไปดู Log ฉบับเต็มบนเว็บ GitHub Actions เพื่อวิเคราะห์ปัญหาเพิ่มเติมครับ\n", COLOR_SUCCESS);
+                listener.onLogAppend("📌 สาเหตุ: พบจุดพังในขั้นตอนการคอมไพล์โค้ด\n", COLOR_WARNING);
+                listener.onLogAppend("💡 วิธีแก้ไข: ตรวจดู Log บรรทัดก่อนหน้าเพื่อดูไฟล์และบรรทัดที่ระบบชี้เป้าว่าเขียนโค้ดผิดพลาดครับ\n", COLOR_SUCCESS);
                 break;
         }
-        callback.onAppend("======================================\n", COLOR_ERROR);
+        listener.onLogAppend("======================================\n", COLOR_ERROR);
     }
 }
