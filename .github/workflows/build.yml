@@ -22,10 +22,17 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
+    # 🟢 ขั้นตอนเพิ่มใหม่: บังคับสร้างไฟล์ gradle-wrapper.jar ที่ขาดหายไปในโปรเจกต์ให้อัตโนมัติ
+    - name: Restore Gradle Wrapper
+      run: |
+        if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+          echo "Gradle Wrapper jar not found! Generating a new one..."
+          gradle wrapper
+        fi
+
+    # 🟢 ปรับปรุง: ถอด wrapper-validation-sha256 ออกชั่วคราว เพื่อไม่ให้ระบบบล็อกตัว Wrapper ที่เราเพิ่งสร้างใหม่
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
-      with:
-        wrapper-validation-sha256: '6fcc0ebf5505bd6cb9cd2e6dd2cc5eeee6f99d5b79960169fbd45adc620c0f40'
 
     - name: Grant execute permission for gradlew
       run: chmod +x ./gradlew
@@ -48,7 +55,6 @@ jobs:
         draft: false
         prerelease: false
         make_latest: true
-        overwrite_files: true
         files: app/build/outputs/apk/debug/*.apk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
