@@ -411,6 +411,8 @@ public class MainActivity extends AppCompatActivity {
         String packageName = "com.dev.ministudio"; 
 
         buildTask.startCloudBuild(githubToken, repoUrl, projectName, packageName); 
+        buildTask.setAnalyzer(analyzer); // 🌟 ฉีดเชื่อมต่อวงจรตัวจับบั๊กส่งต่อไปให้ TaskManager ใช้งานจริง
+        
     }
 
 

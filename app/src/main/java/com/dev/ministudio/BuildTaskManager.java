@@ -40,11 +40,19 @@ public class BuildTaskManager {
     private final int COLOR_ERROR = Color.parseColor("#FF8A80");
     private final int COLOR_WARNING = Color.parseColor("#FFB74D");
 
+    // 🌟 สร้างตัวแปรส่วนกลางเพื่อรองรับการส่งผ่านคลาสตัววิเคราะห์มาจากภายนอก (MainActivity)
+    private BuildSummaryAnalyzer externalAnalyzer;
+
     public BuildTaskManager(Context context, String projectPath, BuildListener listener) {
         this.context = context;
         this.projectPath = projectPath;
         this.envManager = new BuildEnvironmentManager(context);
         this.listener = listener;
+    }
+
+    // 🌟 [เพิ่มเมทอดพิเศษ]: เพื่อใช้ผูกคลาสแกะพิกัดบั๊กให้ลิงก์ตรงกับระบบวาร์ปหน้าจอหลัก
+    public void setAnalyzer(BuildSummaryAnalyzer analyzer) {
+        this.externalAnalyzer = analyzer;
     }
 
     public void startCloudBuild(final String githubToken, final String repoUrl, final String projectName, final String packageName) {
@@ -55,10 +63,7 @@ public class BuildTaskManager {
                 sendProgress("🚀 เริ่มต้นกระบวนการเชื่อมต่อและเตรียมซอร์สโค้ด...\n", COLOR_INFO);
                 File projectDir = new File(projectPath);
                 
-                // จัดแจงเขียน .gitignore เพื่อความสะอาดของโปรเจกต์
                 createGitIgnore(projectDir);
-
-                // สั่งระบบสร้างสคริปต์ขั้นตอนทำงานอัตโนมัติบน GitHub (Workflows)
                 envManager.prepareGitHubWorkflow(projectPath, projectName, packageName, "Java", 21);
 
                 sendProgress("📦 กำลังทำการส่งซอร์สโค้ดขึ้นสู่ GitHub Remote...\n", COLOR_INFO);
@@ -88,10 +93,7 @@ public class BuildTaskManager {
 
                 sendProgress("✅ อัปโหลดซอร์สโค้ดสำเร็จเรียบร้อย! กำลังปลุกระบบคลาวด์บิวด์...\n", COLOR_SUCCESS);
                 
-                // ดึงพิกัดรายละเอียดของ Repository ออกมาใช้งาน
                 String repoPath = repoUrl.replace("https://github.com/", "").replace(".git", "");
-                
-                // 🛠️ แก้ไขจุดที่ 1: ส่งพารามิเตอร์ projectName ต่อไปให้ระบบติดตามด้วยเพื่อนำไปใช้ดาวน์โหลดไฟล์
                 monitorWorkflowRuns(githubToken, repoPath, projectName);
 
             } catch (Exception e) {
@@ -101,7 +103,6 @@ public class BuildTaskManager {
         }).start();
     }
 
-    // 🛠️ แก้ไขจุดที่ 2: เพิ่มพารามิเตอร์ String projectName เข้ามาในเมทอดนี้
     private void monitorWorkflowRuns(String token, String repoPath, String projectName) {
         try {
             String urlStr = "https://api.github.com/repos/" + repoPath + "/actions/runs?per_page=1";
@@ -137,22 +138,17 @@ public class BuildTaskManager {
                             if ("success".equals(conclusion)) {
                                 sendProgress("🎉 บิวด์สำเร็จสมบูรณ์! กำลังนำเข้าไฟล์ APK ลงสู่ตัวเครื่อง...\n", COLOR_SUCCESS);
                                 
-                                // 🛠️ แก้ไขจุดที่ 3: เรียกใช้งาน DownloadTaskManager เพื่อดาวน์โหลดและติดตั้งทันที!
                                 DownloadTaskManager downloadTask = new DownloadTaskManager(context, projectName, new DownloadTaskManager.DownloadListener() {
                                     @Override
                                     public void onDownloadLog(String text, int color) {
-                                        // นำ Log การดาวน์โหลดมาพ่นแสดงบนหน้าจอเดียวกับบิวด์ทาสก์
                                         sendProgress(text + "\n", color);
                                     }
 
                                     @Override
                                     public void onDownloadFinished(boolean success, File apkFile) {
-                                        // เมื่อดาวน์โหลดเสร็จสิ้น (ไม่ว่าจะสำเร็จหรือล้มเหลว) ให้ส่งสัญญาณจบงานหน้า UI
                                         postUiEvent(l -> l.onBuildFinished(success, apkFile != null ? apkFile.getAbsolutePath() : null));
                                     }
                                 });
-                                
-                                // สั่งเริ่มกระบวนการดาวน์โหลดผ่าน Background Thread ของตัวจัดการดาวน์โหลด
                                 downloadTask.startFetchAndInstall();
                                 
                             } else {
@@ -198,7 +194,10 @@ public class BuildTaskManager {
 
                     if (logConn.getResponseCode() == 200) {
                         BufferedReader logReader = new BufferedReader(new InputStreamReader(logConn.getInputStream()));
-                        BuildSummaryAnalyzer analyzer = new BuildSummaryAnalyzer();
+                        
+                        // 🌟 🛠️ แก้ไขจุดสำคัญ: เรียกใช้ตัวแปรวิเคราะห์ภายนอก (externalAnalyzer) หากมีการผูกไว้ 
+                        // เพื่อให้ค่าตำแหน่งพิกัดบั๊กลิงก์ย้อนกลับส่งไปทำงานร่วมกับ UI วาร์ปหน้าจอหลักได้จริงครับ
+                        BuildSummaryAnalyzer analyzer = (externalAnalyzer != null) ? externalAnalyzer : new BuildSummaryAnalyzer();
                         
                         while ((line = logReader.readLine()) != null) {
                             boolean shouldStop = analyzer.analyzeLine(line, COLOR_WARNING, (txt, col) -> sendProgress(txt, col));
