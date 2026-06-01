@@ -215,14 +215,14 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 🐙 เมทอดรันบิวด์บนคลาวด์: เวอร์ชันแก้ไขดึงค่าจาก SharedPreferences สำเร็จแล้ว 🌟
+    // 🐙 เมทอดรันบิวด์บนคลาวด์: เวอร์ชันอัปเกรดระบบ Error Parser & วาร์ปเปิดโค้ดอัตโนมัติ 🌟
     private void startCloudBuildPipeline() {
         if (currentProject == null) {
             showToast("กรุณาเปิดโปรเจกต์ก่อนทำการรัน");
             return;
         }
 
-        // 🛠️ แก้ไขจุดที่ 1: ดึงค่าบัญชีผู้ใช้จาก SharedPreferences ที่บันทึกมาจากหน้าแรก
+        // 🛠️ ดึงค่าบัญชีผู้ใช้จาก SharedPreferences ที่บันทึกมาจากหน้าแรก
         SharedPreferences prefs = getSharedPreferences("GitHubPrefs", Context.MODE_PRIVATE);
         String username = prefs.getString("username", "");
         String savedToken = prefs.getString("token", "");
@@ -238,8 +238,12 @@ public class MainActivity extends AppCompatActivity {
             tvConsoleLog.setText(""); 
         }
 
-        // เรียกใช้สมองกลวิเคราะห์บั๊กตัวใหม่ที่เราแยกคลาสออกมา
+        // เรียกใช้สมองกลวิเคราะห์บั๊กแยกคลาส
         final BuildSummaryAnalyzer analyzer = new BuildSummaryAnalyzer();
+        
+        // 🌟 จุดสำคัญ: เคลียร์ค่า Error ของการบิวด์รอบเก่าออกให้หมดก่อนเริ่มรันรอบใหม่
+        analyzer.clearErrors();
+        
         final boolean[] isPipelineStopped = {false};
 
         // สั่งเริ่มกลุ่มคำสั่งตั้งค่าเริ่มต้น
@@ -248,7 +252,7 @@ public class MainActivity extends AppCompatActivity {
         appendLog("📂 ที่อยู่โปรเจกต์ (Root Path): " + currentProject.getRootPath(), TerminalColor.BORDER_BLUE); 
         appendLog("##[endgroup]", TerminalColor.LOG_GRAY);
 
-        // ✅ แก้ไขสอดคล้องตัวแปรดั้งเดิม: ลบ buildEnvManager ออก เพื่อให้เหลือพารามิเตอร์ 3 ตัวตรงตาม Constructor
+        // สร้างภารกิจบิวด์ผ่านตัวจัดการ BuildTaskManager
         BuildTaskManager buildTask = new BuildTaskManager(
             MainActivity.this, 
             currentProject.getRootPath(),
@@ -258,7 +262,7 @@ public class MainActivity extends AppCompatActivity {
                 public void onLogAppend(String text, int color) { 
                     if (isPipelineStopped[0]) return;
 
-                    // 🛠️ ส่งบรรทัด Log ไปให้คลาสสรุปวิเคราะห์ หากเจอเงื่อนไขผิดพลาดร้ายแรง ฟังก์ชันจะรีเทิร์นกลับมาเป็น true
+                    // 🛠️ ส่งบรรทัด Log ไปให้คลาสสรุปวิเคราะห์ หากเจอเงื่อนไขผิดพลาดร้ายแรง ฟังก์ชันจะรีเทิร์นกลับมาเป็น true (Fast-Fail)
                     boolean hasFailed = analyzer.analyzeLine(text, color, new BuildSummaryAnalyzer.LogOutputListener() {
                         @Override
                         public void onAppendLog(String logText, int logColor) {
@@ -306,45 +310,81 @@ public class MainActivity extends AppCompatActivity {
                         appendLog("✅ สำเร็จ: กระบวนการทำงานทั้งหมดเสร็จสิ้นโดยไม่มีข้อผิดพลาด", TerminalColor.SUGGEST_GREEN);
                         appendLog("📦 ไฟล์แอปที่ได้ (APK): " + (apkPath != null ? apkPath : "outputs/apk/debug/app-debug.apk"), TerminalColor.LOG_CYAN);
                         appendLog("##[endgroup]", TerminalColor.SUGGEST_GREEN);
+                        
+                        // บิวด์สำเร็จ ให้ซ่อนแผงควบคุม Error Panel (ถ้ามีตัวแปร rvErrorPanel ในหน้าจอ)
+                        /* runOnUiThread(() -> { if (rvErrorPanel != null) rvErrorPanel.setVisibility(View.GONE); }); */
                     } else {
                         showToast("กระบวนการทำงานล้มเหลว");
                         appendLog("\n##[error] การทำงานหยุดชะงักเนื่องจากการปิดตัวของระบบบิวด์อย่างกะทันหัน", TerminalColor.ERROR_RED);
                         
-                        // 🌟 ดึงค่าจาก Regex Parser มาแสดงพิกัดที่พัง
+                        // 🌟 ดึงค่าจาก Regex Parser เพื่อคำนวณพิกัดจุดพัง
                         final ParsedError err = analyzer.getLastError();
+                        
+                        // [กรณีใช้งานร่วมกับ RecyclerView Error Panel] ดึงลิสต์ข้อผิดพลาดทั้งหมดไปพ่นแสดงแถวรายการด้านล่าง
+                        /*
+                        final ArrayList<ParsedError> allErrors = analyzer.getErrorList();
+                        if (rvErrorPanel != null && !allErrors.isEmpty()) {
+                            runOnUiThread(() -> {
+                                rvErrorPanel.setVisibility(View.VISIBLE);
+                                ErrorAdapter adapter = new ErrorAdapter(allErrors, clickErr -> executeJumpToError(clickErr));
+                                rvErrorPanel.setAdapter(adapter);
+                            });
+                        }
+                        */
+
                         if (err != null) {
                             appendLog("\n======================================", TerminalColor.DETAIL_RED);
                             appendLog("📍 พิกัดโค้ดพัง: " + err.file + " (บรรทัดที่ " + err.line + ")", TerminalColor.DETAIL_RED);
                             appendLog("💬 ข้อความพัง: " + err.message, TerminalColor.TARGET_YELLOW);
                             appendLog("======================================", TerminalColor.DETAIL_RED);
                             
-                            // 🚀 สั่งรันคำสั่งเปิดไฟล์ที่พังขึ้นหน้าจออัตโนมัติบน UI Thread
+                            // 🚀 สั่งรันคำสั่งเปิดไฟล์ และกระโดดวาร์ปไปยังจุดพังอัตโนมัติบน UI Thread ทันที
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    try {
-                                        // 🛠️ แก้ไขบรรทัดที่ 328: แปลง String ให้เป็นวัตถุ File ก่อนส่งเข้าเมทอด
-                                        java.io.File targetFile = new java.io.File(currentProject.getRootPath(), err.file);
-                                        if (targetFile.exists()) {
-                                            openFile(targetFile);
-                                            showToast("📂 เปิดไฟล์ที่พังให้เรียบร้อยแล้ว! (บรรทัดที่ " + err.line + ")");
-                                        } else {
-                                            // สำรองไว้เผื่อกรณีพิกัดเป็นแบบ Full Path มาอยู่แล้ว
-                                            openFile(new java.io.File(err.file));
-                                            showToast("📂 เปิดไฟล์ที่พังให้เรียบร้อยแล้ว! (บรรทัดที่ " + err.line + ")");
-                                        }
-                                    } catch (Exception e) {
-                                        e.printStackTrace();
-                                    }
+                                    executeJumpToError(err);
                                 }
                             });
                         }
                     }
                 }
+
+                /**
+                 * 🚀 เมทอดช่วยคำนวณระบบ Path ป้องกันปัญหาเส้นทางซ้อนกัน และทำการเปิดกระโดดไปยังบรรทัดที่พัง
+                 */
+                private void executeJumpToError(ParsedError errorItem) {
+                    try {
+                        // 🛠️ ตรวจสอบเงื่อนไขเส้นทางเพื่อป้องกัน Absolute Path ซ้อนกันจากภายนอกคลาวด์
+                        java.io.File targetFile = new java.io.File(errorItem.file);
+                        if (!targetFile.isAbsolute()) {
+                            // หากเป็นสัญลักษณ์ย่อย (Relative Path) ให้เอา Root Path โปรเจกต์ปัจจุบันในเครื่องมาประกอบหน้า
+                            targetFile = new java.io.File(currentProject.getRootPath(), errorItem.file);
+                        }
+
+                        if (targetFile.exists()) {
+                            openFile(targetFile); // สั่งให้ระบบเปิดไฟล์ขึ้นมาบน Editor แกนหลัก
+                            
+                            // 🌟 ระบบกระโดดวาร์ปและเลื่อนเคอร์เซอร์ไปตรงพิกัดที่ ^ ชี้เป้า (พฤติกรรมเดียวกับ Android Studio และ AIDE)
+                            // ตรวจเช็คชื่อตัวแปร editor ในเครื่องของพี่ให้ตรงกันด้วยนะครับ (เช่น editor, mEditor, codeEditor)
+                            if (editor != null) {
+                                int zeroBasedLine = errorItem.line - 1; // ลบ 1 เสมอเนื่องจากโค้ดระบบนับบรรทัดเริ่มจาก 0
+                                int targetColumn = errorItem.column;
+
+                                editor.jumpToLine(zeroBasedLine);            // เลื่อนหน้าจอไปบรรทัดนั้น
+                                editor.setSelection(zeroBasedLine, targetColumn); // วางตำแหน่งเคอร์เซอร์กระพริบให้ถูกคอลัมน์
+                            }
+                            showToast("📂 เปิดไฟล์และวาร์ปไปบรรทัดที่ " + errorItem.line + " แล้วครับ!");
+                        } else {
+                            showToast("❌ ไม่พบตำแหน่งไฟล์นี้บนหน่วยความจำในเครื่อง");
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
             }
         );
         
-        // 🛠️ แก้ไขจุดที่ 2: ผูกข้อมูลและประกอบลิงก์ URL อัตโนมัติจากฐานข้อมูลแอปแทนค่า Static ข้อความไทยเดิม
+        // 🛠️ ผูกข้อมูลและประกอบลิงก์ URL อัตโนมัติจากฐานข้อมูลแอปแทนค่า Static ข้อความไทยเดิม
         String githubToken = savedToken; 
         String projectName = currentProject.getProjectName();
         String repoUrl = "https://github.com/" + username + "/" + projectName + ".git";
@@ -352,7 +392,6 @@ public class MainActivity extends AppCompatActivity {
 
         buildTask.startCloudBuild(githubToken, repoUrl, projectName, packageName); 
     }
-
 
     private void initializeFileTree() {
         if (currentProject == null) return;

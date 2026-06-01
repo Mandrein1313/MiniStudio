@@ -1,78 +1,75 @@
 package com.dev.ministudio;
 
 import android.graphics.Color;
+import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class BuildSummaryAnalyzer {
 
-    // Interface ตัวเดิมที่เข้าล็อกกับ MainActivity ของพี่
     public interface LogOutputListener {
         void onAppendLog(String text, int color);
     }
 
-    // 🌟 1. เพิ่ม Regex Pattern สำหรับดักจับพิกัด javac error แบบสากล
+    // 🌟 ข้อ 2: เพิ่ม Regex ครอบคลุมทั้ง Java, XML (AAPT2) และ Kotlin
     private static final Pattern JAVAC_ERROR = Pattern.compile("(.*?\\.java):(\\d+):\\s*error:\\s*(.*)");
+    private static final Pattern XML_ERROR = Pattern.compile("(.*?\\.xml):(\\d+):\\s*error:\\s*(.*)");
+    private static final Pattern KOTLIN_ERROR = Pattern.compile("(.*?\\.kt):(\\d+):\\s*error:\\s*(.*)");
 
     private boolean hasError = false;
     private String errorType = "UNKNOWN";
     private String errorDetails = "";
     
-    // 🌟 2. ตัวแปรเก็บ Error ล่าสุดตามที่พี่ออกแบบ
     private ParsedError lastError;
+    // อาเรย์เก็บรายการ Error ทั้งหมดสำหรับส่งให้ RecyclerView Panel
+    private final ArrayList<ParsedError> errorList = new ArrayList<>();
 
     private final int COLOR_ERROR = Color.parseColor("#FF8A80");
     private final int COLOR_WARNING = Color.parseColor("#FFB74D");
     private final int COLOR_SUCCESS = Color.parseColor("#81C784");
 
-    /**
-     * 🌟 3. เพิ่ม Getter สำหรับให้ MainActivity เรียกดูค่าพิกัดบั๊ก
-     */
+    public void clearErrors() {
+        errorList.clear();
+        lastError = null;
+        hasError = false;
+        errorType = "UNKNOWN";
+        errorDetails = "";
+    }
+
     public ParsedError getLastError() {
         return lastError;
     }
 
+    public ArrayList<ParsedError> getErrorList() {
+        return errorList;
+    }
+
     /**
-     * เมทอดดักอ่าน Log ทีละบรรทัด
+     * เมทอดวิเคราะห์ Log ทีละบรรทัด
      */
     public boolean analyzeLine(String line, int defaultColor, LogOutputListener listener) {
         
-        // 🌟 4. ใช้ Regex ดักจับพิกัดไฟล์และบรรทัดที่พังก่อนคำสั่ง contains ทั่วไป
-        Matcher m = JAVAC_ERROR.matcher(line);
-        if (m.find()) {
-            String file = m.group(1);
-            int lineNumber = Integer.parseInt(m.group(2));
-            String message = m.group(3);
-
-            // บันทึกข้อมูลลงวัตถุประเมินผล
-            lastError = new ParsedError(
-                file,
-                lineNumber,
-                0, // ค่าเริ่มต้นคอลัมน์
-                "JAVA_ERROR",
-                message
-            );
-
-            hasError = true;
-            errorType = "JAVA_COMPILE_ERROR";
-            errorDetails = message;
+        // ตรวจสอบ Regex ทั้ง 3 รูปแบบ
+        if (checkRegexError(line, JAVAC_ERROR, "JAVA_ERROR") ||
+            checkRegexError(line, XML_ERROR, "XML_AAPT2_ERROR") ||
+            checkRegexError(line, KOTLIN_ERROR, "KOTLIN_ERROR")) {
             
-            // พ่น Log ดิบลงหน้าจอตามปกติ แต่ส่งสัญญาณ false เพื่อให้อ่านบรรทัดถัดไป (เผื่อเจอสัญลักษณ์ชี้คอลัมน์ ^)
             if (listener != null) {
                 listener.onAppendLog(line + "\n", defaultColor);
             }
-            return false;
+            // 🌟 ข้อ 1: ปรับเปลี่ยนเป็น return true ทันทีเมื่อตรวจจับเจอพิกัดพัง เพื่อหยุด Pipeline (Fast-Fail)
+            return true; 
         }
 
-        // 🌟 5. ตัวเสริมความเทพ: ดักจับเครื่องหมาย ^ เพื่อระบุคอลัมน์ (ถ้ามีบรรทัดชี้เป้าวิ่งตามหลังมา)
+        // ดักจับตำแหน่งคอลัมน์จากสัญลักษณ์ ^ สำหรับ Error ล่าสุดที่พบ
         if (hasError && lastError != null && line.contains("^")) {
             int colIndex = line.indexOf("^");
             if (colIndex >= 0) {
-                lastError.column = colIndex; // เก็บตำแหน่งคอลัมน์เพื่อความแม่นยำระดับเม็ดทราย
+                lastError.column = colIndex;
             }
         }
 
-        // ดักจับ Error ภาพรวมระบบอื่นๆ (คงสภาพเดิมไว้ป้องกันระบบเอ๋อ)
+        // เช็คกรณีข้อผิดพลาดร้ายแรงอื่น ๆ ในระดับโครงสร้างหรือระบบความปลอดภัย
         if (line.contains("ใส่_URL_Git_Repository_ของคุณตรงนี้") || line.contains("not found")) {
             hasError = true;
             errorType = "GIT_URL_MISSING";
@@ -94,7 +91,6 @@ public class BuildSummaryAnalyzer {
             return true;
         }
 
-        // พ่นข้อมูลลง Console ปกติ
         if (listener != null) {
             listener.onAppendLog(line + "\n", defaultColor);
         }
@@ -102,15 +98,32 @@ public class BuildSummaryAnalyzer {
     }
 
     /**
-     * เมทอดพิมพ์สรุปแปลไทย
+     * เมทอดช่วยสกัดกลุ่มคำและตรวจสอบโครงสร้าง Regex 
      */
+    private boolean checkRegexError(String line, Pattern pattern, String typeStr) {
+        Matcher m = pattern.matcher(line);
+        if (m.find()) {
+            String file = m.group(1);
+            int lineNumber = Integer.parseInt(m.group(2));
+            String message = m.group(3);
+
+            lastError = new ParsedError(file, lineNumber, 0, typeStr, message);
+            errorList.add(lastError);
+
+            hasError = true;
+            errorType = "JAVA_COMPILE_ERROR";
+            errorDetails = message;
+            return true;
+        }
+        return false;
+    }
+
     public void printSummary(LogOutputListener listener) {
         if (!hasError || listener == null) return;
 
         listener.onAppendLog("\n======================================\n", COLOR_ERROR);
         listener.onAppendLog("🔍 [Error Parser] วิเคราะห์พบสาเหตุการบิวด์ล้มเหลว:\n", COLOR_ERROR);
         
-        // ถ้าแกะพิกัดสำเร็จ ให้พ่นที่อยู่ไฟล์ออกมาก่อนเลย
         if (lastError != null) {
             listener.onAppendLog("📍 พิกัดโค้ดพัง: " + lastError.file + " (บรรทัดที่ " + lastError.line + ")\n", COLOR_ERROR);
         }
@@ -118,15 +131,10 @@ public class BuildSummaryAnalyzer {
         switch (errorType) {
             case "JAVA_COMPILE_ERROR":
                 listener.onAppendLog("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
-                listener.onAppendLog("💡 วิธีแก้ไข: กดที่พิกัดบั๊กด้านบนเพื่อกระโดดไปยังจุดแก้ไข จากนั้นตรวจสอบ syntax หรือตัวแปรระบุสัญลักษณ์ครับ\n", COLOR_SUCCESS);
-                break;
-            case "GIT_URL_MISSING":
-                listener.onAppendLog("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
-                listener.onAppendLog("💡 วิธีแก้ไข: ไปที่หน้าแรก -> แก้ไข URL ของที่เก็บโค้ดให้ถูกต้อง\n", COLOR_SUCCESS);
+                listener.onAppendLog("💡 วิธีแก้ไข: ตรวจสอบไวยากรณ์โค้ด หรือสัญลักษณ์ที่ระบุไว้ในพิกัดแถบสีแดงด้านบนครับ\n", COLOR_SUCCESS);
                 break;
             default:
                 listener.onAppendLog("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
-                listener.onAppendLog("💡 วิธีแก้ไข: ตรวจเช็คจุดผิดพลาดตามรายงานข้อความด้านบนครับ\n", COLOR_SUCCESS);
                 break;
         }
         listener.onAppendLog("======================================\n", COLOR_ERROR);
