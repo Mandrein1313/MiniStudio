@@ -1,6 +1,7 @@
 package com.dev.ministudio.model;
->>>>
+
 import java.io.File;
+
 
 public class FileNode {
     public File file;
