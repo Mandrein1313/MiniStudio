@@ -309,6 +309,37 @@ public class MainActivity extends AppCompatActivity {
                     } else {
                         showToast("กระบวนการทำงานล้มเหลว");
                         appendLog("\n##[error] การทำงานหยุดชะงักเนื่องจากการปิดตัวของระบบบิวด์อย่างกะทันหัน", TerminalColor.ERROR_RED);
+                        
+                        // 🌟 [จุดที่เพิ่มเข้ามาตามไอเดียของพี่]: ดึงค่าจาก Regex Parser มาแสดงพิกัดวาร์ป
+                        ParsedError err = analyzer.getLastError();
+                        if (err != null) {
+                            appendLog("\n======================================", TerminalColor.DETAIL_RED);
+                            appendLog("📍 พิกัดโค้ดพัง: " + err.file + ":" + err.line, TerminalColor.DETAIL_RED);
+                            appendLog("💬 ข้อความพัง: " + err.message, TerminalColor.TARGET_YELLOW);
+                            appendLog("======================================", TerminalColor.DETAIL_RED);
+                            
+                            // 🚀 [สเต็ปกระโดดเปิดไฟล์]: เรียกคำสั่งเปิดโค้ดและย้ายโฟกัสไปยังบรรทัดที่พังทันที
+                            // โดยทำการ Run บน UI Thread เพื่อป้องกันแอปเด้งค้างครับ
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    try {
+                                        // 1. สั่งให้ IDE เปิดไฟล์ตามที่ Regex ตัดคำออกมาได้
+                                        openFile(err.file);
+                                        
+                                        // 2. สั่งให้ช่องพิมพ์ Editor กระโดดไปที่บรรทัดนั้น (ลบ 1 ตามสูตรของพี่)
+                                        if (editor != null) {
+                                            editor.jumpToLine(err.line - 1);
+                                            // แถมพิเศษ: เลื่อนแถบ Selection ไฮไลท์จุดที่พังให้อัตโนมัติ (บรรทัด, คอลัมน์)
+                                            editor.setSelection(err.line - 1, err.column);
+                                        }
+                                        showToast("↩️ วาร์ปไปยังจุดพังบรรทัดที่ " + err.line + " แล้วครับ!");
+                                    } catch (Exception e) {
+                                        e.printStackTrace();
+                                    }
+                                }
+                            });
+                        }
                     }
                 }
             }

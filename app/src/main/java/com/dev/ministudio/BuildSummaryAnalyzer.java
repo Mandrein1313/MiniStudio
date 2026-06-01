@@ -1,68 +1,100 @@
 package com.dev.ministudio;
 
 import android.graphics.Color;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class BuildSummaryAnalyzer {
 
-    // 🌟 แก้ไขเสร็จสิ้น: ปรับชื่อ Interface และชื่อเมทอดให้กลายเป็น onAppendLog ให้เข้าล็อกกับ MainActivity เป๊ะๆ
+    // Interface ตัวเดิมที่เข้าล็อกกับ MainActivity ของพี่
     public interface LogOutputListener {
         void onAppendLog(String text, int color);
     }
+
+    // 🌟 1. เพิ่ม Regex Pattern สำหรับดักจับพิกัด javac error แบบสากล
+    private static final Pattern JAVAC_ERROR = Pattern.compile("(.*?\\.java):(\\d+):\\s*error:\\s*(.*)");
 
     private boolean hasError = false;
     private String errorType = "UNKNOWN";
     private String errorDetails = "";
     
+    // 🌟 2. ตัวแปรเก็บ Error ล่าสุดตามที่พี่ออกแบบ
+    private ParsedError lastError;
+
     private final int COLOR_ERROR = Color.parseColor("#FF8A80");
     private final int COLOR_WARNING = Color.parseColor("#FFB74D");
     private final int COLOR_SUCCESS = Color.parseColor("#81C784");
 
     /**
-     * เมทอดดักอ่าน Log ทีละบรรทัด 
+     * 🌟 3. เพิ่ม Getter สำหรับให้ MainActivity เรียกดูค่าพิกัดบั๊ก
+     */
+    public ParsedError getLastError() {
+        return lastError;
+    }
+
+    /**
+     * เมทอดดักอ่าน Log ทีละบรรทัด
      */
     public boolean analyzeLine(String line, int defaultColor, LogOutputListener listener) {
-        // 1. ตรวจสอบ: ลืมระบุลิงก์ Git Repository
+        
+        // 🌟 4. ใช้ Regex ดักจับพิกัดไฟล์และบรรทัดที่พังก่อนคำสั่ง contains ทั่วไป
+        Matcher m = JAVAC_ERROR.matcher(line);
+        if (m.find()) {
+            String file = m.group(1);
+            int lineNumber = Integer.parseInt(m.group(2));
+            String message = m.group(3);
+
+            // บันทึกข้อมูลลงวัตถุประเมินผล
+            lastError = new ParsedError(
+                file,
+                lineNumber,
+                0, // ค่าเริ่มต้นคอลัมน์
+                "JAVA_ERROR",
+                message
+            );
+
+            hasError = true;
+            errorType = "JAVA_COMPILE_ERROR";
+            errorDetails = message;
+            
+            // พ่น Log ดิบลงหน้าจอตามปกติ แต่ส่งสัญญาณ false เพื่อให้อ่านบรรทัดถัดไป (เผื่อเจอสัญลักษณ์ชี้คอลัมน์ ^)
+            if (listener != null) {
+                listener.onAppendLog(line + "\n", defaultColor);
+            }
+            return false;
+        }
+
+        // 🌟 5. ตัวเสริมความเทพ: ดักจับเครื่องหมาย ^ เพื่อระบุคอลัมน์ (ถ้ามีบรรทัดชี้เป้าวิ่งตามหลังมา)
+        if (hasError && lastError != null && line.contains("^")) {
+            int colIndex = line.indexOf("^");
+            if (colIndex >= 0) {
+                lastError.column = colIndex; // เก็บตำแหน่งคอลัมน์เพื่อความแม่นยำระดับเม็ดทราย
+            }
+        }
+
+        // ดักจับ Error ภาพรวมระบบอื่นๆ (คงสภาพเดิมไว้ป้องกันระบบเอ๋อ)
         if (line.contains("ใส่_URL_Git_Repository_ของคุณตรงนี้") || line.contains("not found")) {
             hasError = true;
             errorType = "GIT_URL_MISSING";
-            errorDetails = "คุณยังไม่ได้ระบุ URL ของ GitHub Repository ให้ถูกต้องในหน้าตั้งค่า";
+            errorDetails = "คุณยังไม่ได้ระบุ URL ของ GitHub Repository ให้ถูกต้อง";
             return true; 
         }
 
-        // 2. ตรวจสอบ: ซอร์สโค้ด Java พังคอมไพล์ไม่ผ่าน
-        if (line.contains("error: class, interface, enum, or record expected") || 
-            line.contains("Compilation failed") || 
-            line.contains("ข้อผิดพลาด:") || 
-            line.contains("error:")) {
-            
-            hasError = true;
-            errorType = "JAVA_COMPILE_ERROR";
-            
-            if (line.contains(".java:")) {
-                errorDetails = "พบข้อผิดพลาดทางไวยากรณ์ (Syntax Error) ในไฟล์โค้ดของคุณ: \n" + line.trim();
-            } else if (errorDetails.isEmpty()) {
-                errorDetails = "โค้ด Java บางจุดไม่สามารถคอมไพล์ได้ กรุณาตรวจสอบคำสะกด วงเล็บปีกกา {} หรือเครื่องหมายเซมิโคลอน (;)";
-            }
-            return false; 
-        }
-
-        // 3. ตรวจสอบ: สิทธิ์เข้าถึงล้มเหลว (Token ผิดพลาด)
         if (line.contains("Authentication failed") || line.contains("401 Unauthorized") || line.contains("Bad credentials")) {
             hasError = true;
             errorType = "AUTH_ERROR";
-            errorDetails = "Personal Access Token (PAT) ไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าถึงพิกัดโปรเจกต์นี้";
+            errorDetails = "Token (PAT) ไม่ถูกต้องหรือไม่มีสิทธิ์เข้าถึงพิกัดนี้";
             return true;
         }
 
-        // 4. ตรวจสอบ: โครงสร้างโปรเจกต์พังหาไฟล์หลักไม่เจอ
         if (line.contains("Build file") || line.contains("build.gradle' not found")) {
             hasError = true;
             errorType = "GRADLE_STRUCTURE_ERROR";
-            errorDetails = "ไม่พบไฟล์ควบคุมสคริปต์หลัก (build.gradle) กรุณาตรวจสอบโฟลเดอร์โปรเจกต์ของคุณ";
+            errorDetails = "ไม่พบไฟล์ควบคุมสคริปต์หลัก (build.gradle)";
             return true;
         }
 
-        // ส่งข้อมูล Log ดิบกลับไปแสดงผลบนกล่อง Console หน้าจอหลักตามปกติผ่านโครงสร้างที่ถูกต้อง
+        // พ่นข้อมูลลง Console ปกติ
         if (listener != null) {
             listener.onAppendLog(line + "\n", defaultColor);
         }
@@ -70,7 +102,7 @@ public class BuildSummaryAnalyzer {
     }
 
     /**
-     * เมทอดพิมพ์สรุปผลลัพธ์ฉบับแปลภาษาไทย
+     * เมทอดพิมพ์สรุปแปลไทย
      */
     public void printSummary(LogOutputListener listener) {
         if (!hasError || listener == null) return;
@@ -78,30 +110,23 @@ public class BuildSummaryAnalyzer {
         listener.onAppendLog("\n======================================\n", COLOR_ERROR);
         listener.onAppendLog("🔍 [Error Parser] วิเคราะห์พบสาเหตุการบิวด์ล้มเหลว:\n", COLOR_ERROR);
         
+        // ถ้าแกะพิกัดสำเร็จ ให้พ่นที่อยู่ไฟล์ออกมาก่อนเลย
+        if (lastError != null) {
+            listener.onAppendLog("📍 พิกัดโค้ดพัง: " + lastError.file + " (บรรทัดที่ " + lastError.line + ")\n", COLOR_ERROR);
+        }
+
         switch (errorType) {
-            case "GIT_URL_MISSING":
-                listener.onAppendLog("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
-                listener.onAppendLog("💡 วิธีแก้ไข: เข้าสู่หน้าแอปหลัก -> เปิดเมนูตั้งค่าบัญชี GitHub -> ตรวจสอบและกรอกที่อยู่ Git Repository URL ให้เรียบร้อย\n", COLOR_SUCCESS);
-                break;
-                
             case "JAVA_COMPILE_ERROR":
                 listener.onAppendLog("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
-                listener.onAppendLog("💡 วิธีแก้ไข: ตรวจสอบบันทึก Log บรรทัดสีแดงด้านบน ค้นหาชื่อไฟล์ .java ที่ระบบรายงานว่าพัง แล้วเข้าไปเช็คโค้ดจุดล่าสุดที่คุณแก้ไขครับ\n", COLOR_SUCCESS);
+                listener.onAppendLog("💡 วิธีแก้ไข: กดที่พิกัดบั๊กด้านบนเพื่อกระโดดไปยังจุดแก้ไข จากนั้นตรวจสอบ syntax หรือตัวแปรระบุสัญลักษณ์ครับ\n", COLOR_SUCCESS);
                 break;
-
-            case "AUTH_ERROR":
+            case "GIT_URL_MISSING":
                 listener.onAppendLog("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
-                listener.onAppendLog("💡 วิธีแก้ไข: ทำการสร้าง Token (Classic) ชุดใหม่บน GitHub โดยติ๊กเลือกเปิดสิทธิ์ 'repo' และ 'workflow' ให้ครบถ้วน\n", COLOR_SUCCESS);
+                listener.onAppendLog("💡 วิธีแก้ไข: ไปที่หน้าแรก -> แก้ไข URL ของที่เก็บโค้ดให้ถูกต้อง\n", COLOR_SUCCESS);
                 break;
-
-            case "GRADLE_STRUCTURE_ERROR":
-                listener.onAppendLog("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
-                listener.onAppendLog("💡 วิธีแก้ไข: ตรวจสอบดูว่าไฟล์ build.gradle มีการเผลอกดลบ หรืออยู่ในตำแหน่งที่ถูกต้องหรือไม่\n", COLOR_SUCCESS);
-                break;
-                
             default:
-                listener.onAppendLog("📌 สาเหตุ: พบจุดพังในขั้นตอนการคอมไพล์โค้ด\n", COLOR_WARNING);
-                listener.onAppendLog("💡 วิธีแก้ไข: ตรวจดู Log บรรทัดก่อนหน้าเพื่อดูไฟล์และบรรทัดที่ระบบชี้เป้าว่าเขียนโค้ดผิดพลาดครับ\n", COLOR_SUCCESS);
+                listener.onAppendLog("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
+                listener.onAppendLog("💡 วิธีแก้ไข: ตรวจเช็คจุดผิดพลาดตามรายงานข้อความด้านบนครับ\n", COLOR_SUCCESS);
                 break;
         }
         listener.onAppendLog("======================================\n", COLOR_ERROR);
