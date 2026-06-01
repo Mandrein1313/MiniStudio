@@ -223,7 +223,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-      // 🐙 เมทอดรันบิวด์บนคลาวด์: เวอร์ชันอัปเกรดระบบ Inline Error Highlighting และควบคุมความปลอดภัย
+      // 🐙 เมทอดรันบิวด์บนคลาวด์: เวอร์ชันแก้ไขระบบดักจับ Error และวาร์ปพร้อมไฮไลต์สี 120%
     private void startCloudBuildPipeline() {
         if (currentProject == null) {
             showToast("กรุณาเปิดโปรเจกต์ก่อนทำการรัน");
@@ -263,6 +263,13 @@ public class MainActivity extends AppCompatActivity {
                 public void onLogAppend(String text, int color) { 
                     if (isPipelineStopped[0]) return;
 
+                    // แปลงตัวหนังสือเป็นพิมพ์เล็กทั้งหมดเพื่อใช้ดักจับคำสั่งพังได้แม่นยำ ไม่พลาดสายตา
+                    String lowerText = text != null ? text.toLowerCase() : "";
+
+                    // 🌟 1. ดักจับข้อความ Error ทุกรูปแบบ (ไม่ว่าจะสีแดงหรือสีส้มสว่างจาก Gradle)
+                    boolean isErrorLine = lowerText.contains("error:") || lowerText.contains("failed:") || color == Color.RED;
+
+                    // ส่งให้ตัววิเคราะห์ระบบบั๊กแกะเอาพิกัด บรรทัด/คอลัมน์ ไปใช้งาน
                     boolean hasFailed = analyzer.analyzeLine(text, color, new BuildSummaryAnalyzer.LogOutputListener() {
                         @Override
                         public void onAppendLog(String logText, int logColor) {
@@ -270,21 +277,27 @@ public class MainActivity extends AppCompatActivity {
                         }
                     });
 
+                    // 🌟 2. ถ้าระบบคลาวด์สั่งเบรกกระบวนการพังแบบกะทันหัน
                     if (hasFailed) {
                         isPipelineStopped[0] = true;
                         showToast("💥 บิวด์ล้มเหลว! (Exit Code 1)");
                         return;
                     }
 
-                    String lowerText = text.toLowerCase();
+                    // 🌟 3. ป้องกัน Log เบิ้ลซ้ำซ้อน: ถ้าตัว analyzer จัดการพิมพ์หรือตรวจสอบพิกัดไปแล้ว ให้ข้ามบรรทัดนี้ไปเลย
+                    if (text.startsWith("📍") || text.startsWith("💬")) {
+                        return;
+                    }
+
+                    // 4. จัดกลุ่มสีพิมพ์ข้อความสถานะปกติออกหน้าจอ Console (พิมพ์เดี่ยวรอบเดียว ไม่เบิ้ลซ้ำ)
                     if (color == Color.GREEN || lowerText.contains("success")) {
                         appendLog(text, TerminalColor.SUGGEST_GREEN); 
                     } else if (color == Color.YELLOW) {
                         appendLog(text, TerminalColor.TARGET_YELLOW); 
                     } else if (color == Color.CYAN) {
                         appendLog(text, TerminalColor.LOG_CYAN); 
-                    } else if (color == Color.RED || lowerText.contains("error:") || lowerText.contains("failed:")) {
-                        appendLog(text, TerminalColor.DETAIL_RED); 
+                    } else if (isErrorLine) {
+                        appendLog(text, TerminalColor.DETAIL_RED); // บังคับให้พ่นสีแดงเด่น ๆ ใน Console
                     } else {
                         appendLog(text, TerminalColor.TEXT_WHITE); 
                     }
@@ -315,13 +328,10 @@ public class MainActivity extends AppCompatActivity {
                         showToast("กระบวนการทำงานล้มเหลว");
                         appendLog("\n##[error] การทำงานหยุดชะงักเนื่องจากการปิดตัวของระบบบิวด์อย่างกะทันหัน", TerminalColor.ERROR_RED);
                         
+                        // ดึงประวัติบั๊กตัวล่าสุดที่เก็บมาได้
                         final ParsedError err = analyzer.getLastError();
                         
-                        /* -----------------------------------------------------------------
-                         * 🛠️ ขั้นตอนที่ 1: สั่งคอมเมนต์ปิดระบบ RecyclerView (Error Panel) ไว้ก่อนเพื่อความปลอดภัย
-                         * ป้องกันปัญหาแอปค้างหรือแครชหากยังไม่มีแผงนี้ใน layout XML 
-                         * วันไหนที่พ่อจัดเรียงเลเยอร์หน้าจอเสร็จแล้ว สามารถเอาคอมเมนต์ (/* และ * /) ออกได้เลยครับ
-                         * ----------------------------------------------------------------- */
+                        /* คอมเมนต์ปิดระบบจัดการแผง RecyclerView ด้านล่างชั่วคราว */
                         /* final ArrayList<ParsedError> allErrors = analyzer.getErrorList();
                         if (rvErrorPanel != null && allErrors != null && !allErrors.isEmpty()) {
                             runOnUiThread(() -> {
@@ -334,6 +344,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                         */
 
+                        // 🌟 เจอบั๊กแล้ว! สั่งให้ UI ทำงานกระโดดวาร์ปและลากแถบคลุมทันที
                         if (err != null) {
                             appendLog("\n======================================", TerminalColor.DETAIL_RED);
                             appendLog("📍 พิกัดโค้ดพัง: " + err.file + " (บรรทัดที่ " + err.line + ")", TerminalColor.DETAIL_RED);
@@ -356,26 +367,24 @@ public class MainActivity extends AppCompatActivity {
                         }
 
                         if (targetFile.exists()) {
-                            openFile(targetFile); 
+                            openFile(targetFile); // สั่งเปิดไฟล์ที่มีปัญหากางออกหน้าจอหลัก
                             
                             if (codeEditor != null) {
-                                final int zeroBasedLine = errorItem.line - 1; // นับบรรทัดเริ่มจาก 0
+                                final int zeroBasedLine = errorItem.line - 1; // เปลี่ยนค่าบรรทัดให้เริ่มนับจาก 0
                                 final int targetColumn = errorItem.column;
 
-                                // 1. ย้ายตำแหน่งหน้าจอ Editor กระโดดไปหาบรรทัดที่พัง
+                                // 1. ดีดหน้าจอกระโดดไปหาบรรทัดที่พังและวางเคอร์เซอร์
                                 codeEditor.jumpToLine(zeroBasedLine);            
                                 codeEditor.setSelection(zeroBasedLine, targetColumn); 
                                 
-                                // 🌟 2. ทำระบบ Inline Error Highlighting โดยลากแถบคลุมตำแหน่งข้อความพังเพื่อให้เห็นเด่นชัด
+                                // 2. ทำระบบ Inline Highlighting ลากแถบคลุมปื้นสีเพื่อเน้นจุดคำสั่งผิดพลาด
                                 try {
-                                    // สั่งหยุดและล้างระบบการค้นหาและไฮไลต์อันเก่าออกก่อนเพื่อป้องกันการซ้อนทับ
-                                    codeEditor.getSearcher().stopSearch(); 
+                                    codeEditor.getSearcher().stopSearch(); // ล้างระบบค้นหาอันเก่าออก
                                     
-                                    // ประยุกต์ใช้คำสั่ง SelectionRegion บน UI Thread เพื่อวาดแถบปื้นคลุมคำที่เขียนผิดพลาด
                                     runOnUiThread(() -> {
                                         try {
-                                            // ลากแถบคลุมเน้นข้อความตั้งแต่คอลัมน์แรกจนถึงพิกัดที่ระบุ เพื่อเพิ่มความชัดเจน 120%
-                                            codeEditor.setSelectionRegion(zeroBasedLine, 0, zeroBasedLine, targetColumn + 5);
+                                            // สั่งลากแถบเน้นคำผิดพลาดตั้งแต่ต้นบรรทัด เพื่อให้เห็นชัดเจน 120%
+                                            codeEditor.setSelectionRegion(zeroBasedLine, 0, zeroBasedLine, targetColumn + 8);
                                         } catch (Exception layoutEx) {
                                             layoutEx.printStackTrace();
                                         }
@@ -403,6 +412,7 @@ public class MainActivity extends AppCompatActivity {
 
         buildTask.startCloudBuild(githubToken, repoUrl, projectName, packageName); 
     }
+
 
     private void initializeFileTree() {
         if (currentProject == null) return;
