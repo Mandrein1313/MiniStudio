@@ -4,9 +4,9 @@ import android.graphics.Color;
 
 public class BuildSummaryAnalyzer {
 
-    // 🌟 ใช้ Interface นี้เป็นหลักตัวเดียวเพื่อตัดปัญหาความคลุมเครือ (Ambiguous)
+    // 🌟 แก้ไข: เปลี่ยนชื่อเมทอดใน Interface ให้เป็น onAppend ให้ตรงกับใน MainActivity เป๊ะๆ
     public interface LogOutputListener {
-        void onLogAppend(String text, int color);
+        void onAppend(String text, int color);
     }
 
     private boolean hasError = false;
@@ -18,7 +18,7 @@ public class BuildSummaryAnalyzer {
     private final int COLOR_SUCCESS = Color.parseColor("#81C784");
 
     /**
-     * เมทอดดักอ่าน Log ทีละบรรทัด (รองรับโครงสร้างดั้งเดิม 100%)
+     * เมทอดดักอ่าน Log ทีละบรรทัด
      */
     public boolean analyzeLine(String line, int defaultColor, LogOutputListener listener) {
         // 1. ตรวจสอบ: ลืมระบุลิงก์ Git Repository
@@ -62,8 +62,8 @@ public class BuildSummaryAnalyzer {
             return true;
         }
 
-        // พ่น Log ข้อความดิบส่งกลับไปแสดงผลที่หน้าจอตามปกติ
-        listener.onLogAppend(line + "\n", defaultColor);
+        // ส่งข้อความดิบไปพิมพ์บนหน้าจอตามปกติ
+        listener.onAppend(line + "\n", defaultColor);
         return false;
     }
 
@@ -73,35 +73,35 @@ public class BuildSummaryAnalyzer {
     public void printSummary(LogOutputListener listener) {
         if (!hasError) return;
 
-        listener.onLogAppend("\n======================================\n", COLOR_ERROR);
-        listener.onLogAppend("🔍 [Error Parser] วิเคราะห์พบสาเหตุการบิวด์ล้มเหลว:\n", COLOR_ERROR);
+        listener.onAppend("\n======================================\n", COLOR_ERROR);
+        listener.onAppend("🔍 [Error Parser] วิเคราะห์พบสาเหตุการบิวด์ล้มเหลว:\n", COLOR_ERROR);
         
         switch (errorType) {
             case "GIT_URL_MISSING":
-                listener.onLogAppend("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
-                listener.onLogAppend("💡 วิธีแก้ไข: เข้าสู่หน้าแอปหลัก -> เปิดเมนูตั้งค่าบัญชี GitHub -> ตรวจสอบและกรอกที่อยู่ Git Repository URL ให้เรียบร้อย\n", COLOR_SUCCESS);
+                listener.onAppend("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
+                listener.onAppend("💡 วิธีแก้ไข: เข้าสู่หน้าแอปหลัก -> เปิดเมนูตั้งค่าบัญชี GitHub -> ตรวจสอบและกรอกที่อยู่ Git Repository URL ให้เรียบร้อย\n", COLOR_SUCCESS);
                 break;
                 
             case "JAVA_COMPILE_ERROR":
-                listener.onLogAppend("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
-                listener.onLogAppend("💡 วิธีแก้ไข: ตรวจสอบบันทึก Log บรรทัดสีแดงด้านบน ค้นหาชื่อไฟล์ .java ที่ระบบรายงานว่าพัง แล้วเข้าไปเช็คโค้ดจุดล่าสุดที่คุณแก้ไขครับ\n", COLOR_SUCCESS);
+                listener.onAppend("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
+                listener.onAppend("💡 วิธีแก้ไข: ตรวจสอบบันทึก Log บรรทัดสีแดงด้านบน ค้นหาชื่อไฟล์ .java ที่ระบบรายงานว่าพัง แล้วเข้าไปเช็คโค้ดจุดล่าสุดที่คุณแก้ไขครับ\n", COLOR_SUCCESS);
                 break;
 
             case "AUTH_ERROR":
-                listener.onLogAppend("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
-                listener.onLogAppend("💡 วิธีแก้ไข: ทำการสร้าง Token (Classic) ชุดใหม่บน GitHub โดยติ๊กเลือกเปิดสิทธิ์ 'repo' และ 'workflow' ให้ครบถ้วน\n", COLOR_SUCCESS);
+                listener.onAppend("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
+                listener.onAppend("💡 วิธีแก้ไข: ทำการสร้าง Token (Classic) ชุดใหม่บน GitHub โดยติ๊กเลือกเปิดสิทธิ์ 'repo' และ 'workflow' ให้ครบถ้วน\n", COLOR_SUCCESS);
                 break;
 
             case "GRADLE_STRUCTURE_ERROR":
-                listener.onLogAppend("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
-                listener.onLogAppend("💡 วิธีแก้ไข: ตรวจสอบดูว่าไฟล์ build.gradle มีการเผลอกดลบ หรืออยู่ในตำแหน่งที่ถูกต้องหรือไม่\n", COLOR_SUCCESS);
+                listener.onAppend("📌 สาเหตุ: " + errorDetails + "\n", COLOR_WARNING);
+                listener.onAppend("💡 วิธีแก้ไข: ตรวจสอบดูว่าไฟล์ build.gradle มีการเผลอกดลบ หรืออยู่ในตำแหน่งที่ถูกต้องหรือไม่\n", COLOR_SUCCESS);
                 break;
                 
             default:
-                listener.onLogAppend("📌 สาเหตุ: พบจุดพังในขั้นตอนการคอมไพล์โค้ด\n", COLOR_WARNING);
-                listener.onLogAppend("💡 วิธีแก้ไข: ตรวจดู Log บรรทัดก่อนหน้าเพื่อดูไฟล์และบรรทัดที่ระบบชี้เป้าว่าเขียนโค้ดผิดพลาดครับ\n", COLOR_SUCCESS);
+                listener.onAppend("📌 สาเหตุ: พบจุดพังในขั้นตอนการคอมไพล์โค้ด\n", COLOR_WARNING);
+                listener.onAppend("💡 วิธีแก้ไข: ตรวจดู Log บรรทัดก่อนหน้าเพื่อดูไฟล์และบรรทัดที่ระบบชี้เป้าว่าเขียนโค้ดผิดพลาดครับ\n", COLOR_SUCCESS);
                 break;
         }
-        listener.onLogAppend("======================================\n", COLOR_ERROR);
+        listener.onAppend("======================================\n", COLOR_ERROR);
     }
 }
