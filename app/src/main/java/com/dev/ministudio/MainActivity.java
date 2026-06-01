@@ -310,27 +310,12 @@ public class MainActivity extends AppCompatActivity {
                         appendLog("✅ สำเร็จ: กระบวนการทำงานทั้งหมดเสร็จสิ้นโดยไม่มีข้อผิดพลาด", TerminalColor.SUGGEST_GREEN);
                         appendLog("📦 ไฟล์แอปที่ได้ (APK): " + (apkPath != null ? apkPath : "outputs/apk/debug/app-debug.apk"), TerminalColor.LOG_CYAN);
                         appendLog("##[endgroup]", TerminalColor.SUGGEST_GREEN);
-                        
-                        // บิวด์สำเร็จ ให้ซ่อนแผงควบคุม Error Panel (ถ้ามีตัวแปร rvErrorPanel ในหน้าจอ)
-                        /* runOnUiThread(() -> { if (rvErrorPanel != null) rvErrorPanel.setVisibility(View.GONE); }); */
                     } else {
                         showToast("กระบวนการทำงานล้มเหลว");
                         appendLog("\n##[error] การทำงานหยุดชะงักเนื่องจากการปิดตัวของระบบบิวด์อย่างกะทันหัน", TerminalColor.ERROR_RED);
                         
                         // 🌟 ดึงค่าจาก Regex Parser เพื่อคำนวณพิกัดจุดพัง
                         final ParsedError err = analyzer.getLastError();
-                        
-                        // [กรณีใช้งานร่วมกับ RecyclerView Error Panel] ดึงลิสต์ข้อผิดพลาดทั้งหมดไปพ่นแสดงแถวรายการด้านล่าง
-                        /*
-                        final ArrayList<ParsedError> allErrors = analyzer.getErrorList();
-                        if (rvErrorPanel != null && !allErrors.isEmpty()) {
-                            runOnUiThread(() -> {
-                                rvErrorPanel.setVisibility(View.VISIBLE);
-                                ErrorAdapter adapter = new ErrorAdapter(allErrors, clickErr -> executeJumpToError(clickErr));
-                                rvErrorPanel.setAdapter(adapter);
-                            });
-                        }
-                        */
 
                         if (err != null) {
                             appendLog("\n======================================", TerminalColor.DETAIL_RED);
@@ -364,14 +349,13 @@ public class MainActivity extends AppCompatActivity {
                         if (targetFile.exists()) {
                             openFile(targetFile); // สั่งให้ระบบเปิดไฟล์ขึ้นมาบน Editor แกนหลัก
                             
-                            // 🌟 ระบบกระโดดวาร์ปและเลื่อนเคอร์เซอร์ไปตรงพิกัดที่ ^ ชี้เป้า (พฤติกรรมเดียวกับ Android Studio และ AIDE)
-                            // ตรวจเช็คชื่อตัวแปร editor ในเครื่องของพี่ให้ตรงกันด้วยนะครับ (เช่น editor, mEditor, codeEditor)
-                            if (editor != null) {
+                            // 🌟 แก้ไขจุดพัง: เปลี่ยนจาก editor เป็น codeEditor เพื่อให้แมตช์กับตัวแปรที่พี่ประกาศไว้ด้านบนสุดคลาสครับ
+                            if (codeEditor != null) {
                                 int zeroBasedLine = errorItem.line - 1; // ลบ 1 เสมอเนื่องจากโค้ดระบบนับบรรทัดเริ่มจาก 0
                                 int targetColumn = errorItem.column;
 
-                                editor.jumpToLine(zeroBasedLine);            // เลื่อนหน้าจอไปบรรทัดนั้น
-                                editor.setSelection(zeroBasedLine, targetColumn); // วางตำแหน่งเคอร์เซอร์กระพริบให้ถูกคอลัมน์
+                                codeEditor.jumpToLine(zeroBasedLine);            // เลื่อนหน้าจอไปบรรทัดนั้น
+                                codeEditor.setSelection(zeroBasedLine, targetColumn); // วางตำแหน่งเคอร์เซอร์กระพริบให้ถูกคอลัมน์
                             }
                             showToast("📂 เปิดไฟล์และวาร์ปไปบรรทัดที่ " + errorItem.line + " แล้วครับ!");
                         } else {
