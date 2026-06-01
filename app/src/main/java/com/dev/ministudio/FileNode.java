@@ -1,5 +1,5 @@
 package com.dev.ministudio.model;
-
+>>>>>
 import java.io.File;
 
 
