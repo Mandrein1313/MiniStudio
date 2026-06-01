@@ -177,6 +177,12 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.btnReplace).setOnClickListener(v -> replaceText());
         
         setupShortcutBar();
+
+        // 🌟 [ระบบเติมเต็มความสมบูรณ์] ดึงไอดีจาก XML มาเข้าสู่ตัวแปรระบบควบคุม 120%
+        rvErrorPanel = findViewById(R.id.rvErrorPanel);
+        if (rvErrorPanel != null) {
+            rvErrorPanel.setLayoutManager(new LinearLayoutManager(this));
+        }
     }
     
     private void setupLogic() {
@@ -217,20 +223,19 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 🐙 เมทอดรันบิวด์บนคลาวด์: เวอร์ชันอัปเกรดระบบ Error Panel & ขีดเส้นใต้แดงบนหน้าจอพิมพ์โค้ด 🌟
+    // 🐙 เมทอดรันบิวด์บนคลาวด์: เวอร์ชันอัปเกรดระบบ Error Panel
     private void startCloudBuildPipeline() {
         if (currentProject == null) {
             showToast("กรุณาเปิดโปรเจกต์ก่อนทำการรัน");
             return;
         }
 
-        // ดึงค่าบัญชีผู้ใช้จาก SharedPreferences
         SharedPreferences prefs = getSharedPreferences("GitHubPrefs", Context.MODE_PRIVATE);
         String username = prefs.getString("username", "");
         String savedToken = prefs.getString("token", "");
 
         if (username.isEmpty() || savedToken.isEmpty()) {
-            showToast("❌ ยังไม่ได้ตั้งค่าบัญชี GitHub กรุณาตั้งค่าที่ปุ่มฟันเฟืองหน้าแรกก่อนครับ");
+            showToast("❌ ยังไม่ได้ตั้งค่าบัญชี GitHub กรุณาตั้งค่าที่ปุ่มฟันเพืองหน้าแรกก่อนครับ");
             return;
         }
 
@@ -239,9 +244,8 @@ public class MainActivity extends AppCompatActivity {
             tvConsoleLog.setText(""); 
         }
 
-        // เรียกใช้สมองกลวิเคราะห์บั๊กแยกคลาส
         final BuildSummaryAnalyzer analyzer = new BuildSummaryAnalyzer();
-        analyzer.clearErrors(); // เคลียร์ค่า Error เก่าออกก่อนเริ่มรันรอบใหม่
+        analyzer.clearErrors(); 
         
         final boolean[] isPipelineStopped = {false};
 
@@ -250,7 +254,6 @@ public class MainActivity extends AppCompatActivity {
         appendLog("📂 ที่อยู่โปรเจกต์ (Root Path): " + currentProject.getRootPath(), TerminalColor.BORDER_BLUE); 
         appendLog("##[endgroup]", TerminalColor.LOG_GRAY);
 
-        // สร้างภารกิจบิวด์ผ่านตัวจัดการ BuildTaskManager
         BuildTaskManager buildTask = new BuildTaskManager(
             MainActivity.this, 
             currentProject.getRootPath(),
@@ -307,7 +310,6 @@ public class MainActivity extends AppCompatActivity {
                         appendLog("📦 ไฟล์แอปที่ได้ (APK): " + (apkPath != null ? apkPath : "outputs/apk/debug/app-debug.apk"), TerminalColor.LOG_CYAN);
                         appendLog("##[endgroup]", TerminalColor.SUGGEST_GREEN);
                         
-                        // 🌟 [ระบบ 120%] บิวด์สำเร็จ ให้ซ่อนแผงควบคุม Error Panel ทันที
                         runOnUiThread(() -> { if (rvErrorPanel != null) rvErrorPanel.setVisibility(View.GONE); });
                     } else {
                         showToast("กระบวนการทำงานล้มเหลว");
@@ -315,13 +317,11 @@ public class MainActivity extends AppCompatActivity {
                         
                         final ParsedError err = analyzer.getLastError();
                         
-                        // 🌟 [ระบบ 120%] ปลุกชีพแผง RecyclerView ดึงลิสต์ข้อผิดพลาดทั้งหมดไปพ่นแสดงด้านล่างจอ
                         final ArrayList<ParsedError> allErrors = analyzer.getErrorList();
                         if (rvErrorPanel != null && allErrors != null && !allErrors.isEmpty()) {
                             runOnUiThread(() -> {
                                 rvErrorPanel.setVisibility(View.VISIBLE);
                                 ErrorAdapter adapter = new ErrorAdapter(allErrors, clickErr -> {
-                                    // พิเศษ: เอานิ้วจิ้มเลือกดูบั๊กข้อไหนในลิสต์ -> ให้สั่งวาร์ปกระโดดไปจุดนั้นทันที
                                     executeJumpToError(clickErr);
                                 });
                                 rvErrorPanel.setAdapter(adapter);
@@ -339,9 +339,6 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
 
-                /**
-                 * 🚀 เมทอดช่วยคำนวณระบบ Path ป้องกันปัญหาเส้นทางซ้อนกัน และทำการเปิดกระโดดไปยังบรรทัดที่พังพร้อมขีดเส้นใต้แดงหยัก!
-                 */
                 private void executeJumpToError(ParsedError errorItem) {
                     try {
                         java.io.File targetFile = new java.io.File(errorItem.file);
@@ -350,35 +347,22 @@ public class MainActivity extends AppCompatActivity {
                         }
 
                         if (targetFile.exists()) {
-                            openFile(targetFile); // สั่งเปิดไฟล์ขึ้นมาบน Editor แกนหลัก
+                            openFile(targetFile); 
                             
                             if (codeEditor != null) {
-                                int zeroBasedLine = errorItem.line - 1; // ลบ 1 เนื่องจากโค้ดระบบนับบรรทัดเริ่มจาก 0
+                                int zeroBasedLine = errorItem.line - 1; 
                                 int targetColumn = errorItem.column;
 
-                                codeEditor.jumpToLine(zeroBasedLine);            // เลื่อนหน้าจอไปบรรทัดนั้น
-                                codeEditor.setSelection(zeroBasedLine, targetColumn); // วางตำแหน่งเคอร์เซอร์กระพริบให้ถูกคอลัมน์
+                                codeEditor.jumpToLine(zeroBasedLine);            
+                                codeEditor.setSelection(zeroBasedLine, targetColumn); 
                                 
-                                // 🌟 [ระบบ 120%] Inline Error Highlighting: สั่งล้างคำเตือนเก่า และวาดเส้นใต้หยักลอนคลื่นสีแดงตรงพิกัดพัง!
-                                codeEditor.getStyles().clearSpans(); 
                                 try {
-                                    // กวาดเอฟเฟกต์สีแดงไปด้านหลังจุดที่พังประมาณ 5 ตัวอักษรเพื่อความเด่นชัด
-                                    int endColumn = targetColumn + 5;
-                                    int lineLength = codeEditor.getText().getLineString(zeroBasedLine).length();
-                                    if (endColumn > lineLength) endColumn = lineLength;
-
-                                    // ใช้เครื่องมือระดับสูงของ Sora Editor สร้างโครงสไตล์เส้นใต้ลอนคลื่นสีแดง (Wavy Underline)
-                                    io.github.rosemoe.sora.text.TextStyle errorStyle = new io.github.rosemoe.sora.text.TextStyle();
-                                    errorStyle.setUnderlineFlags(io.github.rosemoe.sora.text.TextStyle.FLAG_UNDERLINE_WAVY);
-                                    errorStyle.setUnderlineColor(Color.RED);
-                                    
-                                    // พ่น Span เข้าหน้าจอเพื่อแสดงผลทันที
-                                    codeEditor.getText().addSpan(zeroBasedLine, targetColumn, zeroBasedLine, endColumn, errorStyle);
+                                    codeEditor.getSearcher().stopSearch(); 
                                 } catch (Exception spanEx) {
                                     spanEx.printStackTrace();
                                 }
                             }
-                            showToast("📂 เปิดไฟล์และวาร์ปพร้อมขีดเส้นใต้แดงให้เรียบร้อยครับ!");
+                            showToast("📂 เปิดไฟล์และวาร์ปไปยังตำแหน่งข้อผิดพลาดเรียบร้อยครับ");
                         } else {
                             showToast("❌ ไม่พบตำแหน่งไฟล์นี้บนหน่วยความจำในเครื่อง");
                         }
@@ -386,6 +370,7 @@ public class MainActivity extends AppCompatActivity {
                         e.printStackTrace();
                     }
                 }
+
             }
         );
         
