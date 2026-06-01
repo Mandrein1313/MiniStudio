@@ -1,5 +1,6 @@
+ทันแน่นอน
 package com.dev.ministudio.model;
->>>>>>>
+
 import java.io.File;
 
 
@@ -16,3 +17,4 @@ public class FileNode {
         this.isExpanded = false;
     }
 }
+
