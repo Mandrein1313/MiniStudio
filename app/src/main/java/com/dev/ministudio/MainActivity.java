@@ -310,30 +310,29 @@ public class MainActivity extends AppCompatActivity {
                         showToast("กระบวนการทำงานล้มเหลว");
                         appendLog("\n##[error] การทำงานหยุดชะงักเนื่องจากการปิดตัวของระบบบิวด์อย่างกะทันหัน", TerminalColor.ERROR_RED);
                         
-                        // 🌟 [จุดที่เพิ่มเข้ามาตามไอเดียของพี่]: ดึงค่าจาก Regex Parser มาแสดงพิกัดวาร์ป
-                        ParsedError err = analyzer.getLastError();
+                        // 🌟 ดึงค่าจาก Regex Parser มาแสดงพิกัดที่พัง
+                        final ParsedError err = analyzer.getLastError();
                         if (err != null) {
                             appendLog("\n======================================", TerminalColor.DETAIL_RED);
-                            appendLog("📍 พิกัดโค้ดพัง: " + err.file + ":" + err.line, TerminalColor.DETAIL_RED);
+                            appendLog("📍 พิกัดโค้ดพัง: " + err.file + " (บรรทัดที่ " + err.line + ")", TerminalColor.DETAIL_RED);
                             appendLog("💬 ข้อความพัง: " + err.message, TerminalColor.TARGET_YELLOW);
                             appendLog("======================================", TerminalColor.DETAIL_RED);
                             
-                            // 🚀 [สเต็ปกระโดดเปิดไฟล์]: เรียกคำสั่งเปิดโค้ดและย้ายโฟกัสไปยังบรรทัดที่พังทันที
-                            // โดยทำการ Run บน UI Thread เพื่อป้องกันแอปเด้งค้างครับ
+                            // 🚀 สั่งรันคำสั่งเปิดไฟล์ที่พังขึ้นหน้าจออัตโนมัติบน UI Thread
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
                                     try {
-                                        // 1. สั่งให้ IDE เปิดไฟล์ตามที่ Regex ตัดคำออกมาได้
-                                        openFile(err.file);
-                                        
-                                        // 2. สั่งให้ช่องพิมพ์ Editor กระโดดไปที่บรรทัดนั้น (ลบ 1 ตามสูตรของพี่)
-                                        if (editor != null) {
-                                            editor.jumpToLine(err.line - 1);
-                                            // แถมพิเศษ: เลื่อนแถบ Selection ไฮไลท์จุดที่พังให้อัตโนมัติ (บรรทัด, คอลัมน์)
-                                            editor.setSelection(err.line - 1, err.column);
+                                        // 🛠️ แก้ไขบรรทัดที่ 328: แปลง String ให้เป็นวัตถุ File ก่อนส่งเข้าเมทอด
+                                        java.io.File targetFile = new java.io.File(currentProject.getRootPath(), err.file);
+                                        if (targetFile.exists()) {
+                                            openFile(targetFile);
+                                            showToast("📂 เปิดไฟล์ที่พังให้เรียบร้อยแล้ว! (บรรทัดที่ " + err.line + ")");
+                                        } else {
+                                            // สำรองไว้เผื่อกรณีพิกัดเป็นแบบ Full Path มาอยู่แล้ว
+                                            openFile(new java.io.File(err.file));
+                                            showToast("📂 เปิดไฟล์ที่พังให้เรียบร้อยแล้ว! (บรรทัดที่ " + err.line + ")");
                                         }
-                                        showToast("↩️ วาร์ปไปยังจุดพังบรรทัดที่ " + err.line + " แล้วครับ!");
                                     } catch (Exception e) {
                                         e.printStackTrace();
                                     }
@@ -353,6 +352,7 @@ public class MainActivity extends AppCompatActivity {
 
         buildTask.startCloudBuild(githubToken, repoUrl, projectName, packageName); 
     }
+
 
     private void initializeFileTree() {
         if (currentProject == null) return;
