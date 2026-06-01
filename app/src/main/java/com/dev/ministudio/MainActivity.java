@@ -223,7 +223,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 🐙 เมทอดรันบิวด์บนคลาวด์: เวอร์ชันอัปเกรดระบบ Error Panel
+      // 🐙 เมทอดรันบิวด์บนคลาวด์: เวอร์ชันอัปเกรดระบบ Inline Error Highlighting และควบคุมความปลอดภัย
     private void startCloudBuildPipeline() {
         if (currentProject == null) {
             showToast("กรุณาเปิดโปรเจกต์ก่อนทำการรัน");
@@ -317,7 +317,12 @@ public class MainActivity extends AppCompatActivity {
                         
                         final ParsedError err = analyzer.getLastError();
                         
-                        final ArrayList<ParsedError> allErrors = analyzer.getErrorList();
+                        /* -----------------------------------------------------------------
+                         * 🛠️ ขั้นตอนที่ 1: สั่งคอมเมนต์ปิดระบบ RecyclerView (Error Panel) ไว้ก่อนเพื่อความปลอดภัย
+                         * ป้องกันปัญหาแอปค้างหรือแครชหากยังไม่มีแผงนี้ใน layout XML 
+                         * วันไหนที่พ่อจัดเรียงเลเยอร์หน้าจอเสร็จแล้ว สามารถเอาคอมเมนต์ (/* และ * /) ออกได้เลยครับ
+                         * ----------------------------------------------------------------- */
+                        /* final ArrayList<ParsedError> allErrors = analyzer.getErrorList();
                         if (rvErrorPanel != null && allErrors != null && !allErrors.isEmpty()) {
                             runOnUiThread(() -> {
                                 rvErrorPanel.setVisibility(View.VISIBLE);
@@ -327,6 +332,7 @@ public class MainActivity extends AppCompatActivity {
                                 rvErrorPanel.setAdapter(adapter);
                             });
                         }
+                        */
 
                         if (err != null) {
                             appendLog("\n======================================", TerminalColor.DETAIL_RED);
@@ -339,6 +345,9 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
 
+                /**
+                 * 🚀 เมทอดเปิดไฟล์ วาร์ปตำแหน่ง และวาดแถบไฮไลต์สีตรงจุดข้อผิดพลาด (Inline Error Highlighting)
+                 */
                 private void executeJumpToError(ParsedError errorItem) {
                     try {
                         java.io.File targetFile = new java.io.File(errorItem.file);
@@ -350,19 +359,32 @@ public class MainActivity extends AppCompatActivity {
                             openFile(targetFile); 
                             
                             if (codeEditor != null) {
-                                int zeroBasedLine = errorItem.line - 1; 
-                                int targetColumn = errorItem.column;
+                                final int zeroBasedLine = errorItem.line - 1; // นับบรรทัดเริ่มจาก 0
+                                final int targetColumn = errorItem.column;
 
+                                // 1. ย้ายตำแหน่งหน้าจอ Editor กระโดดไปหาบรรทัดที่พัง
                                 codeEditor.jumpToLine(zeroBasedLine);            
                                 codeEditor.setSelection(zeroBasedLine, targetColumn); 
                                 
+                                // 🌟 2. ทำระบบ Inline Error Highlighting โดยลากแถบคลุมตำแหน่งข้อความพังเพื่อให้เห็นเด่นชัด
                                 try {
+                                    // สั่งหยุดและล้างระบบการค้นหาและไฮไลต์อันเก่าออกก่อนเพื่อป้องกันการซ้อนทับ
                                     codeEditor.getSearcher().stopSearch(); 
+                                    
+                                    // ประยุกต์ใช้คำสั่ง SelectionRegion บน UI Thread เพื่อวาดแถบปื้นคลุมคำที่เขียนผิดพลาด
+                                    runOnUiThread(() -> {
+                                        try {
+                                            // ลากแถบคลุมเน้นข้อความตั้งแต่คอลัมน์แรกจนถึงพิกัดที่ระบุ เพื่อเพิ่มความชัดเจน 120%
+                                            codeEditor.setSelectionRegion(zeroBasedLine, 0, zeroBasedLine, targetColumn + 5);
+                                        } catch (Exception layoutEx) {
+                                            layoutEx.printStackTrace();
+                                        }
+                                    });
                                 } catch (Exception spanEx) {
                                     spanEx.printStackTrace();
                                 }
                             }
-                            showToast("📂 เปิดไฟล์และวาร์ปไปยังตำแหน่งข้อผิดพลาดเรียบร้อยครับ");
+                            showToast("📂 วาร์ปไปยังจุดพังพร้อมทำไฮไลต์เรียบร้อยครับ");
                         } else {
                             showToast("❌ ไม่พบตำแหน่งไฟล์นี้บนหน่วยความจำในเครื่อง");
                         }
