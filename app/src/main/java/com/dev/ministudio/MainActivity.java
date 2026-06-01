@@ -356,51 +356,61 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
 
-                /**
-                 * 🚀 เมทอดเปิดไฟล์ วาร์ปตำแหน่ง และวาดแถบไฮไลต์สีตรงจุดข้อผิดพลาด (Inline Error Highlighting)
-                 */
-                private void executeJumpToError(ParsedError errorItem) {
+/**
+ * 🚀 เวอร์ชันแก้ไข: เพิ่มการตรวจสอบและรวมพาธไฟล์สัมบูรณ์ให้ถูกต้อง 100% เพื่อเปิดระบบลากแถบสีแดง
+ */
+private void executeJumpToError(ParsedError errorItem) {
+    if (errorItem == null || currentProject == null) return;
+
+    try {
+        // 1. ตรวจสอบพาธไฟล์: ถ้ามาจากคลาวด์จะเป็น "app/src/..." ต้องเอามาต่อหลัง RootPath ของเครื่องท่าน
+        java.io.File targetFile = new java.io.File(errorItem.file);
+        if (!targetFile.isAbsolute()) {
+            targetFile = new java.io.File(currentProject.getRootPath(), errorItem.file);
+        }
+
+        // 🔍 บล็อกล็อกตรวจสอบ Log: เช็คว่าตัวแปรหาตำแหน่งไฟล์ในเครื่องท่านเจอจริงไหม
+        appendLog("📂 กำลังตรวจสอบพิกัดไฟล์ในเครื่อง: " + targetFile.getAbsolutePath(), TerminalColor.LOG_GRAY);
+
+        if (targetFile.exists()) {
+            // สั่งให้ Editor เปิดไฟล์กางออกมาหน้าจอหลักก่อน
+            openFile(targetFile); 
+            
+            if (codeEditor != null) {
+                // เปลี่ยนค่าบรรทัดให้เริ่มนับจาก 0 (เนื่องจากในระบบ Editor นับบรรทัดแรกสุดเป็นเลข 0)
+                final int zeroBasedLine = Math.max(0, errorItem.line - 1); 
+                final int targetColumn = Math.max(0, errorItem.column);
+
+                runOnUiThread(() -> {
                     try {
-                        java.io.File targetFile = new java.io.File(errorItem.file);
-                        if (!targetFile.isAbsolute()) {
-                            targetFile = new java.io.File(currentProject.getRootPath(), errorItem.file);
-                        }
-
-                        if (targetFile.exists()) {
-                            openFile(targetFile); // สั่งเปิดไฟล์ที่มีปัญหากางออกหน้าจอหลัก
-                            
-                            if (codeEditor != null) {
-                                final int zeroBasedLine = errorItem.line - 1; // เปลี่ยนค่าบรรทัดให้เริ่มนับจาก 0
-                                final int targetColumn = errorItem.column;
-
-                                // 1. ดีดหน้าจอกระโดดไปหาบรรทัดที่พังและวางเคอร์เซอร์
-                                codeEditor.jumpToLine(zeroBasedLine);            
-                                codeEditor.setSelection(zeroBasedLine, targetColumn); 
-                                
-                                // 2. ทำระบบ Inline Highlighting ลากแถบคลุมปื้นสีเพื่อเน้นจุดคำสั่งผิดพลาด
-                                try {
-                                    codeEditor.getSearcher().stopSearch(); // ล้างระบบค้นหาอันเก่าออก
-                                    
-                                    runOnUiThread(() -> {
-                                        try {
-                                            // สั่งลากแถบเน้นคำผิดพลาดตั้งแต่ต้นบรรทัด เพื่อให้เห็นชัดเจน 120%
-                                            codeEditor.setSelectionRegion(zeroBasedLine, 0, zeroBasedLine, targetColumn + 8);
-                                        } catch (Exception layoutEx) {
-                                            layoutEx.printStackTrace();
-                                        }
-                                    });
-                                } catch (Exception spanEx) {
-                                    spanEx.printStackTrace();
-                                }
-                            }
-                            showToast("📂 วาร์ปไปยังจุดพังพร้อมทำไฮไลต์เรียบร้อยครับ");
-                        } else {
-                            showToast("❌ ไม่พบตำแหน่งไฟล์นี้บนหน่วยความจำในเครื่อง");
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
+                        // 1. ดีดหน้าจอกระโดดไปหาบรรทัดที่พังและวางเคอร์เซอร์
+                        codeEditor.jumpToLine(zeroBasedLine);            
+                        codeEditor.setSelection(zeroBasedLine, targetColumn); 
+                        
+                        // 2. เคลียร์ค่าค้นหาเก่า เพื่อไม่ให้ระบบ Span สีเอ๋อซ้อนกัน
+                        codeEditor.getSearcher().stopSearch();
+                        
+                        // 3. 🌟 สั่งลากแถบเน้นคำผิดพลาด (Inline Highlighting) คลุมข้อความตั้งแต่ต้นบรรทัดให้เห็นชัดเจน
+                        // สั่งเผื่อความยาวคอลัมน์ไว้ +15 เพื่อให้คลุมข้อความคำที่พังได้มิดพอดีครับ
+                        codeEditor.setSelectionRegion(zeroBasedLine, 0, zeroBasedLine, targetColumn + 15);
+                        
+                        showToast("📂 วาร์ปไปยังจุดพังพร้อมทำไฮไลต์เรียบร้อยครับท่าน");
+                    } catch (Exception layoutEx) {
+                        layoutEx.printStackTrace();
+                        showToast("❌ ตัวควบคุม CodeEditor ติดปัญหาในการวาดแถบสี");
                     }
-                }
+                });
+            }
+        } else {
+            // 🚨 ถ้าระบบเด้งมาที่ข้อความนี้ แสดงว่าแอปยังจับคู่ทางเดินไฟล์ในเครื่องกับคำว่า "app/src/..." ไม่ตรงกันครับ
+            showToast("❌ ไม่พบตำแหน่งไฟล์นี้บนหน่วยความจำในเครื่องท่าน");
+            appendLog("⚠️ ระบบไม่สามารถวาร์ปได้เนื่องจากหาพาธนี้ไม่พบในเครื่อง: " + targetFile.getAbsolutePath(), TerminalColor.ERROR_RED);
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
+
 
             }
         );

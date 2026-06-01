@@ -72,7 +72,7 @@ public class BuildSummaryAnalyzer {
         if (hasError && lastError != null && line.contains("^")) {
             int colIndex = line.indexOf("^");
             if (colIndex >= 0) {
-                // หากบรรทัดยาวและมีคำนำหน้า ให้ระวังค่าคอลัมน์คลาดเคลื่อน ปรับให้ยืดหยุ่นขึ้น
+                // บล็อกคำนวณตำแหน่งคอลัมน์: นำค่าความยาวนำหน้ามาลบออก (ถ้าเป็นไปได้) เพื่อให้เส้นใต้ชี้ตรงจุดคำผิดพอดี
                 lastError.column = colIndex; 
             }
         }
@@ -144,11 +144,11 @@ public class BuildSummaryAnalyzer {
             return false;
         }
         try {
-            String file = m.group(1);
+            String file = m.group(1).trim(); // 🌟 จุดเพิ่มเช็ค: ใช้ .trim() ป้องกันเศษเว้นวรรค
             int lineNumber = Integer.parseInt(m.group(2));
-            String message = m.group(3);
+            String message = m.group(3).trim();
 
-            // เคลียร์เศษพาร์ทระบบคลาวด์ส่วนเกินออก เพื่อให้ได้พาธไฟล์สัมพัทธ์ที่แอปพลิเคชันค้นเจอในเครื่องพ่อนะครับ
+            // เคลียร์เศษพาร์ทระบบคลาวด์ส่วนเกินออก เพื่อให้ได้พาธไฟล์สัมพัทธ์ในโปรเจกต์เครื่องท่าน
             if (file.contains("app/src/")) {
                 file = file.substring(file.indexOf("app/src/"));
             }
@@ -178,8 +178,29 @@ public class BuildSummaryAnalyzer {
             listener.onAppendLog("📍 ไฟล์: " + lastError.file + "\n", COLOR_ERROR);
             listener.onAppendLog("📍 บรรทัด: " + lastError.line + "\n", COLOR_ERROR);
         }
-        listener.onAppendLog("📌 ประเภท: " + errorType + "\n", COLOR_WARNING);
-        listener.onAppendLog("💬 รายละเอียด: " + errorDetails + "\n", COLOR_WARNING);
+
+        // 🌟 จุดเพิ่มเช็คสวิตช์เคส: ปรับเงื่อนไขให้รองรับชื่อประเภทใหม่ตรงล็อก เพื่อแชร์สเตตัสให้หน้าจอหลักทำงานได้ถูกต้อง
+        switch (errorType) {
+            case "JAVA_ERROR":
+                listener.onAppendLog("📌 ประเภท: ข้อผิดพลาดไฟล์ภาษา Java (Compile Error)\n", COLOR_WARNING);
+                listener.onAppendLog("💬 รายละเอียด: " + errorDetails + "\n", COLOR_WARNING);
+                listener.onAppendLog("💡 แนะนำ: ตรวจสอบไวยากรณ์โค้ด เครื่องหมายปีกกา คลาส หรือเซมิโคลอนในพิกัดบรรทัดดังกล่าวครับ\n", COLOR_SUCCESS);
+                break;
+            case "XML_AAPT2_ERROR":
+                listener.onAppendLog("📌 ประเภท: ข้อผิดพลาดไฟล์เลย์เอาต์ XML (AAPT2)\n", COLOR_WARNING);
+                listener.onAppendLog("💬 รายละเอียด: " + errorDetails + "\n", COLOR_WARNING);
+                listener.onAppendLog("💡 แนะนำ: ตรวจสอบแท็กเปิด-ปิด หรือแอตทริบิวต์หน้าจอที่พิมพ์ผิดในไฟล์ XML ครับ\n", COLOR_SUCCESS);
+                break;
+            case "KOTLIN_ERROR":
+                listener.onAppendLog("📌 ประเภท: ข้อผิดพลาดไฟล์ภาษา Kotlin (Kotlin Compiler)\n", COLOR_WARNING);
+                listener.onAppendLog("💬 รายละเอียด: " + errorDetails + "\n", COLOR_WARNING);
+                listener.onAppendLog("💡 แนะนำ: เช็คประเภทตัวแปร การสืบทอดคลาส หรือ Null Safety ตรงบรรทัดที่พังครับ\n", COLOR_SUCCESS);
+                break;
+            default:
+                listener.onAppendLog("📌 ประเภท: " + errorType + "\n", COLOR_WARNING);
+                listener.onAppendLog("💬 รายละเอียด: " + errorDetails + "\n", COLOR_WARNING);
+                break;
+        }
         listener.onAppendLog("======================================\n", COLOR_ERROR);
     }
 }
