@@ -180,8 +180,7 @@ public class MainActivity extends AppCompatActivity {
     
     private void setupLogic() {
         // 🤖 เริ่มการทำงานของคลาสแยกจัดการ AI ตัวใหม่
-        aiLayoutAnalyzer = new com.dev.ministudio.AiLayoutAnalyzer();
-
+        aiLayoutAnalyzer = new com.dev.ministudio.AiLayoutAnalyzer(this);
         dialogManager = new ProjectDialogManager(this, parentNode -> {
             triggerTreeRefresh(parentNode);
         });
