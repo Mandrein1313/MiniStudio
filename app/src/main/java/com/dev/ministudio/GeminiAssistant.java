@@ -9,7 +9,7 @@ import java.nio.charset.StandardCharsets;
 
 public class GeminiAssistant {
 
-    private static final String API_KEY = "AIza...your_real_key_here..."; // ← ใส่ key จริงตรงนี้
+    private static final String API_KEY = "AQ.Ab8RN6J_4ymYdogQbdAwSdDwgzcCCp17_6Dm5XFyCkhtTXUxxg"; // ← ใส่ key จริงตรงนี้
     private static final String API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + API_KEY;
 
     public interface AICallback {
