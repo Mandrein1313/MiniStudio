@@ -223,6 +223,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+โค้ดที่ถูกต้องไหมครับ
       // 🐙 เมทอดรันบิวด์บนคลาวด์: เวอร์ชันแก้ไขระบบดักจับ Error และวาร์ปพร้อมไฮไลต์สี 120%
     private void startCloudBuildPipeline() {
         if (currentProject == null) {
@@ -424,6 +425,7 @@ private void executeJumpToError(ParsedError errorItem) {
         buildTask.setAnalyzer(analyzer); // 🌟 ฉีดเชื่อมต่อวงจรตัวจับบั๊กส่งต่อไปให้ TaskManager ใช้งานจริง
         
     }
+
     private void initializeFileTree() {
         if (currentProject == null) return;
 
