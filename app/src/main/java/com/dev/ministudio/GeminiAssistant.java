@@ -6,14 +6,12 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import org.json.JSONObject;
-import org.json.JSONArray;
 
 public class GeminiAssistant {
 
-    // 🔑 ใช้คีย์ Groq ที่คุณมนตรีได้มา
-    private static final String API_KEY = "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";
-    private static final String API_URL = "https://api.groq.com/openai/v1/chat/completions";
+    // 🔑 รอบนี้ถ้าได้คีย์ที่ขึ้นต้นด้วย "AIzaSy..." มา วางลงตรงนี้ได้เลยครับ!
+    private static final String API_KEY = "AQ.Ab8RN6L6ygJRWh1TtmucqCINfFevtd74qbqU2B_PTcgLvha1Hg"; 
+    private static final String API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + API_KEY;
 
     public interface AICallback {
         void onSuccess(String responseText);
@@ -24,59 +22,85 @@ public class GeminiAssistant {
         new Thread(() -> {
             HttpURLConnection conn = null;
             try {
+                // ตรวจสอบเบื้องต้นเผื่อลืมเปลี่ยนค่าคีย์
+                if (API_KEY.startsWith("AQ.Ab8") || API_KEY.contains("your_real_key")) {
+                    callback.onError("ระบบล็อก: คีย์ยังเป็นรูปแบบเดิม (AQ.) ซึ่งเซิร์ฟเวอร์ไม่รองรับ กรุณาใช้คีย์ที่ขึ้นต้นด้วย AIzaSy");
+                    return;
+                }
+
                 URL url = new URL(API_URL);
                 conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-                conn.setRequestProperty("Authorization", "Bearer " + API_KEY);
                 conn.setDoOutput(true);
                 conn.setConnectTimeout(30000);
                 conn.setReadTimeout(60000);
 
-                // โครงสร้าง JSON ของ Groq
-                JSONObject requestBody = new JSONObject();
-                requestBody.put("model", "llama-3.3-70b-versatile"); // ใช้โมเดลตัวแรงของ Groq
-                JSONArray messages = new JSONArray();
-                JSONObject message = new JSONObject();
-                message.put("role", "user");
-                message.put("content", prompt);
-                messages.put(message);
-                requestBody.put("messages", messages);
+                // ประกอบ JSON วัตถุแบบปลอดภัยสากล
+                org.json.JSONObject requestBody = new org.json.JSONObject();
+                org.json.JSONArray contents = new org.json.JSONArray();
+                org.json.JSONObject content = new org.json.JSONObject();
+                org.json.JSONArray parts = new org.json.JSONArray();
+                org.json.JSONObject part = new org.json.JSONObject();
+
+                part.put("text", prompt);
+                parts.put(part);
+                content.put("parts", parts);
+                contents.put(content);
+                requestBody.put("contents", contents);
+
+                String jsonRequestBody = requestBody.toString();
 
                 try (OutputStream os = conn.getOutputStream()) {
-                    byte[] input = requestBody.toString().getBytes(StandardCharsets.UTF_8);
-                    os.write(input, 0, input.length);
+                    byte[] input = jsonRequestBody.getBytes(StandardCharsets.UTF_8);
+                    os.write(input);
+                    os.flush();
                 }
 
                 int responseCode = conn.getResponseCode();
+
                 if (responseCode == HttpURLConnection.HTTP_OK) {
-                    try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                    try (BufferedReader br = new BufferedReader(
+                            new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
                         StringBuilder response = new StringBuilder();
                         String line;
-                        while ((line = br.readLine()) != null) response.append(line);
-                        callback.onSuccess(parseGroqResponse(response.toString()));
+                        while ((line = br.readLine()) != null) {
+                            response.append(line);
+                        }
+                        callback.onSuccess(parseGeminiResponse(response.toString()));
                     }
                 } else {
-                    callback.onError("Error: " + responseCode);
+                    // อ่านรายละเอียดตัวเต็มส่งกลับไปโชว์ที่หน้าจอ Console
+                    try (BufferedReader br = new BufferedReader(
+                            new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8))) {
+                        StringBuilder error = new StringBuilder();
+                        String line;
+                        while ((line = br.readLine()) != null) {
+                            error.append(line);
+                        }
+                        callback.onError("Server Error: Code " + responseCode + " - " + error.toString());
+                    }
                 }
+
             } catch (Exception e) {
-                callback.onError("Exception: " + e.getMessage());
+                callback.onError("Connection Failed: " + e.getMessage());
             } finally {
                 if (conn != null) conn.disconnect();
             }
         }).start();
     }
 
-    // ฟังก์ชันสำหรับแกะ JSON ของ Groq โดยเฉพาะ
-    private String parseGroqResponse(String jsonResponse) {
+    private String parseGeminiResponse(String jsonResponse) {
         try {
-            JSONObject json = new JSONObject(jsonResponse);
-            return json.getJSONArray("choices")
+            org.json.JSONObject json = new org.json.JSONObject(jsonResponse);
+            return json.getJSONArray("candidates")
                        .getJSONObject(0)
-                       .getJSONObject("message")
-                       .getString("content");
+                       .getJSONObject("content")
+                       .getJSONArray("parts")
+                       .getJSONObject(0)
+                       .getString("text");
         } catch (Exception e) {
-            return "เกิดข้อผิดพลาดในการอ่านข้อมูล: " + e.getMessage();
+            return "แกะ JSON สำเร็จแต่โครงสร้างคำตอบผิดพลาด: " + jsonResponse;
         }
     }
 }
