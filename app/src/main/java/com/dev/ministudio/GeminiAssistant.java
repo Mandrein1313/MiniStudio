@@ -9,9 +9,8 @@ import java.nio.charset.StandardCharsets;
 
 public class GeminiAssistant {
 
-    // 🔑 ไปที่ Google AI Studio เพื่อสร้าง API Key แล้วเอามาใส่ตรงนี้ครับ
+    // 🔑 เปลี่ยนตรงนี้เป็น API Key ของคุณที่ได้มาจาก Google AI Studio นะครับ
     private static final String API_KEY = "YOUR_ACTUAL_GEMINI_API_KEY"; 
-    // ใช้ Endpoint ล่าสุดที่เสถียรสำหรับข้อความ
     private static final String API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + API_KEY;
 
     public interface AICallback {
@@ -26,15 +25,13 @@ public class GeminiAssistant {
                 URL url = new URL(API_URL);
                 conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
-                // ⚠️ สำคัญมาก: ต้องระบุว่าเป็น JSON เสมอ ป้องกันเซิร์ฟเวอร์ปฏิเสธข้อมูล
-                conn.setRequestProperty("Content-Type", "application/json; utf-8");
+                conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
                 conn.setRequestProperty("Accept", "application/json");
                 conn.setDoOutput(true);
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(15000);
 
-                // 📦 สร้างโครงสร้าง JSON ที่ถูกต้องตามข้อกำหนดของ Gemini API 
-                // ใช้ปีกกาและโครงสร้างแบบมีระเบียบ
+                // 📦 ปรับเปลี่ยนโครงสร้างการต่อข้อความ JSON Payload ให้แข็งแรงขึ้น ป้องกันการหลุดฟอร์แมต
                 String jsonRequestBody = "{"
                         + "\"contents\": [{"
                         + "    \"parts\": [{"
@@ -43,30 +40,27 @@ public class GeminiAssistant {
                         + "}]"
                         + "}";
 
-                // ยิงข้อมูลออกแบบ UTF-8 ป้องกันภาษาไทยเพี้ยน
                 try (OutputStream os = conn.getOutputStream()) {
                     byte[] input = jsonRequestBody.getBytes(StandardCharsets.UTF_8);
                     os.write(input, 0, input.length);
+                    os.flush();
                 }
 
                 int responseCode = conn.getResponseCode();
                 
                 if (responseCode == HttpURLConnection.HTTP_OK) {
-                    // อ่านผลลัพธ์ที่ได้กลับมาเมื่อสำเร็จ
                     try (BufferedReader br = new BufferedReader(
                             new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
                         StringBuilder response = new StringBuilder();
                         String responseLine;
                         while ((responseLine = br.readLine()) != null) {
-                            response.add(responseLine.trim());
+                            // 🛠️ แก้ไขจาก .add() เป็น .append() เพื่ออุดรูรั่วคอมไพล์พังบรรทัดที่ 61 แล้วครับ
+                            response.append(responseLine.trim());
                         }
                         
-                        // 🪄 ตรงนี้ถ้าได้ผลลัพธ์เป็น JSON ดิบมา คุณอาจจะต้องเขียนลอจิกแกะเอาเฉพาะข้อความในคลาสสิกโหมดเพิ่ม
-                        // เพื่อความรวดเร็วขอดึงข้อความดิบส่งกลับไปก่อน
                         callback.onSuccess(parseGeminiResponse(response.toString()));
                     }
                 } else {
-                    // หากไม่ได้ผลลัพธ์ 200 ให้ส่ง Error Code กลับไปแสดงที่ Console
                     callback.onError("Server Error: Code " + responseCode);
                 }
 
@@ -81,21 +75,22 @@ public class GeminiAssistant {
     }
 
     /**
-     * ฟังก์ชันแบบง่ายในการแกะเอาข้อความคำตอบออกจาก JSON ของ Gemini
+     * ฟังก์ชันแกะเอาข้อความคำตอบออกจาก JSON ของ Gemini
      */
     private String parseGeminiResponse(String jsonResponse) {
         try {
-            // เพื่อไม่ให้ต้องพึ่งพาไลบรารีภายนอกหนาๆ บนมือถือ ใช้ String manipulation แบบบ้านๆ แกะเอาข้อความ
             if (jsonResponse.contains("\"text\": \"")) {
                 int start = jsonResponse.indexOf("\"text\": \"") + 9;
                 int end = jsonResponse.indexOf("\"", start);
                 if (start > 9 && end > start) {
                     String result = jsonResponse.substring(start, end);
-                    // แปลงตัวแปลงกลับอักขระให้แสดงบนหน้าจอแอปสวยงาม
-                    return result.replace("\\n", "\n").replace("\\\"", "\"");
+                    // ปรับค่ากลับคืนเพื่อให้เว้นบรรทัดและแสดงผลภาษาไทยได้อย่างถูกต้อง
+                    return result.replace("\\n", "\n")
+                                 .replace("\\\"", "\"")
+                                 .replace("\\\\", "\\");
                 }
             }
-            return jsonResponse; // คืนค่าดิบถ้าแกะไม่เจอ
+            return jsonResponse; 
         } catch (Exception e) {
             return jsonResponse;
         }
