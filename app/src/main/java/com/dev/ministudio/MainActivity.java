@@ -8,6 +8,7 @@ import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ListView; 
 import android.widget.LinearLayout;
@@ -23,18 +24,14 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-// 🛠️ เพิ่มการ Import ระบบดึงข้อมูล SharedPreferences 
 import android.content.Context;
 import android.content.SharedPreferences;
-
-// เพิ่มการ Import คลาสระบบสี กราฟิก และปุ่มกดที่ขาดหายไป
 import android.graphics.Typeface;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.content.res.ColorStateList;
 
-// นำเข้าแพ็คเกจระดับสูงของ Sora Editor เข้าสู่โปรเจกต์
 import io.github.rosemoe.sora.widget.CodeEditor;
 import io.github.rosemoe.sora.langs.java.JavaLanguage;
 import io.github.rosemoe.sora.widget.schemes.SchemeDarcula;
@@ -51,7 +48,6 @@ import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
-
 
 public class MainActivity extends AppCompatActivity {
 
@@ -71,7 +67,7 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout consolePanel;
     private ScrollView consoleScrollView;
     private TextView tvConsoleLog;
-    private boolean isConsoleMaximized = false; // ตัวแปรเช็คว่าคอนโซลเต็มจออยู่หรือไม่
+    private boolean isConsoleMaximized = false; 
         
     // Controllers & Models
     private ProjectModel currentProject;
@@ -81,29 +77,27 @@ public class MainActivity extends AppCompatActivity {
     private Runnable saveRunnable;
     private int lastSearchIndex = 0;
     
-    // ตัวแปรควบคุมขนาดฟอนต์ (เริ่มต้น 14.0f ตามมาตรฐาน)
     private float currentCodeFontSize = 14.0f; 
 
-    // ระบบกางกิ่งไม้สไตล์ AndroidIDE
     private List<FileNode> masterFileList = new ArrayList<>();
     private FileTreeAdapter fileTreeAdapter;
 
-    // ตัวจัดการเชื่อมต่อสิ่งแวดล้อม
     private BuildEnvironmentManager buildEnvManager;
     private File folderForImport = null;
     private int lastClickedPosition = -1; 
     private static final int PICK_FILE_REQUEST_CODE = 2026; 
     
-    // ตัวจัดการกล่องไดอะล็อกแยกส่วนที่คุณกำหนด
     private ProjectDialogManager dialogManager;
-    // Views สำหรับระบบแผงควบคุมประวัติบั๊ก (Error Panel)
+    
+    // 🤖 ประกาศตัวจัดการ AI อัจฉริยะ (Gemini API) ประจำคลาสหลัก
+    private com.dev.ministudio.ai.GeminiAssistant aiAssistant; 
+    
     private RecyclerView rvErrorPanel;
     
     // 🌟 ระบบ XML Preview กล่องและตัวแปรควบคุมสถานะ
     private FrameLayout previewContainer;
     private boolean isPreviewMode = false; 
 
-    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -129,18 +123,13 @@ public class MainActivity extends AppCompatActivity {
         
         tabRecyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
         
-        // เริ่มการผูกมัดหน้าจอชุดใหม่ตามดีไซน์โมเดิร์น
         consolePanel = findViewById(R.id.consolePanel);
         consoleScrollView = findViewById(R.id.consoleScrollView);
         tvConsoleLog = findViewById(R.id.tvConsoleLog);
 
-        // เครื่องหมาย ✕ เล็กๆ บนแถบ กดแล้วจะล้างหน้าจอเหมือนปุ่ม Clear เดิม
         findViewById(R.id.btnClearConsole).setOnClickListener(v -> tvConsoleLog.setText(""));
-        
-        // แฟ้มสีเขียวฝั่งซ้าย กดเพื่อพับปิดหน้าต่างคอนโซลลงไปข้างล่าง
         findViewById(R.id.btnCloseConsole).setOnClickListener(v -> consolePanel.setVisibility(View.GONE));
 
-        // 1. แทรกระบบขยาย-ย่อหน้าจอ Console เข้าไปตรงนี้ (เชื่อมโยงกับปุ่มใน XML)
         android.widget.ImageButton btnToggleExpand = findViewById(R.id.btnToggleExpand);
         if (btnToggleExpand != null) {
             btnToggleExpand.setOnClickListener(v -> {
@@ -181,17 +170,18 @@ public class MainActivity extends AppCompatActivity {
         
         setupShortcutBar();
 
-        // 🌟 ผูกมัดไอดีของ Error Panel
         rvErrorPanel = findViewById(R.id.rvErrorPanel);
         if (rvErrorPanel != null) {
             rvErrorPanel.setLayoutManager(new LinearLayoutManager(this));
         }
 
-        // 🌟 ปลดล็อกจุดพัง: ผูกมัดไอดีของหน้าต่าง Xml Preview เข้ากับอินเตอร์เฟสสำเร็จ
         previewContainer = findViewById(R.id.previewContainer);
     }
     
     private void setupLogic() {
+        // 🤖 สั่งเริ่มทำงานวัตถุเอไอให้พร้อมรับคำสั่ง
+        aiAssistant = new com.dev.ministudio.ai.GeminiAssistant();
+
         dialogManager = new ProjectDialogManager(this, parentNode -> {
             triggerTreeRefresh(parentNode);
         });
@@ -229,9 +219,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * 👁️ เมทอดส่วนตัว: สลับสเตตัสเปิด-ปิดและสั่งเรนเดอร์ XML Preview โชว์บนหน้าจอสดๆ
-     */
     private void toggleXmlPreview() {
         if (codeEditor == null || previewContainer == null) {
             showToast("⚠️ ไม่พบแผงควบคุมระบบพรีวิวในหน้าจอนี้");
@@ -241,8 +228,6 @@ public class MainActivity extends AppCompatActivity {
         if (!isPreviewMode) {
             try {
                 String currentXmlCode = codeEditor.getText().toString();
-
-                // สั่งการคอมไพล์แปลงสภาพผ่านตัวสแตกเมเนเจอร์ตัวใหม่
                 XmlPreviewManager previewManager = new XmlPreviewManager(MainActivity.this);
                 View generatedView = previewManager.inflateXml(currentXmlCode);
 
@@ -250,28 +235,24 @@ public class MainActivity extends AppCompatActivity {
                     previewContainer.removeAllViews();
                     previewContainer.addView(generatedView);
 
-                    // ซ่อนหน้าจอพิมพ์โค้ด แล้วแผ่หน้าต่างวิวผลลัพธ์
                     codeEditor.setVisibility(View.GONE);
                     previewContainer.setVisibility(View.VISIBLE);
                     
                     isPreviewMode = true;
                     showToast("✨ แสดงผลพรีวิวเลย์เอาต์สำเร็จ!");
-                    invalidateOptionsMenu(); // อัปเดตไอคอนบนทูลบาร์
+                    invalidateOptionsMenu(); 
                 }
             } catch (Exception e) {
                 showToast("❌ ไวยากรณ์ XML ขัดข้อง: " + e.getMessage());
             }
         } else {
-            // ดึงหน้าต่างเอดิเตอร์โค้ดกลับคืนมา
             previewContainer.setVisibility(View.GONE);
             codeEditor.setVisibility(View.VISIBLE);
-            
             isPreviewMode = false;
             invalidateOptionsMenu();
         }
     }
 
-    // 🐙 เมทอดรันบิวด์บนคลาวด์: เวอร์ชันเสถียร ดักจับแอร์โรว์และจัดการเธรดปลอดภัย 100%
     private void startCloudBuildPipeline() {
         if (currentProject == null) {
             showToast("กรุณาเปิดโปรเจกต์ก่อนทำการรัน");
@@ -598,9 +579,8 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 if (codeEditor != null) {
                     codeEditor.setText(fileContent);
-                    
                     if (file.getName().endsWith(".xml")) {
-                        // ปรับแต่งเพิ่มเติมตามโครงสร้างการตั้งค่าภาษา XML ของท่านในอนาคตได้ครับ
+                        // การรองรับในอนาคต
                     } else {
                         codeEditor.setEditorLanguage(new JavaLanguage());
                     }
@@ -616,7 +596,6 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
                 
-                // ความปลอดภัย: สั่งปิดโหมดพรีวิวทันทีหากผู้ใช้สลับไปเปิดไฟล์อื่น
                 if (isPreviewMode && previewContainer != null) {
                     previewContainer.setVisibility(View.GONE);
                     if (codeEditor != null) codeEditor.setVisibility(View.VISIBLE);
@@ -706,6 +685,7 @@ public class MainActivity extends AppCompatActivity {
             RippleDrawable rippleDrawable = new RippleDrawable(colorStateList, shape, null);
             btn.setBackground(rippleDrawable);
 
+            params.gravity = Gravity.CENTER_VERTICAL;
             btn.setLayoutParams(params);
             btn.setClickable(true);
             btn.setFocusable(true);
@@ -732,6 +712,54 @@ public class MainActivity extends AppCompatActivity {
 
             shortcutBar.addView(btn);
         }
+
+        // 🤖 [จุดติดตั้งระบบปุ่ม AI อัจฉริยะประกบข้างแถวปุ่มทางลัด]
+        TextView btnAskAI = new TextView(this);
+        btnAskAI.setText("🤖 ถาม AI");
+        btnAskAI.setTextSize(14);
+        btnAskAI.setGravity(Gravity.CENTER);
+        btnAskAI.setPadding(paddingHorizontal, 0, paddingHorizontal, 0);
+        btnAskAI.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        btnAskAI.setTextColor(Color.parseColor("#BB86FC")); 
+
+        GradientDrawable aiShape = new GradientDrawable();
+        aiShape.setShape(GradientDrawable.RECTANGLE);
+        aiShape.setCornerRadius(6 * density);
+        aiShape.setColor(Color.parseColor("#251F35")); 
+        
+        RippleDrawable aiRipple = new RippleDrawable(ColorStateList.valueOf(Color.parseColor("#443366")), aiShape, null);
+        btnAskAI.setBackground(aiRipple);
+        btnAskAI.setLayoutParams(params);
+        btnAskAI.setClickable(true);
+        btnAskAI.setFocusable(true);
+
+        btnAskAI.setOnClickListener(v -> {
+            if (codeEditor == null || tvConsoleLog == null) return;
+
+            if (consolePanel != null) consolePanel.setVisibility(View.VISIBLE);
+            tvConsoleLog.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ดและตรวจหาจุดพังให้ท่าน กรุณารอสักครู่...\n");
+
+            // 🌟 คำสั่งดึงซอร์สโค้ดจาก CodeEditor ส่งเข้าทำงานประมวลผลผ่าน AI ดั้งเดิม
+            String finalPrompt = "ตรวจสอบโค้ด Android Java ตัวนี้ให้หน่อยว่ามีจุดพังตรงไหนบ้าง:\n" 
+                    + codeEditor.getText().toString();
+
+            aiAssistant.askAI(finalPrompt, new com.dev.ministudio.ai.GeminiAssistant.AICallback() {
+                @Override
+                public void onSuccess(String responseText) {
+                    tvConsoleLog.setText("🤖 [คำแนะนำและจุดพังวิเคราะห์โดย AI]:\n\n" + responseText);
+                    if (consoleScrollView != null) {
+                        consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
+                    }
+                }
+
+                @Override
+                public void onError(String errorMessage) {
+                    tvConsoleLog.setText("❌ AI เกิดข้อผิดพลาดชั่วคราว: " + errorMessage);
+                }
+            });
+        });
+
+        shortcutBar.addView(btnAskAI); 
     }
     
     private void applyEditorFontSize(float sizeSp) {
@@ -810,8 +838,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_toolbar, menu);
-        
-        // 🌟 ดึงข้อมูลปุ่มพรีวิว เพื่อแปรสภาพข้อความตามสถานะการเปิดใช้งานปัจจุบัน
         MenuItem previewItem = menu.findItem(R.id.action_preview);
         if (previewItem != null) {
             previewItem.setTitle(isPreviewMode ? "ดูโค้ด (Code)" : "ดูตัวอย่าง (Preview)");
@@ -828,7 +854,6 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
 
-        // 🌟 เชื่อมสายสัญญาณ: เมื่อผู้ใช้กดปุ่มพรีวิวบน Actionbar ให้โยนไปทำฟังก์ชันสลับหน้าจอทันที
         if (id == R.id.action_preview) {
             toggleXmlPreview();
             return true;
