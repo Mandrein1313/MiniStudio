@@ -2,6 +2,7 @@ package com.dev.ministudio;
 
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.TypedValue; 
 import android.view.Gravity;
 import android.view.Menu;
@@ -14,6 +15,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ImageView;
+import android.widget.FrameLayout;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
@@ -49,6 +51,7 @@ import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
+
 
 public class MainActivity extends AppCompatActivity {
 
@@ -96,6 +99,11 @@ public class MainActivity extends AppCompatActivity {
     // Views สำหรับระบบแผงควบคุมประวัติบั๊ก (Error Panel)
     private RecyclerView rvErrorPanel;
     
+    // 🌟 ระบบ XML Preview กล่องและตัวแปรควบคุมสถานะ
+    private FrameLayout previewContainer;
+    private boolean isPreviewMode = false; 
+
+    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -139,28 +147,23 @@ public class MainActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) consolePanel.getLayoutParams();
                 
                 if (!isConsoleMaximized) {
-                    // ขยายความสูงเต็มหน้าจอ (MATCH_PARENT)
                     params.height = LinearLayout.LayoutParams.MATCH_PARENT;
-                    btnToggleExpand.setImageResource(android.R.drawable.ic_menu_delete); // เปลี่ยนไอคอนระบบชั่วคราวให้รู้ว่าย่อลงได้
-                    btnToggleExpand.setColorFilter(Color.parseColor("#FF5252")); // เปลี่ยนสีปุ่มเป็นโทนแดงส้ม
+                    btnToggleExpand.setImageResource(android.R.drawable.ic_menu_delete); 
+                    btnToggleExpand.setColorFilter(Color.parseColor("#FF5252")); 
                     isConsoleMaximized = true;
                 } else {
-                    // หดกลับมาเหลือขนาดปกติ 160dp
                     int heightInDp = (int) TypedValue.applyDimension(
                         TypedValue.COMPLEX_UNIT_DIP, 160, getResources().getDisplayMetrics()
                     );
                     params.height = heightInDp;
-                    btnToggleExpand.setImageResource(android.R.drawable.ic_menu_compass); // เปลี่ยนกลับเป็นไอคอนเข็มทิศ
-                    btnToggleExpand.setColorFilter(Color.parseColor("#FFB74D")); // เปลี่ยนกลับเป็นสีส้มเหลือง
+                    btnToggleExpand.setImageResource(android.R.drawable.ic_menu_compass); 
+                    btnToggleExpand.setColorFilter(Color.parseColor("#FFB74D")); 
                     isConsoleMaximized = false;
                 }
-                
-                // อัปเดตเลย์เอาต์หน้าจอทันที
                 consolePanel.setLayoutParams(params);
             });
         }
 
-        // ฟังก์ชันพิเศษ: ปุ่มรันสามเหลี่ยมสีเขียวที่ย้ายมาไว้ข้างคอนโซลแบบในภาพตัวอย่าง
         findViewById(R.id.btnConsoleRun).setOnClickListener(v -> {
             startCloudBuildPipeline();
         });
@@ -178,11 +181,14 @@ public class MainActivity extends AppCompatActivity {
         
         setupShortcutBar();
 
-        // 🌟 [ระบบเติมเต็มความสมบูรณ์] ดึงไอดีจาก XML มาเข้าสู่ตัวแปรระบบควบคุม 120%
+        // 🌟 ผูกมัดไอดีของ Error Panel
         rvErrorPanel = findViewById(R.id.rvErrorPanel);
         if (rvErrorPanel != null) {
             rvErrorPanel.setLayoutManager(new LinearLayoutManager(this));
         }
+
+        // 🌟 ปลดล็อกจุดพัง: ผูกมัดไอดีของหน้าต่าง Xml Preview เข้ากับอินเตอร์เฟสสำเร็จ
+        previewContainer = findViewById(R.id.previewContainer);
     }
     
     private void setupLogic() {
@@ -220,6 +226,48 @@ public class MainActivity extends AppCompatActivity {
             
             setupTabLogic();
             initializeFileTree();
+        }
+    }
+
+    /**
+     * 👁️ เมทอดส่วนตัว: สลับสเตตัสเปิด-ปิดและสั่งเรนเดอร์ XML Preview โชว์บนหน้าจอสดๆ
+     */
+    private void toggleXmlPreview() {
+        if (codeEditor == null || previewContainer == null) {
+            showToast("⚠️ ไม่พบแผงควบคุมระบบพรีวิวในหน้าจอนี้");
+            return;
+        }
+
+        if (!isPreviewMode) {
+            try {
+                String currentXmlCode = codeEditor.getText().toString();
+
+                // สั่งการคอมไพล์แปลงสภาพผ่านตัวสแตกเมเนเจอร์ตัวใหม่
+                XmlPreviewManager previewManager = new XmlPreviewManager(MainActivity.this);
+                View generatedView = previewManager.inflateXml(currentXmlCode);
+
+                if (generatedView != null) {
+                    previewContainer.removeAllViews();
+                    previewContainer.addView(generatedView);
+
+                    // ซ่อนหน้าจอพิมพ์โค้ด แล้วแผ่หน้าต่างวิวผลลัพธ์
+                    codeEditor.setVisibility(View.GONE);
+                    previewContainer.setVisibility(View.VISIBLE);
+                    
+                    isPreviewMode = true;
+                    showToast("✨ แสดงผลพรีวิวเลย์เอาต์สำเร็จ!");
+                    invalidateOptionsMenu(); // อัปเดตไอคอนบนทูลบาร์
+                }
+            } catch (Exception e) {
+                showToast("❌ ไวยากรณ์ XML ขัดข้อง: " + e.getMessage());
+            }
+        } else {
+            // ดึงหน้าต่างเอดิเตอร์โค้ดกลับคืนมา
+            previewContainer.setVisibility(View.GONE);
+            codeEditor.setVisibility(View.VISIBLE);
+            
+            isPreviewMode = false;
+            invalidateOptionsMenu();
         }
     }
 
@@ -329,7 +377,6 @@ public class MainActivity extends AppCompatActivity {
                             appendLog("💬 ข้อความพัง: " + err.message, TerminalColor.TARGET_YELLOW);
                             appendLog("======================================", TerminalColor.DETAIL_RED);
                             
-                            // ส่งงานต่อให้เธรดหลักสั่งเปิดและมาร์กจุดพังทันที
                             runOnUiThread(() -> executeJumpToError(err));
                         }
                     }
@@ -346,9 +393,6 @@ public class MainActivity extends AppCompatActivity {
         buildTask.setAnalyzer(analyzer); 
     }
 
-    /**
-     * 🚀 เวอร์ชันเคลียร์งาน: ดีดหน้าจอ วางคีย์บอร์ดล็อกจุดพัง และดึงแผง Error แดงเตือนใจ
-     */
     private void executeJumpToError(final ParsedError errorItem) {
         if (errorItem == null || currentProject == null) return;
 
@@ -361,39 +405,29 @@ public class MainActivity extends AppCompatActivity {
             appendLog("📂 กำลังตรวจสอบพิกัดไฟล์ในเครื่อง: " + targetFile.getAbsolutePath(), TerminalColor.LOG_GRAY);
 
             if (targetFile.exists()) {
-                // 1. สั่งเปิดไฟล์เป้าหมายกางขึ้นหน้าจอ
                 openFile(targetFile); 
                 
                 if (codeEditor != null) {
                     final int zeroBasedLine = Math.max(0, errorItem.line - 1); 
                     final int targetColumn = Math.max(0, errorItem.column);
 
-                    // 2. ใช้ post ขจัดปัญหาแย่งเธรดเรนเดอร์ของตัววิวโค้ด
                     codeEditor.postDelayed(() -> {
                         try {
                             if (codeEditor.getSearcher() != null) {
                                 codeEditor.getSearcher().stopSearch();
                             }
                             
-                            // 3. ดีดหน้าจอกระโดดไปจุดเกิดเหตุแบบแม่นยำ
                             codeEditor.jumpToLine(zeroBasedLine);            
-                            
-                            // 4. บังคับวางเคอร์เซอร์กะพริบและทำไฮไลต์แถบเลือก (Text Selection) คลุมจุดที่คอมไพเลอร์มองว่าพัง
-                            // วิธีนี้ได้ผลแน่นอนเพราะเป็นการเรียกใช้ฟังก์ชันดั้งเดิมของตัวประมวลผล Editor
                             codeEditor.setSelection(zeroBasedLine, targetColumn);
                             codeEditor.setSelectionRegion(zeroBasedLine, targetColumn, zeroBasedLine, targetColumn + 4);
                             
-                            // 🌟 5. ไม่ง้อเส้นใต้สีแดง แต่ใช้วิธีแสดงแถบแจ้งเตือนบิ๊กเบิ้มขึ้นจอแทน
                             if (rvErrorPanel != null) {
                                 rvErrorPanel.setVisibility(View.VISIBLE);
-                                // หากคุณมี TextView สำหรับพ่นข้อความพังในแผงควบคุม สามารถยัดคำสั่งตรงนี้ได้ครับ เช่น:
-                                // tvErrorShortMessage.setText("Error บรรทัดที่ " + errorItem.line + ": " + errorItem.message);
                             }
                             
                             showToast("🚨 วาร์ปล็อกเป้าหมายพังในบรรทัดที่ " + errorItem.line + " สำเร็จครับ!");
                         } catch (Exception layoutEx) {
                             layoutEx.printStackTrace();
-                            // แผนสำรองกรณีหน้าจอโหลดช้า
                             codeEditor.jumpToLine(zeroBasedLine);
                         }
                     }, 200); 
@@ -537,26 +571,19 @@ public class MainActivity extends AppCompatActivity {
         return null;
     }
 
-    // ====================================================================
-    // 🛠️ เวอร์ชันแก้ไขระดับสูง: ระบบเปิดไฟล์แบบ Multi-Tab ป้องกันบั๊กไรท์โค้ดทับซ้อน 100%
-    // ====================================================================
     private void openFile(File file) {
         if (file == null || !file.exists()) return;
 
         try {
-            // 1. ล้างคิวการเซฟอัตโนมัติ (Auto-Save) ของไฟล์เก่าทิ้งทันที เพื่อไม่ให้วิ่งมาเขียนทับไฟล์ใหม่
             autoSaveHandler.removeCallbacks(saveRunnable);
 
-            // 2. ตรวจสอบระบบแท็บ (Tab System): นำไฟล์ใหม่เพิ่มเข้าไปในรายการ Opened Files หากยังไม่มี
             if (currentProject != null) {
                 if (!currentProject.getOpenedFiles().contains(file)) {
                     currentProject.getOpenedFiles().add(file);
                 }
-                // 🌟 ล็อกพิกัดเป้าหมาย: บังคับให้โปรเจกต์สลับตัวชี้ไฟล์ (Pointer) มาเป็นไฟล์ใหม่ทันที!
                 currentProject.setCurrentOpenFile(file);
             }
 
-            // 3. เริ่มกระบวนการอ่านเนื้อหาไฟล์อย่างปลอดภัย
             FileInputStream fis = new FileInputStream(file);
             BufferedReader reader = new BufferedReader(new InputStreamReader(fis, "UTF-8"));
             StringBuilder sb = new StringBuilder();
@@ -568,20 +595,17 @@ public class MainActivity extends AppCompatActivity {
             
             final String fileContent = sb.toString();
 
-            // 4. สั่งพ่นข้อความลงบน CodeEditor พร้อมอัปเดตสเตตัสรอบด้านบน UI Thread
             runOnUiThread(() -> {
                 if (codeEditor != null) {
                     codeEditor.setText(fileContent);
                     
-                    // 🎨 แนะนำเพิ่มเติม: สามารถสลับไฮไลต์ภาษาตามนามสกุลไฟล์ได้ตรงนี้ในอนาคตครับ
                     if (file.getName().endsWith(".xml")) {
-                        // codeEditor.setEditorLanguage(new XmlLanguage());
+                        // ปรับแต่งเพิ่มเติมตามโครงสร้างการตั้งค่าภาษา XML ของท่านในอนาคตได้ครับ
                     } else {
                         codeEditor.setEditorLanguage(new JavaLanguage());
                     }
                 }
                 
-                // 5. ปรับปรุงตำแหน่งแถบสีชื่อไฟล์ด้านบน และสั่งอัปเดตหน้าตาแท็บ RecyclerView ทันที
                 updateFilePathStatus(file);
                 
                 if (tabAdapter != null) {
@@ -590,6 +614,14 @@ public class MainActivity extends AppCompatActivity {
                     if (pos != -1 && tabRecyclerView != null) {
                         tabRecyclerView.smoothScrollToPosition(pos);
                     }
+                }
+                
+                // ความปลอดภัย: สั่งปิดโหมดพรีวิวทันทีหากผู้ใช้สลับไปเปิดไฟล์อื่น
+                if (isPreviewMode && previewContainer != null) {
+                    previewContainer.setVisibility(View.GONE);
+                    if (codeEditor != null) codeEditor.setVisibility(View.VISIBLE);
+                    isPreviewMode = false;
+                    invalidateOptionsMenu();
                 }
             });
 
@@ -600,7 +632,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void saveFile() {
-        // ป้องกันบั๊กขั้นสูงสุด: หากโปรเจกต์หรือเป้าหมายไฟล์ชี้ค่าเป็น Null ให้ดีดตัวกลับทันที ไม่ฝืนเซฟ
         if (currentProject == null || currentProject.getCurrentOpenFile() == null) return;
         
         File fileToSave = currentProject.getCurrentOpenFile();
@@ -779,6 +810,12 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_toolbar, menu);
+        
+        // 🌟 ดึงข้อมูลปุ่มพรีวิว เพื่อแปรสภาพข้อความตามสถานะการเปิดใช้งานปัจจุบัน
+        MenuItem previewItem = menu.findItem(R.id.action_preview);
+        if (previewItem != null) {
+            previewItem.setTitle(isPreviewMode ? "ดูโค้ด (Code)" : "ดูตัวอย่าง (Preview)");
+        }
         return true;
     }
 
@@ -788,6 +825,12 @@ public class MainActivity extends AppCompatActivity {
         
         if (id == R.id.action_build) {
             startCloudBuildPipeline();
+            return true;
+        }
+
+        // 🌟 เชื่อมสายสัญญาณ: เมื่อผู้ใช้กดปุ่มพรีวิวบน Actionbar ให้โยนไปทำฟังก์ชันสลับหน้าจอทันที
+        if (id == R.id.action_preview) {
+            toggleXmlPreview();
             return true;
         }
         
