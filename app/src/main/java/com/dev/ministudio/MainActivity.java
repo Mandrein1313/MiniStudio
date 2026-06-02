@@ -89,8 +89,8 @@ public class MainActivity extends AppCompatActivity {
     
     private ProjectDialogManager dialogManager;
     
-    // 🤖 ประกาศตัวจัดการ AI อัจฉริยะ (Gemini API) ประจำคลาสหลัก
-    private com.dev.ministudio.ai.GeminiAssistant aiAssistant; 
+    // 🤖 สลับมาเรียกใช้ตัวจัดการวิเคราะห์เลย์เอาต์ระดับสูงเพื่อความเสถียรและแก้ Code 400
+    private com.dev.ministudio.AiLayoutAnalyzer aiLayoutAnalyzer; 
     
     private RecyclerView rvErrorPanel;
     
@@ -179,8 +179,8 @@ public class MainActivity extends AppCompatActivity {
     }
     
     private void setupLogic() {
-        // 🤖 สั่งเริ่มทำงานวัตถุเอไอให้พร้อมรับคำสั่ง
-        aiAssistant = new com.dev.ministudio.ai.GeminiAssistant();
+        // 🤖 เริ่มการทำงานของคลาสแยกจัดการ AI ตัวใหม่
+        aiLayoutAnalyzer = new com.dev.ministudio.AiLayoutAnalyzer();
 
         dialogManager = new ProjectDialogManager(this, parentNode -> {
             triggerTreeRefresh(parentNode);
@@ -713,7 +713,7 @@ public class MainActivity extends AppCompatActivity {
             shortcutBar.addView(btn);
         }
 
-        // 🤖 [จุดติดตั้งระบบปุ่ม AI อัจฉริยะประกบข้างแถวปุ่มทางลัด]
+        // 🤖 [จุดปรับปรุงลอจิกเรียกใช้คลาสแยกและลด Error 400]
         TextView btnAskAI = new TextView(this);
         btnAskAI.setText("🤖 ถาม AI");
         btnAskAI.setTextSize(14);
@@ -734,16 +734,21 @@ public class MainActivity extends AppCompatActivity {
         btnAskAI.setFocusable(true);
 
         btnAskAI.setOnClickListener(v -> {
-            if (codeEditor == null || tvConsoleLog == null) return;
+            if (codeEditor == null || tvConsoleLog == null || currentProject == null) return;
 
             if (consolePanel != null) consolePanel.setVisibility(View.VISIBLE);
-            tvConsoleLog.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ดและตรวจหาจุดพังให้ท่าน กรุณารอสักครู่...\n");
+            
+            java.io.File currentFile = currentProject.getCurrentOpenFile();
+            String fileName = (currentFile != null) ? currentFile.getName() : "UnknownFile.java";
+            String currentCode = codeEditor.getText().toString();
 
-            // 🌟 คำสั่งดึงซอร์สโค้ดจาก CodeEditor ส่งเข้าทำงานประมวลผลผ่าน AI ดั้งเดิม
-            String finalPrompt = "ตรวจสอบโค้ด Android Java ตัวนี้ให้หน่อยว่ามีจุดพังตรงไหนบ้าง:\n" 
-                    + codeEditor.getText().toString();
+            // เรียกทำงานผ่านอินเตอร์เฟสคลาสแยกตัวใหม่ที่ปลอดภัย
+            aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
+                @Override
+                public void onStart() {
+                    tvConsoleLog.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ดและตรวจหาจุดพังอย่างละเอียด กรุณารอสักครู่...\n");
+                }
 
-            aiAssistant.askAI(finalPrompt, new com.dev.ministudio.ai.GeminiAssistant.AICallback() {
                 @Override
                 public void onSuccess(String responseText) {
                     tvConsoleLog.setText("🤖 [คำแนะนำและจุดพังวิเคราะห์โดย AI]:\n\n" + responseText);
