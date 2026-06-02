@@ -431,6 +431,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+
     private void initializeFileTree() {
         if (currentProject == null) return;
 
