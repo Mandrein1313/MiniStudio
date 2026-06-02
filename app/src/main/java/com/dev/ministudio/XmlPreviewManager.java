@@ -16,11 +16,16 @@ import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toolbar;
 
+import androidx.appcompat.widget.AppCompatToolbar; // แนะนำใช้ตัวนี้
 import androidx.cardview.widget.CardView;
 import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.navigation.NavigationView;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserFactory;
@@ -38,52 +43,74 @@ public class XmlPreviewManager {
         this.resourceResolver = new ResourceResolver(context);
     }
 
-    public View inflateXml(String xmlContent) throws Exception {
+    public View inflateXml(String xmlContent) {
         if (TextUtils.isEmpty(xmlContent) || xmlContent.trim().isEmpty()) {
-            throw new IllegalArgumentException("XML ว่างเปล่า ไม่สามารถพรีวิวได้");
+            return createErrorView("XML ว่างเปล่า");
         }
 
-        XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
-        factory.setNamespaceAware(true);
-        XmlPullParser parser = factory.newPullParser();
-        parser.setInput(new StringReader(xmlContent));
+        try {
+            XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
+            factory.setNamespaceAware(true);
+            XmlPullParser parser = factory.newPullParser();
+            parser.setInput(new StringReader(xmlContent));
 
-        View rootView = null;
-        Stack<ViewGroup> parentStack = new Stack<>();
+            View rootView = null;
+            Stack<ViewGroup> parentStack = new Stack<>();
 
-        int eventType = parser.getEventType();
+            int eventType = parser.getEventType();
 
-        while (eventType != XmlPullParser.END_DOCUMENT) {
-            if (eventType == XmlPullParser.START_TAG) {
-                String tagName = getCleanTagName(parser.getName());
+            while (eventType != XmlPullParser.END_DOCUMENT) {
+                if (eventType == XmlPullParser.START_TAG) {
+                    String tagName = getCleanTagName(parser.getName());
 
-                View view = createViewFromTag(tagName);
-                if (view != null) {
-                    applyAttributes(view, parser);
+                    View view = createViewFromTag(tagName, parser);
+                    if (view != null) {
+                        applyAttributes(view, parser);
 
-                    if (rootView == null) {
-                        rootView = view;
-                    } else if (!parentStack.isEmpty()) {
-                        parentStack.peek().addView(view);
+                        String id = parser.getAttributeValue(null, "id");
+                        if (id != null && !id.isEmpty()) {
+                            view.setTag(id);
+                        }
+
+                        if (rootView == null) {
+                            rootView = view;
+                        } else if (!parentStack.isEmpty()) {
+                            parentStack.peek().addView(view);
+                        }
+
+                        if (view instanceof ViewGroup) {
+                            parentStack.push((ViewGroup) view);
+                        }
                     }
-
-                    if (view instanceof ViewGroup) {
-                        parentStack.push((ViewGroup) view);
+                } 
+                else if (eventType == XmlPullParser.END_TAG) {
+                    String tagName = getCleanTagName(parser.getName());
+                    if (!parentStack.isEmpty() && 
+                        tagName.equals(parentStack.peek().getClass().getSimpleName())) {
+                        parentStack.pop();
                     }
                 }
-            } 
-            else if (eventType == XmlPullParser.END_TAG) {
-                String tagName = getCleanTagName(parser.getName());
-                if (!parentStack.isEmpty() && 
-                    tagName.equals(parentStack.peek().getClass().getSimpleName())) {
-                    parentStack.pop();
-                }
+
+                eventType = parser.next();
             }
 
-            eventType = parser.next();
-        }
+            return rootView != null ? rootView : createErrorView("ไม่พบ Root View");
 
-        return rootView;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return createErrorView("เกิดข้อผิดพลาด:\n" + e.getMessage());
+        }
+    }
+
+    private View createErrorView(String message) {
+        TextView errorView = new TextView(context);
+        errorView.setText("❌ " + message);
+        errorView.setTextColor(Color.RED);
+        errorView.setBackgroundColor(0x33FF0000);
+        errorView.setPadding(32, 48, 32, 48);
+        errorView.setTextSize(15);
+        errorView.setGravity(Gravity.CENTER);
+        return errorView;
     }
 
     private String getCleanTagName(String tag) {
@@ -94,43 +121,73 @@ public class XmlPreviewManager {
         return tag;
     }
 
-    private View createViewFromTag(String tagName) {
+    private View createViewFromTag(String tagName, XmlPullParser parser) {
         switch (tagName) {
             case "LinearLayout": return new LinearLayout(context);
             case "FrameLayout": return new FrameLayout(context);
             case "RelativeLayout": return new RelativeLayout(context);
             case "ConstraintLayout": return new ConstraintLayout(context);
-            case "ScrollView": 
+            case "ScrollView":
                 ScrollView sv = new ScrollView(context);
                 sv.setFillViewport(true);
                 return sv;
+            case "DrawerLayout":
+                DrawerLayout dl = new DrawerLayout(context);
+                dl.setFitsSystemWindows(true);
+                return dl;
+            case "NavigationView":
+                NavigationView nv = new NavigationView(context);
+                // ตั้งค่าเริ่มต้นให้ดูดี
+                nv.setBackgroundColor(Color.WHITE);
+                return nv;
+            case "Toolbar":
+            case "androidx.appcompat.widget.Toolbar":
+                return new AppCompatToolbar(context);
             case "RecyclerView":
                 RecyclerView rv = new RecyclerView(context);
                 rv.setLayoutManager(new LinearLayoutManager(context));
                 return rv;
-            case "CardView":
-                return new CardView(context);
+            case "CardView": return new CardView(context);
             case "TextView": return new TextView(context);
             case "EditText": return new EditText(context);
             case "Button": return new Button(context);
             case "ImageView": return new ImageView(context);
-
+            case "include":
+                // รองรับ include แบบพื้นฐาน (โหลด layout ชื่อเดียวกัน)
+                String layoutName = parser.getAttributeValue(null, "layout");
+                if (layoutName != null && layoutName.startsWith("@layout/")) {
+                    String includedXml = getIncludedLayout(layoutName.substring(8));
+                    if (includedXml != null) {
+                        try {
+                            return inflateXml(includedXml); // Recursive call
+                        } catch (Exception ignored) {}
+                    }
+                }
+                return createErrorView("include ไม่สามารถโหลดได้: " + layoutName);
+                
             default:
-                TextView fallback = new TextView(context);
-                fallback.setText("[" + tagName + " ยังไม่รองรับ]");
-                fallback.setTextColor(Color.RED);
-                fallback.setPadding(16, 16, 16, 16);
-                return fallback;
+                return createErrorView("[" + tagName + " ยังไม่รองรับ]");
         }
     }
 
+    /**
+     * คุณสามารถ override เมธอดนี้เพื่อให้โหลด layout อื่นจาก resources ได้
+     */
+    protected String getIncludedLayout(String layoutName) {
+        // ตัวอย่าง: ถ้ามีไฟล์ layout อื่นใน resources
+        // ปัจจุบัน return null เพราะยังไม่มีระบบโหลดไฟล์จริง
+        return null; // คุณสามารถปรับแต่งเองได้
+    }
+
     private void applyAttributes(View view, XmlPullParser parser) {
-        ViewGroup.LayoutParams params = createDefaultLayoutParams(view);
+        ViewGroup.LayoutParams params = new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
 
         for (int i = 0; i < parser.getAttributeCount(); i++) {
             String attrName = getCleanAttributeName(parser.getAttributeName(i));
             String attrValue = parser.getAttributeValue(i);
-
             if (attrValue == null) continue;
 
             switch (attrName) {
@@ -141,47 +198,45 @@ public class XmlPreviewManager {
                     params.height = parseLayoutSize(attrValue);
                     break;
                 case "layout_weight":
-                    if (params instanceof LinearLayout.LayoutParams) {
-                        ((LinearLayout.LayoutParams) params).weight = parseFloat(attrValue, 0f);
+                    if (params instanceof LinearLayout.LayoutParams lp) {
+                        lp.weight = parseFloat(attrValue, 0f);
                     }
                     break;
 
                 case "orientation":
-                    if (view instanceof LinearLayout) {
-                        ((LinearLayout) view).setOrientation(
-                                "vertical".equalsIgnoreCase(attrValue) ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
+                    if (view instanceof LinearLayout ll) {
+                        ll.setOrientation("vertical".equalsIgnoreCase(attrValue) 
+                                ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
                     }
                     break;
 
                 case "text":
-                    if (view instanceof TextView) {
-                        ((TextView) view).setText(resourceResolver.resolveString(attrValue));
+                    if (view instanceof TextView tv) {
+                        tv.setText(resourceResolver.resolveString(attrValue));
                     }
                     break;
 
                 case "textColor":
-                    if (view instanceof TextView) {
-                        ((TextView) view).setTextColor(resourceResolver.resolveColor(attrValue));
+                    if (view instanceof TextView tv) {
+                        tv.setTextColor(resourceResolver.resolveColor(attrValue));
                     }
                     break;
 
                 case "textSize":
-                    if (view instanceof TextView) {
+                    if (view instanceof TextView tv) {
                         float size = resourceResolver.resolveDimension(attrValue);
-                        if (size > 0) {
-                            ((TextView) view).setTextSize(TypedValue.COMPLEX_UNIT_SP, size);
-                        }
+                        if (size > 0) tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, size);
                     }
                     break;
 
                 case "background":
-                    if (attrValue.startsWith("#")) {
-                        try {
+                    try {
+                        if (attrValue.startsWith("#")) {
                             view.setBackgroundColor(Color.parseColor(attrValue));
-                        } catch (Exception ignored) {}
-                    } else {
-                        view.setBackgroundColor(resourceResolver.resolveColor(attrValue));
-                    }
+                        } else {
+                            view.setBackgroundColor(resourceResolver.resolveColor(attrValue));
+                        }
+                    } catch (Exception ignored) {}
                     break;
 
                 case "padding":
@@ -190,25 +245,33 @@ public class XmlPreviewManager {
                     break;
 
                 case "src":
-                    if (view instanceof ImageView) {
-                        ((ImageView) view).setImageResource(android.R.drawable.ic_menu_gallery);
+                    if (view instanceof ImageView iv) {
+                        iv.setImageResource(android.R.drawable.ic_menu_gallery);
                     }
                     break;
 
                 case "cardCornerRadius":
-                    if (view instanceof CardView) {
-                        ((CardView) view).setRadius(resourceResolver.resolveDimensionPx(attrValue));
+                    if (view instanceof CardView cv) {
+                        cv.setRadius(resourceResolver.resolveDimensionPx(attrValue));
                     }
                     break;
 
                 case "cardElevation":
-                    if (view instanceof CardView) {
-                        ((CardView) view).setCardElevation(resourceResolver.resolveDimensionPx(attrValue));
+                    if (view instanceof CardView cv) {
+                        cv.setCardElevation(resourceResolver.resolveDimensionPx(attrValue));
                     }
                     break;
 
                 case "visibility":
                     view.setVisibility(parseVisibility(attrValue));
+                    break;
+
+                case "title":
+                    if (view instanceof Toolbar tb) {
+                        tb.setTitle(resourceResolver.resolveString(attrValue));
+                    } else if (view instanceof AppCompatToolbar tb) {
+                        tb.setTitle(resourceResolver.resolveString(attrValue));
+                    }
                     break;
             }
         }
@@ -216,13 +279,7 @@ public class XmlPreviewManager {
         view.setLayoutParams(params);
     }
 
-    private ViewGroup.LayoutParams createDefaultLayoutParams(View view) {
-        return new ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-    }
-
+    // ==================== Helper Methods ====================
     private int parseLayoutSize(String value) {
         if ("match_parent".equalsIgnoreCase(value) || "fill_parent".equalsIgnoreCase(value)) {
             return ViewGroup.LayoutParams.MATCH_PARENT;
@@ -267,9 +324,7 @@ public class XmlPreviewManager {
                 try {
                     int id = resources.getIdentifier(name, "string", context.getPackageName());
                     return id != 0 ? resources.getString(id) : value;
-                } catch (Exception e) {
-                    return value;
-                }
+                } catch (Exception e) { return value; }
             }
             return value;
         }
@@ -277,20 +332,14 @@ public class XmlPreviewManager {
         int resolveColor(String value) {
             if (value == null) return Color.BLACK;
             if (value.startsWith("#")) {
-                try {
-                    return Color.parseColor(value);
-                } catch (Exception e) {
-                    return Color.BLACK;
-                }
+                try { return Color.parseColor(value); } catch (Exception e) { return Color.BLACK; }
             }
             if (value.startsWith("@color/")) {
                 String name = value.substring(7);
                 try {
                     int id = resources.getIdentifier(name, "color", context.getPackageName());
                     return id != 0 ? resources.getColor(id) : Color.BLACK;
-                } catch (Exception e) {
-                    return Color.BLACK;
-                }
+                } catch (Exception e) { return Color.BLACK; }
             }
             return Color.BLACK;
         }
@@ -300,17 +349,14 @@ public class XmlPreviewManager {
                 String name = value.substring(7);
                 try {
                     int id = resources.getIdentifier(name, "dimen", context.getPackageName());
-                    return id != 0 ? resources.getDimension(id) : 0f;
-                } catch (Exception e) {
-                    return 0f;
-                }
+                    return id != 0 ? resources.getDimension(id) : 14f;
+                } catch (Exception e) { return 14f; }
             }
             return parseFloatDimension(value);
         }
 
         int resolveDimensionPx(String value) {
-            float dim = resolveDimension(value);
-            return (int) dim;
+            return (int) resolveDimension(value);
         }
 
         private float parseFloatDimension(String value) {
