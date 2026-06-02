@@ -11,8 +11,7 @@ import org.json.JSONArray;
 
 public class GeminiAssistant {
 
-    // 🔑 ใช้คีย์ Groq ที่คุณมนตรีได้มา
-    private static final String API_KEY = "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";
+    private static final String API_KEY = "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"; 
     private static final String API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
     public interface AICallback {
@@ -33,9 +32,8 @@ public class GeminiAssistant {
                 conn.setConnectTimeout(30000);
                 conn.setReadTimeout(60000);
 
-                // โครงสร้าง JSON ของ Groq
                 JSONObject requestBody = new JSONObject();
-                requestBody.put("model", "llama-3.3-70b-versatile"); // ใช้โมเดลตัวแรงของ Groq
+                requestBody.put("model", "llama-3.3-70b-versatile");
                 JSONArray messages = new JSONArray();
                 JSONObject message = new JSONObject();
                 message.put("role", "user");
@@ -48,8 +46,7 @@ public class GeminiAssistant {
                     os.write(input, 0, input.length);
                 }
 
-                int responseCode = conn.getResponseCode();
-                if (responseCode == HttpURLConnection.HTTP_OK) {
+                if (conn.getResponseCode() == HttpURLConnection.HTTP_OK) {
                     try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
                         StringBuilder response = new StringBuilder();
                         String line;
@@ -57,7 +54,7 @@ public class GeminiAssistant {
                         callback.onSuccess(parseGroqResponse(response.toString()));
                     }
                 } else {
-                    callback.onError("Error: " + responseCode);
+                    callback.onError("Error: " + conn.getResponseCode());
                 }
             } catch (Exception e) {
                 callback.onError("Exception: " + e.getMessage());
@@ -67,16 +64,12 @@ public class GeminiAssistant {
         }).start();
     }
 
-    // ฟังก์ชันสำหรับแกะ JSON ของ Groq โดยเฉพาะ
     private String parseGroqResponse(String jsonResponse) {
         try {
             JSONObject json = new JSONObject(jsonResponse);
-            return json.getJSONArray("choices")
-                       .getJSONObject(0)
-                       .getJSONObject("message")
-                       .getString("content");
+            return json.getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content");
         } catch (Exception e) {
-            return "เกิดข้อผิดพลาดในการอ่านข้อมูล: " + e.getMessage();
+            return "ไม่สามารถอ่านข้อมูลได้";
         }
     }
 }
