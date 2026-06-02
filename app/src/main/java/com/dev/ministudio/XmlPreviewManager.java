@@ -18,7 +18,6 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toolbar;
 
-import androidx.appcompat.widget.AppCompatToolbar; // แนะนำใช้ตัวนี้
 import androidx.cardview.widget.CardView;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.drawerlayout.widget.DrawerLayout;
@@ -136,13 +135,15 @@ public class XmlPreviewManager {
                 dl.setFitsSystemWindows(true);
                 return dl;
             case "NavigationView":
-                NavigationView nv = new NavigationView(context);
-                // ตั้งค่าเริ่มต้นให้ดูดี
-                nv.setBackgroundColor(Color.WHITE);
-                return nv;
+                try {
+                    NavigationView nv = new NavigationView(context);
+                    nv.setBackgroundColor(Color.WHITE);
+                    return nv;
+                } catch (Exception e) {
+                    return createErrorView("NavigationView ต้องการ Material Dependency");
+                }
             case "Toolbar":
-            case "androidx.appcompat.widget.Toolbar":
-                return new AppCompatToolbar(context);
+                return new Toolbar(context);
             case "RecyclerView":
                 RecyclerView rv = new RecyclerView(context);
                 rv.setLayoutManager(new LinearLayoutManager(context));
@@ -153,30 +154,16 @@ public class XmlPreviewManager {
             case "Button": return new Button(context);
             case "ImageView": return new ImageView(context);
             case "include":
-                // รองรับ include แบบพื้นฐาน (โหลด layout ชื่อเดียวกัน)
-                String layoutName = parser.getAttributeValue(null, "layout");
-                if (layoutName != null && layoutName.startsWith("@layout/")) {
-                    String includedXml = getIncludedLayout(layoutName.substring(8));
-                    if (includedXml != null) {
-                        try {
-                            return inflateXml(includedXml); // Recursive call
-                        } catch (Exception ignored) {}
-                    }
+                String layout = parser.getAttributeValue(null, "layout");
+                if (layout != null && layout.startsWith("@layout/")) {
+                    // ยังไม่รองรับการโหลดไฟล์จริง (สามารถขยายภายหลัง)
+                    return createErrorView("include: " + layout + " (ยังไม่รองรับเต็มรูปแบบ)");
                 }
-                return createErrorView("include ไม่สามารถโหลดได้: " + layoutName);
-                
+                return createErrorView("include ไม่ถูกต้อง");
+
             default:
                 return createErrorView("[" + tagName + " ยังไม่รองรับ]");
         }
-    }
-
-    /**
-     * คุณสามารถ override เมธอดนี้เพื่อให้โหลด layout อื่นจาก resources ได้
-     */
-    protected String getIncludedLayout(String layoutName) {
-        // ตัวอย่าง: ถ้ามีไฟล์ layout อื่นใน resources
-        // ปัจจุบัน return null เพราะยังไม่มีระบบโหลดไฟล์จริง
-        return null; // คุณสามารถปรับแต่งเองได้
     }
 
     private void applyAttributes(View view, XmlPullParser parser) {
@@ -268,8 +255,6 @@ public class XmlPreviewManager {
 
                 case "title":
                     if (view instanceof Toolbar tb) {
-                        tb.setTitle(resourceResolver.resolveString(attrValue));
-                    } else if (view instanceof AppCompatToolbar tb) {
                         tb.setTitle(resourceResolver.resolveString(attrValue));
                     }
                     break;
