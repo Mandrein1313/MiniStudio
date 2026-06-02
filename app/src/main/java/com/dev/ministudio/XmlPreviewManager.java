@@ -1,6 +1,7 @@
 package com.dev.ministudio;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.Color;
 import android.text.TextUtils;
 import android.util.TypedValue;
@@ -16,7 +17,10 @@ import android.widget.RelativeLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import androidx.cardview.widget.CardView;
 import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserFactory;
@@ -27,9 +31,11 @@ import java.util.Stack;
 public class XmlPreviewManager {
 
     private final Context context;
+    private final ResourceResolver resourceResolver;
 
     public XmlPreviewManager(Context context) {
         this.context = context;
+        this.resourceResolver = new ResourceResolver(context);
     }
 
     public View inflateXml(String xmlContent) throws Exception {
@@ -68,19 +74,13 @@ public class XmlPreviewManager {
             } 
             else if (eventType == XmlPullParser.END_TAG) {
                 String tagName = getCleanTagName(parser.getName());
-                if (!parentStack.isEmpty()) {
-                    ViewGroup top = parentStack.peek();
-                    if (tagName.equals(top.getClass().getSimpleName())) {
-                        parentStack.pop();
-                    }
+                if (!parentStack.isEmpty() && 
+                    tagName.equals(parentStack.peek().getClass().getSimpleName())) {
+                    parentStack.pop();
                 }
             }
 
             eventType = parser.next();
-        }
-
-        if (rootView == null) {
-            throw new Exception("ไม่สามารถสร้าง View จาก XML ได้");
         }
 
         return rootView;
@@ -96,26 +96,25 @@ public class XmlPreviewManager {
 
     private View createViewFromTag(String tagName) {
         switch (tagName) {
-            case "LinearLayout":
-                return new LinearLayout(context);
-            case "FrameLayout":
-                return new FrameLayout(context);
-            case "RelativeLayout":
-                return new RelativeLayout(context);
-            case "ConstraintLayout":
-                return new ConstraintLayout(context);
-            case "ScrollView":
-                ScrollView scrollView = new ScrollView(context);
-                scrollView.setFillViewport(true);
-                return scrollView;
-            case "TextView":
-                return new TextView(context);
-            case "EditText":
-                return new EditText(context);
-            case "Button":
-                return new Button(context);
-            case "ImageView":
-                return new ImageView(context);
+            case "LinearLayout": return new LinearLayout(context);
+            case "FrameLayout": return new FrameLayout(context);
+            case "RelativeLayout": return new RelativeLayout(context);
+            case "ConstraintLayout": return new ConstraintLayout(context);
+            case "ScrollView": 
+                ScrollView sv = new ScrollView(context);
+                sv.setFillViewport(true);
+                return sv;
+            case "RecyclerView":
+                RecyclerView rv = new RecyclerView(context);
+                rv.setLayoutManager(new LinearLayoutManager(context));
+                return rv;
+            case "CardView":
+                return new CardView(context);
+            case "TextView": return new TextView(context);
+            case "EditText": return new EditText(context);
+            case "Button": return new Button(context);
+            case "ImageView": return new ImageView(context);
+
             default:
                 TextView fallback = new TextView(context);
                 fallback.setText("[" + tagName + " ยังไม่รองรับ]");
@@ -146,68 +145,68 @@ public class XmlPreviewManager {
                         ((LinearLayout.LayoutParams) params).weight = parseFloat(attrValue, 0f);
                     }
                     break;
+
                 case "orientation":
                     if (view instanceof LinearLayout) {
                         ((LinearLayout) view).setOrientation(
-                                "vertical".equalsIgnoreCase(attrValue) ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL
-                        );
+                                "vertical".equalsIgnoreCase(attrValue) ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
                     }
                     break;
-                case "gravity":
-                    if (view instanceof LinearLayout) {
-                        ((LinearLayout) view).setGravity(parseGravity(attrValue));
-                    } else if (view instanceof TextView) {
-                        ((TextView) view).setGravity(parseGravity(attrValue));
-                    }
-                    break;
+
                 case "text":
                     if (view instanceof TextView) {
-                        ((TextView) view).setText(attrValue);
+                        ((TextView) view).setText(resourceResolver.resolveString(attrValue));
                     }
                     break;
+
                 case "textColor":
                     if (view instanceof TextView) {
-                        try {
-                            ((TextView) view).setTextColor(Color.parseColor(attrValue));
-                        } catch (Exception ignored) {}
+                        ((TextView) view).setTextColor(resourceResolver.resolveColor(attrValue));
                     }
                     break;
+
                 case "textSize":
                     if (view instanceof TextView) {
-                        float size = parseSizeInSp(attrValue);
-                        if (size > 0) ((TextView) view).setTextSize(TypedValue.COMPLEX_UNIT_SP, size);
+                        float size = resourceResolver.resolveDimension(attrValue);
+                        if (size > 0) {
+                            ((TextView) view).setTextSize(TypedValue.COMPLEX_UNIT_SP, size);
+                        }
                     }
                     break;
-                case "textStyle":
-                    if (view instanceof TextView) {
-                        setTextStyle((TextView) view, attrValue);
+
+                case "background":
+                    if (attrValue.startsWith("#")) {
+                        try {
+                            view.setBackgroundColor(Color.parseColor(attrValue));
+                        } catch (Exception ignored) {}
+                    } else {
+                        view.setBackgroundColor(resourceResolver.resolveColor(attrValue));
                     }
                     break;
+
                 case "padding":
-                    int padding = parseDimension(attrValue);
+                    int padding = resourceResolver.resolveDimensionPx(attrValue);
                     view.setPadding(padding, padding, padding, padding);
                     break;
-                case "background":
-                    try {
-                        if (attrValue.startsWith("#")) {
-                            view.setBackgroundColor(Color.parseColor(attrValue));
-                        }
-                    } catch (Exception ignored) {}
-                    break;
+
                 case "src":
                     if (view instanceof ImageView) {
-                        ((ImageView) view).setImageResource(
-                                attrValue.startsWith("@drawable/") 
-                                    ? android.R.drawable.ic_menu_gallery 
-                                    : android.R.drawable.ic_menu_report_image
-                        );
+                        ((ImageView) view).setImageResource(android.R.drawable.ic_menu_gallery);
                     }
                     break;
-                case "scaleType":
-                    if (view instanceof ImageView) {
-                        setScaleType((ImageView) view, attrValue);
+
+                case "cardCornerRadius":
+                    if (view instanceof CardView) {
+                        ((CardView) view).setRadius(resourceResolver.resolveDimensionPx(attrValue));
                     }
                     break;
+
+                case "cardElevation":
+                    if (view instanceof CardView) {
+                        ((CardView) view).setCardElevation(resourceResolver.resolveDimensionPx(attrValue));
+                    }
+                    break;
+
                 case "visibility":
                     view.setVisibility(parseVisibility(attrValue));
                     break;
@@ -218,22 +217,6 @@ public class XmlPreviewManager {
     }
 
     private ViewGroup.LayoutParams createDefaultLayoutParams(View view) {
-        if (view.getParent() instanceof LinearLayout) {
-            return new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-            );
-        } else if (view.getParent() instanceof RelativeLayout) {
-            return new RelativeLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-            );
-        } else if (view.getParent() instanceof ConstraintLayout) {
-            return new ConstraintLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-            );
-        }
         return new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -247,55 +230,7 @@ public class XmlPreviewManager {
         if ("wrap_content".equalsIgnoreCase(value)) {
             return ViewGroup.LayoutParams.WRAP_CONTENT;
         }
-        return parseDimension(value);
-    }
-
-    private int parseDimension(String value) {
-        if (value.endsWith("dp")) {
-            try {
-                float dp = Float.parseFloat(value.replace("dp", "").trim());
-                return (int) TypedValue.applyDimension(
-                        TypedValue.COMPLEX_UNIT_DIP, dp, context.getResources().getDisplayMetrics()
-                );
-            } catch (Exception e) {
-                return ViewGroup.LayoutParams.WRAP_CONTENT;
-            }
-        }
-        return ViewGroup.LayoutParams.WRAP_CONTENT;
-    }
-
-    private float parseSizeInSp(String value) {
-        try {
-            return Float.parseFloat(value.replaceAll("[^0-9.]", ""));
-        } catch (Exception e) {
-            return 14f;
-        }
-    }
-
-    private int parseGravity(String value) {
-        int gravity = Gravity.NO_GRAVITY;
-        if (value.contains("center")) gravity |= Gravity.CENTER;
-        if (value.contains("left") || value.contains("start")) gravity |= Gravity.START;
-        if (value.contains("right") || value.contains("end")) gravity |= Gravity.END;
-        if (value.contains("top")) gravity |= Gravity.TOP;
-        if (value.contains("bottom")) gravity |= Gravity.BOTTOM;
-        return gravity;
-    }
-
-    private void setTextStyle(TextView textView, String style) {
-        int type = 0;
-        if (style.contains("bold")) type |= android.graphics.Typeface.BOLD;
-        if (style.contains("italic")) type |= android.graphics.Typeface.ITALIC;
-        textView.setTypeface(null, type);
-    }
-
-    private void setScaleType(ImageView imageView, String type) {
-        switch (type.toLowerCase()) {
-            case "center": imageView.setScaleType(ImageView.ScaleType.CENTER); break;
-            case "center_crop": imageView.setScaleType(ImageView.ScaleType.CENTER_CROP); break;
-            case "fit_xy": imageView.setScaleType(ImageView.ScaleType.FIT_XY); break;
-            default: imageView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        }
+        return resourceResolver.resolveDimensionPx(value);
     }
 
     private int parseVisibility(String value) {
@@ -307,17 +242,91 @@ public class XmlPreviewManager {
     }
 
     private float parseFloat(String value, float defaultValue) {
-        try {
-            return Float.parseFloat(value);
-        } catch (Exception e) {
-            return defaultValue;
-        }
+        try { return Float.parseFloat(value); } catch (Exception e) { return defaultValue; }
     }
 
     private String getCleanAttributeName(String attr) {
-        if (attr.contains(":")) {
-            return attr.substring(attr.lastIndexOf(":") + 1);
+        if (attr == null) return "";
+        return attr.contains(":") ? attr.substring(attr.lastIndexOf(":") + 1) : attr;
+    }
+
+    // ====================== RESOURCE RESOLVER ======================
+    private static class ResourceResolver {
+        private final Context context;
+        private final Resources resources;
+
+        ResourceResolver(Context context) {
+            this.context = context;
+            this.resources = context.getResources();
         }
-        return attr;
+
+        String resolveString(String value) {
+            if (value == null) return "";
+            if (value.startsWith("@string/")) {
+                String name = value.substring(8);
+                try {
+                    int id = resources.getIdentifier(name, "string", context.getPackageName());
+                    return id != 0 ? resources.getString(id) : value;
+                } catch (Exception e) {
+                    return value;
+                }
+            }
+            return value;
+        }
+
+        int resolveColor(String value) {
+            if (value == null) return Color.BLACK;
+            if (value.startsWith("#")) {
+                try {
+                    return Color.parseColor(value);
+                } catch (Exception e) {
+                    return Color.BLACK;
+                }
+            }
+            if (value.startsWith("@color/")) {
+                String name = value.substring(7);
+                try {
+                    int id = resources.getIdentifier(name, "color", context.getPackageName());
+                    return id != 0 ? resources.getColor(id) : Color.BLACK;
+                } catch (Exception e) {
+                    return Color.BLACK;
+                }
+            }
+            return Color.BLACK;
+        }
+
+        float resolveDimension(String value) {
+            if (value.startsWith("@dimen/")) {
+                String name = value.substring(7);
+                try {
+                    int id = resources.getIdentifier(name, "dimen", context.getPackageName());
+                    return id != 0 ? resources.getDimension(id) : 0f;
+                } catch (Exception e) {
+                    return 0f;
+                }
+            }
+            return parseFloatDimension(value);
+        }
+
+        int resolveDimensionPx(String value) {
+            float dim = resolveDimension(value);
+            return (int) dim;
+        }
+
+        private float parseFloatDimension(String value) {
+            try {
+                if (value.endsWith("dp")) {
+                    float dp = Float.parseFloat(value.replace("dp", "").trim());
+                    return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.getDisplayMetrics());
+                }
+                if (value.endsWith("sp")) {
+                    float sp = Float.parseFloat(value.replace("sp", "").trim());
+                    return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, resources.getDisplayMetrics());
+                }
+                return Float.parseFloat(value);
+            } catch (Exception e) {
+                return 0f;
+            }
+        }
     }
 }
