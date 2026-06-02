@@ -556,47 +556,82 @@ private void executeJumpToError(ParsedError errorItem) {
         return null;
     }
 
+        // ====================================================================
+    // 🛠️ เวอร์ชันแก้ไขระดับสูง: ระบบเปิดไฟล์แบบ Multi-Tab ป้องกันบั๊กไรท์โค้ดทับซ้อน 100%
+    // ====================================================================
     private void openFile(File file) {
+        if (file == null || !file.exists()) return;
+
         try {
+            // 1. ล้างคิวการเซฟอัตโนมัติ (Auto-Save) ของไฟล์เก่าทิ้งทันที เพื่อไม่ให้วิ่งมาเขียนทับไฟล์ใหม่
+            autoSaveHandler.removeCallbacks(saveRunnable);
+
+            // 2. ตรวจสอบระบบแท็บ (Tab System): นำไฟล์ใหม่เพิ่มเข้าไปในรายการ Opened Files หากยังไม่มี
+            if (currentProject != null) {
+                if (!currentProject.getOpenedFiles().contains(file)) {
+                    currentProject.getOpenedFiles().add(file);
+                }
+                // 🌟 ล็อกพิกัดเป้าหมาย: บังคับให้โปรเจกต์สลับตัวชี้ไฟล์ (Pointer) มาเป็นไฟล์ใหม่ทันที!
+                currentProject.setCurrentOpenFile(file);
+            }
+
+            // 3. เริ่มกระบวนการอ่านเนื้อหาไฟล์อย่างปลอดภัย
             FileInputStream fis = new FileInputStream(file);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(fis));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(fis, "UTF-8"));
             StringBuilder sb = new StringBuilder();
             String line;
-            while ((line = reader.readLine()) != null) sb.append(line).append("\n");
+            while ((line = reader.readLine()) != null) {
+                sb.append(line).append("\n");
+            }
             reader.close();
             
             final String fileContent = sb.toString();
+
+            // 4. สั่งพ่นข้อความลงบน CodeEditor พร้อมอัปเดตสเตตัสรอบด้านบน UI Thread
             runOnUiThread(() -> {
-                codeEditor.setText(fileContent);
+                if (codeEditor != null) {
+                    codeEditor.setText(fileContent);
+                    
+                    // 🎨 แนะนำเพิ่มเติม: สามารถสลับไฮไลต์ภาษาตามนามสกุลไฟล์ได้ตรงนี้ในอนาคตครับ
+                    if (file.getName().endsWith(".xml")) {
+                        // codeEditor.setEditorLanguage(new XmlLanguage());
+                    } else {
+                        codeEditor.setEditorLanguage(new JavaLanguage());
+                    }
+                }
+                
+                // 5. ปรับปรุงตำแหน่งแถบสีชื่อไฟล์ด้านบน และสั่งอัปเดตหน้าตาแท็บ RecyclerView ทันที
+                updateFilePathStatus(file);
+                
+                if (tabAdapter != null) {
+                    tabAdapter.notifyDataSetChanged();
+                    int pos = currentProject.getCurrentFileIndex();
+                    if (pos != -1 && tabRecyclerView != null) {
+                        tabRecyclerView.smoothScrollToPosition(pos);
+                    }
+                }
             });
+
         } catch (Exception e) {
-            Toast.makeText(this, "Read Error", Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
+            showToast("❌ เกิดข้อผิดพลาดในการโหลดไฟล์: " + e.getMessage());
         }
     }
 
     private void saveFile() {
+        // ป้องกันบั๊กขั้นสูงสุด: หากโปรเจกต์หรือเป้าหมายไฟล์ชี้ค่าเป็น Null ให้ดีดตัวกลับทันที ไม่ฝืนเซฟ
         if (currentProject == null || currentProject.getCurrentOpenFile() == null) return;
+        
+        File fileToSave = currentProject.getCurrentOpenFile();
         try {
-            FileOutputStream fos = new FileOutputStream(currentProject.getCurrentOpenFile());
-            fos.write(codeEditor.getText().toString().getBytes());
+            FileOutputStream fos = new FileOutputStream(fileToSave);
+            fos.write(codeEditor.getText().toString().getBytes("UTF-8"));
             fos.close();
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) { 
+            e.printStackTrace(); 
+        }
     }
 
-    private void appendLog(final String text, final int color) {
-        runOnUiThread(() -> {
-            if (consolePanel != null && consolePanel.getVisibility() == View.GONE) {
-                consolePanel.setVisibility(View.VISIBLE);
-            }
-            if (tvConsoleLog != null) {
-                tvConsoleLog.setTextColor(color);
-                tvConsoleLog.append(text + "\n");
-            }
-            if (consoleScrollView != null) {
-                consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
-            }
-        });
-    }
 
     private void setupShortcutBar() { 
         LinearLayout shortcutBar = findViewById(R.id.shortcutBar); 
