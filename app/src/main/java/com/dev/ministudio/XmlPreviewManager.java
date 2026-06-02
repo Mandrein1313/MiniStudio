@@ -4,16 +4,27 @@ import android.content.Context;
 import android.graphics.Color;
 import android.text.TextUtils;
 import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
-import java.io.StringReader;
-import java.util.Stack;
+
+import androidx.cardview.widget.CardView;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.drawerlayout.widget.DrawerLayout;
+
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserFactory;
+
+import java.io.StringReader;
+import java.util.Stack;
 
 public class XmlPreviewManager {
 
@@ -24,115 +35,158 @@ public class XmlPreviewManager {
     }
 
     /**
-     * 🚀 เมทอดหลัก: แปลง XML ดิบให้กลายเป็น View จริง รองรับโครงสร้างซ้อนกันลึกไม่จำกัดชั้นด้วย Stack
+     * 🌟 เมทอดหลักสำหรับแปลง XML String ให้กลายเป็น View Hierarchy จริง
      */
-    public View inflateXml(String xmlContent) throws Exception {
-        if (xmlContent == null || xmlContent.trim().isEmpty()) {
-            throw new IllegalArgumentException("ซอร์สโค้ด XML ว่างเปล่า ไม่สามารถพรีวิวได้");
+    public View inflateXml(String xmlContent) {
+        if (TextUtils.isEmpty(xmlContent) || xmlContent.trim().isEmpty()) {
+            return createErrorView("ซอร์สโค้ด XML ว่างเปล่า ไม่สามารถพรีวิวได้");
         }
 
-        XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
-        factory.setNamespaceAware(true);
-        XmlPullParser parser = factory.newPullParser();
-        parser.setInput(new StringReader(xmlContent));
+        try {
+            XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
+            factory.setNamespaceAware(true);
+            XmlPullParser parser = factory.newPullParser();
+            parser.setInput(new StringReader(xmlContent));
 
-        View rootLayout = null;
-        // 🌟 ใช้ Stack ในการเก็บลำดับชั้น Parent เพื่อป้องกันโครงสร้างเลย์เอาต์พังพินาศเวลาซ้อนกันลึก ๆ
-        Stack<ViewGroup> parentStack = new Stack<>();
-        
-        int eventType = parser.getEventType();
+            View rootView = null;
+            // ใช้ Stack ควบคุมระดับชั้น Parent-Child เพื่อป้องกันโครงสร้างเลย์เอาต์พังพินาศเวลาซ้อนกันลึกๆ
+            Stack<ViewGroup> parentStack = new Stack<>();
 
-        while (eventType != XmlPullParser.END_DOCUMENT) {
-            String tagName = parser.getName();
+            int eventType = parser.getEventType();
 
-            switch (eventType) {
-                case XmlPullParser.START_TAG:
-                    // ล้างคำนำหน้าพวกพาร์ทแอนดรอยด์ออก (ถ้ามี)
-                    if (tagName != null && tagName.contains(".")) {
-                        tagName = tagName.substring(tagName.lastIndexOf(".") + 1);
-                    }
+            while (eventType != XmlPullParser.END_DOCUMENT) {
+                if (eventType == XmlPullParser.START_TAG) {
+                    String tagName = getCleanTagName(parser.getName());
 
-                    View newView = createViewFromTagName(tagName);
-                    if (newView != null) {
-                        // 🎨 สกัดคุณลักษณะต่างๆ นำมาประยุกต์ใช้กับวัตถุตัวนี้
-                        applyAttributes(newView, parser);
+                    // สร้าง View ตามชนิดของแท็ก
+                    View view = createViewFromTag(tagName, parser);
+                    if (view != null) {
+                        // ประมวลผลและใส่คุณลักษณะต่างๆ (Attributes)
+                        applyAttributes(view, parser);
 
-                        if (rootLayout == null) {
-                            // แท็กแรกสุดที่เจอคือรากฐานของหน้าจอ (Root View)
-                            rootLayout = newView; 
+                        // ล็อก Root View ตัวแรกสุด
+                        if (rootView == null) {
+                            rootView = view;
                         } else if (!parentStack.isEmpty()) {
-                            // ถ้ามีตัวก่อนหน้าเป็นกลุ่มก้อน ให้ยัดตัวใหม่เข้าไปเป็นลูก (Child)
-                            parentStack.peek().addView(newView);
+                            // ยัด View ลูกเข้าไปใน Parent ตัวปัจจุบันที่อยู่บนสุดของ Stack
+                            parentStack.peek().addView(view);
                         }
 
-                        // ถ้ายอดวิวตัวใหม่นี้เป็นกลุ่ม Layout (ViewGroup) ให้ดันเข้า Stack รอรับลูกชั้นถัดไป
-                        if (newView instanceof ViewGroup) {
-                            parentStack.push((ViewGroup) newView);
+                        // ถ้า View ตัวนี้เป็นกลุ่มก้อนที่บรรจุลูกได้ (ViewGroup) ให้ดันเข้า Stack
+                        if (view instanceof ViewGroup) {
+                            parentStack.push((ViewGroup) view);
                         }
                     }
-                    break;
-
-                case XmlPullParser.END_TAG:
-                    // 🌟 เมื่อเจอแท็กปิดของกลุ่ม Layout ให้ดึงออกจาก Stack ถอยกลับขึ้นไป 1 ระดับชั้นอย่างแม่นยำ
-                    if (tagName != null && !parentStack.isEmpty()) {
-                        View currentTop = parentStack.peek();
-                        String currentTopName = currentTop.getClass().getSimpleName();
-                        if (tagName.equals(currentTopName)) {
+                } 
+                else if (eventType == XmlPullParser.END_TAG) {
+                    String tagName = getCleanTagName(parser.getName());
+                    if (!parentStack.isEmpty()) {
+                        String currentTopName = parentStack.peek().getClass().getSimpleName();
+                        
+                        // ป้องกันกรณีแท็กแปลงร่าง ให้ตรวจสอบโครงสร้างหลักแล้ว Pop ออกอย่างแม่นยำ
+                        if (tagName.equals(currentTopName) || 
+                            (parentStack.peek() instanceof LinearLayout && tagName.toLowerCase().contains("layout")) ||
+                            (parentStack.peek() instanceof LinearLayout && tagName.equalsIgnoreCase("spinner"))) {
                             parentStack.pop();
                         }
                     }
-                    break;
-            }
-            eventType = parser.next();
-        }
+                }
 
-        return rootLayout;
+                eventType = parser.next();
+            }
+
+            return rootView != null ? rootView : createErrorView("ไม่พบ Root View ในไฟล์ XML นี้");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return createErrorView("เกิดข้อผิดพลาดในการพรีวิว:\n" + e.getMessage());
+        }
     }
 
     /**
-     * 🛠️ คัดแยกสายพันธุ์แท็ก XML เพื่อแปลงร่างกลายเป็น Object บนภาษา Java
+     * 🛠️ แผนกคัดแยกสายพันธุ์แท็ก XML เพื่อแปลงร่างเป็นอ็อบเจกต์จริงบนแอนดรอยด์
      */
-    private View createViewFromTagName(String tagName) {
-        if (tagName == null) return null;
+    private View createViewFromTag(String tagName, XmlPullParser parser) {
+        String lowerTag = tagName.toLowerCase();
 
         switch (tagName) {
-            case "LinearLayout":
+            case "LinearLayout": 
                 return new LinearLayout(context);
-            case "TextView":
+            case "FrameLayout": 
+                return new FrameLayout(context);
+            case "RelativeLayout": 
+                return new RelativeLayout(context);
+            case "ConstraintLayout": 
+                return new ConstraintLayout(context);
+            case "CardView": 
+                return new CardView(context);
+                
+            case "ScrollView":
+                ScrollView sv = new ScrollView(context);
+                sv.setFillViewport(true);
+                return sv;
+                
+            case "DrawerLayout":
+                // 🟢 แปลงโครงสร้าง DrawerLayout ให้เป็น LinearLayout พรีวิว เพื่อให้เรนเดอร์เนื้อหาข้างในได้ทันที ไม่ขึ้นตัวแดง
+                LinearLayout dlSim = new LinearLayout(context);
+                dlSim.setOrientation(LinearLayout.VERTICAL);
+                return dlSim;
+
+            case "TextView": 
                 return new TextView(context);
-            case "Button":
+                
+            case "EditText": 
+                EditText editText = new EditText(context);
+                editText.setHint("ช่องกรอกข้อมูล...");
+                editText.setHintTextColor(Color.GRAY);
+                return editText;
+                
+            case "Button": 
                 return new Button(context);
-            case "ImageView":
+                
+            case "ImageView": 
                 return new ImageView(context);
+
             default:
-                // แผนสำรอง: แจ้งเตือนไอคอนที่ยังไม่เปิดระบบ
-                TextView fallback = new TextView(context);
-                fallback.setText("[" + tagName + " ยังไม่รองรับพรีวิวเวอร์ชันนี้]");
-                fallback.setTextColor(Color.RED);
-                fallback.setPadding(10, 10, 10, 10);
-                return fallback;
+                // 🚀 ระบบ Adaptive Fallback: ถ้าเจอพวก Spinner, RecyclerView หรือแท็กที่ยังไม่รองรับ 
+                // ให้แปลงร่างมันเป็น LinearLayout เพื่อรองรับการใส่แอตทริบิวต์และแสดงผลจำลองทันที หน้าจอจะไม่เอ๋ออีกต่อไป
+                if (lowerTag.contains("spinner") || lowerTag.contains("view")) {
+                    LinearLayout adaptiveLayout = new LinearLayout(context);
+                    adaptiveLayout.setOrientation(LinearLayout.HORIZONTAL);
+                    adaptiveLayout.setGravity(Gravity.CENTER_VERTICAL);
+                    adaptiveLayout.setBackgroundColor(0x1AFFFFFF); // ใส่พื้นหลังโปร่งแสงจางๆ ให้รู้ว่าเป็นคอมโพเนนต์จำลอง
+                    adaptiveLayout.setPadding(20, 20, 20, 20);
+                    
+                    // ใส่ข้อความบอกสัญลักษณ์จำลองข้างใน
+                    TextView textLabel = new TextView(context);
+                    textLabel.setText(" ❖ [" + tagName + "]");
+                    textLabel.setTextColor(Color.LTGRAY);
+                    textLabel.setTextSize(13);
+                    adaptiveLayout.addView(textLabel);
+                    
+                    return adaptiveLayout;
+                }
+                
+                // สำหรับแท็กคอนเทนเนอร์ทั่วไปที่หลุดมา
+                LinearLayout defaultContainer = new LinearLayout(context);
+                defaultContainer.setOrientation(LinearLayout.VERTICAL);
+                return defaultContainer;
         }
     }
 
     /**
-     * 🎨 สกัดและพ่นแอตทริบิวต์ลงบนวัตถุ View (รวมถึงการตั้งค่า Layout พิ้นฐาน)
+     * 🎨 สกัดและแจกจ่ายแอตทริบิวต์ (คุณลักษณะ) ต่างๆ ลงบน View
      */
     private void applyAttributes(View view, XmlPullParser parser) {
-        // ค่าเริ่มต้นกว้างยาวเป็น WRAP_CONTENT ป้องกันหน้าจอค้างหรือเอ๋อ
         int width = ViewGroup.LayoutParams.WRAP_CONTENT;
         int height = ViewGroup.LayoutParams.WRAP_CONTENT;
         float weight = 0f;
+        int gravityValue = Gravity.NO_GRAVITY;
 
         for (int i = 0; i < parser.getAttributeCount(); i++) {
-            String attrName = parser.getAttributeName(i);
+            String attrName = getCleanAttributeName(parser.getAttributeName(i));
             String attrValue = parser.getAttributeValue(i);
-
-            if (attrName == null || attrValue == null) continue;
-
-            // คลีนชื่อเผื่อติดเนมสเปซ android: มาด้วย
-            if (attrName.contains(":")) {
-                attrName = attrName.substring(attrName.indexOf(":") + 1);
-            }
+            if (attrValue == null) continue;
 
             switch (attrName) {
                 case "layout_width":
@@ -142,37 +196,46 @@ public class XmlPreviewManager {
                     height = parseLayoutSize(attrValue);
                     break;
                 case "layout_weight":
-                    try {
-                        weight = Float.parseFloat(attrValue);
-                    } catch (Exception ignored) {}
+                    try { weight = Float.parseFloat(attrValue); } catch (Exception ignored) {}
                     break;
+
                 case "orientation":
-                    if (view instanceof LinearLayout) {
-                        ((LinearLayout) view).setOrientation(
-                                "vertical".equalsIgnoreCase(attrValue) ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL
-                        );
+                    if (view instanceof LinearLayout ll) {
+                        ll.setOrientation("vertical".equalsIgnoreCase(attrValue) 
+                                ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
                     }
                     break;
+
+                case "gravity":
+                    gravityValue = parseGravity(attrValue);
+                    if (view instanceof LinearLayout ll) {
+                        ll.setGravity(gravityValue);
+                    } else if (view instanceof TextView tv) {
+                        tv.setGravity(gravityValue);
+                    }
+                    break;
+
                 case "text":
-                    if (view instanceof TextView) {
-                        ((TextView) view).setText(attrValue);
+                    if (view instanceof TextView tv) {
+                        tv.setText(attrValue);
                     }
                     break;
+
                 case "textColor":
-                    if (view instanceof TextView) {
+                    if (view instanceof TextView tv) {
+                        try { tv.setTextColor(Color.parseColor(attrValue)); } catch (Exception ignored) {}
+                    }
+                    break;
+
+                case "textSize":
+                    if (view instanceof TextView tv) {
                         try {
-                            ((TextView) view).setTextColor(Color.parseColor(attrValue));
+                            float size = Float.parseFloat(attrValue.replaceAll("[^0-9.]", ""));
+                            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, size);
                         } catch (Exception ignored) {}
                     }
                     break;
-                case "textSize":
-                    if (view instanceof TextView) {
-                        float size = parseSizeInSp(attrValue);
-                        if (size > 0) {
-                            ((TextView) view).setTextSize(TypedValue.COMPLEX_UNIT_SP, size);
-                        }
-                    }
-                    break;
+
                 case "background":
                     try {
                         if (attrValue.startsWith("#")) {
@@ -180,28 +243,38 @@ public class XmlPreviewManager {
                         }
                     } catch (Exception ignored) {}
                     break;
+
+                case "padding":
+                    int p = parseDimensionPx(attrValue);
+                    view.setPadding(p, p, p, p);
+                    break;
+
                 case "src":
-                    // 🖼️ รองรับดึงรูปภาพจำลองพื้นฐานจากระบบ Android ติดเครื่องมาใช้งานก่อน
-                    if (view instanceof ImageView) {
-                        ImageView iv = (ImageView) view;
-                        if (attrValue.startsWith("@drawable/")) {
-                            // อนาคตสามารถเขียนโค้ดผูกไปดึงพาธไฟล์จริงในโฟลเดอร์ของท่านมาใส่ตรงนี้ได้เลยครับ!
-                            iv.setImageResource(android.R.drawable.ic_menu_gallery); 
-                        } else {
-                            iv.setImageResource(android.R.drawable.ic_menu_report_image);
-                        }
+                    if (view instanceof ImageView iv) {
+                        iv.setImageResource(android.R.drawable.ic_menu_gallery); // ใช้รูปแกลเลอรีระบบจำลอง
+                    }
+                    break;
+
+                case "hint":
+                    if (view instanceof EditText et) {
+                        et.setHint(attrValue);
                     }
                     break;
             }
         }
 
-        // ประกอบร่าง Layout ทั้งในส่วน กว้าง, ยาว และ น้ำหนักจัดวางให้เข้าที่
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(width, height);
+        // เซ็ต LayoutParams ให้วัตถุ
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(width, height);
         if (weight > 0) {
-            params.weight = weight;
+            lp.weight = weight;
         }
-        view.setLayoutParams(params);
+        if (gravityValue != Gravity.NO_GRAVITY) {
+            lp.gravity = gravityValue;
+        }
+        view.setLayoutParams(lp);
     }
+
+    // ==================== วิธีจัดการและคำนวณ Helper Methods ====================
 
     private int parseLayoutSize(String value) {
         if ("match_parent".equalsIgnoreCase(value) || "fill_parent".equalsIgnoreCase(value)) {
@@ -210,22 +283,62 @@ public class XmlPreviewManager {
         if ("wrap_content".equalsIgnoreCase(value)) {
             return ViewGroup.LayoutParams.WRAP_CONTENT;
         }
-        if (value.endsWith("dp")) {
-            try {
-                int dpVal = Integer.parseInt(value.replaceAll("[^0-9]", ""));
-                return (int) TypedValue.applyDimension(
-                        TypedValue.COMPLEX_UNIT_DIP, dpVal, context.getResources().getDisplayMetrics()
-                );
-            } catch (Exception ignored) {}
-        }
-        return ViewGroup.LayoutParams.WRAP_CONTENT;
+        return parseDimensionPx(value);
     }
 
-    private float parseSizeInSp(String value) {
+    private int parseDimensionPx(String value) {
         try {
-            return Float.parseFloat(value.replaceAll("[^0-9.]", ""));
+            int num = Integer.parseInt(value.replaceAll("[^0-9]", ""));
+            if (value.endsWith("dp") || value.endsWith("dip")) {
+                return (int) TypedValue.applyDimension(
+                        TypedValue.COMPLEX_UNIT_DIP, num, context.getResources().getDisplayMetrics());
+            }
+            if (value.endsWith("sp")) {
+                return (int) TypedValue.applyDimension(
+                        TypedValue.COMPLEX_UNIT_SP, num, context.getResources().getDisplayMetrics());
+            }
+            return num;
         } catch (Exception e) {
-            return -1;
+            return 0;
         }
+    }
+
+    private int parseGravity(String value) {
+        int gravity = Gravity.NO_GRAVITY;
+        if (value == null) return gravity;
+        String[] parts = value.toLowerCase().split("\\|");
+        for (String part : parts) {
+            switch (part.trim()) {
+                case "center": gravity |= Gravity.CENTER; break;
+                case "center_vertical": gravity |= Gravity.CENTER_VERTICAL; break;
+                case "center_horizontal": gravity |= Gravity.CENTER_HORIZONTAL; break;
+                case "top": gravity |= Gravity.TOP; break;
+                case "bottom": gravity |= Gravity.BOTTOM; break;
+                case "left": gravity |= Gravity.LEFT; break;
+                case "right": gravity |= Gravity.RIGHT; break;
+            }
+        }
+        return gravity;
+    }
+
+    private String getCleanTagName(String tag) {
+        if (tag == null) return "";
+        return tag.contains(".") ? tag.substring(tag.lastIndexOf(".") + 1) : tag;
+    }
+
+    private String getCleanAttributeName(String attr) {
+        if (attr == null) return "";
+        return attr.contains(":") ? attr.substring(attr.lastIndexOf(":") + 1) : attr;
+    }
+
+    private View createErrorView(String message) {
+        TextView errorView = new TextView(context);
+        errorView.setText("❌ " + message);
+        errorView.setTextColor(Color.RED);
+        errorView.setBackgroundColor(0x33FF0000);
+        errorView.setPadding(32, 48, 32, 48);
+        errorView.setTextSize(14);
+        errorView.setGravity(Gravity.CENTER);
+        return errorView;
     }
 }
