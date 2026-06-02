@@ -223,7 +223,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-โค้ดที่ถูกต้องไหมครับ
       // 🐙 เมทอดรันบิวด์บนคลาวด์: เวอร์ชันแก้ไขระบบดักจับ Error และวาร์ปพร้อมไฮไลต์สี 120%
     private void startCloudBuildPipeline() {
         if (currentProject == null) {
