@@ -353,7 +353,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * 🚀 เวอร์ชันปรับปรุงสูงสุด: ดีเลย์การไฮไลต์เพื่อให้ CodeEditor โหลด Layout ไฟล์เสร็จก่อน สกัดอาการไฮไลต์เบี้ยวหรือเฟล
+     * 🚀 เวอร์ชันจบงาน: ขีดเส้นใต้สีแดงตรงจุดผิดพลาดโดยตรง (ไม่ใช้ระบบลากคลุมข้อความ)
      */
     private void executeJumpToError(final ParsedError errorItem) {
         if (errorItem == null || currentProject == null) return;
@@ -367,36 +367,59 @@ public class MainActivity extends AppCompatActivity {
             appendLog("📂 กำลังตรวจสอบพิกัดไฟล์ในเครื่อง: " + targetFile.getAbsolutePath(), TerminalColor.LOG_GRAY);
 
             if (targetFile.exists()) {
-                // 1. สั่งให้เปิดไฟล์ขึ้นมาบนแท็บหลักก่อน
+                // 1. สั่งเปิดไฟล์กางออกมาหน้าจอหลัก
                 openFile(targetFile); 
                 
                 if (codeEditor != null) {
                     final int zeroBasedLine = Math.max(0, errorItem.line - 1); 
                     final int targetColumn = Math.max(0, errorItem.column);
 
-                    // 2. ใช้ postDelayed เพื่อรอให้ CodeEditor เคลียร์คิวประมวลผลและการวาดข้อความของไฟล์ใหม่ให้เสร็จสมบูรณ์ (ป้องกันการพิกัดหลุด)
+                    // 2. หน่วงเวลารอให้เนื้อหาไฟล์ประมวลผลลงตัวเรนเดอร์เสร็จก่อน
                     codeEditor.postDelayed(() -> {
                         try {
-                            // ดีดหน้าจอไปที่บรรทัดเป้าหมาย
-                            codeEditor.jumpToLine(zeroBasedLine);            
-                            codeEditor.setSelection(zeroBasedLine, targetColumn); 
-                            
+                            // เคลียร์ประวัติการลากแถบไฮไลต์เก่าและการค้นหาเดิมทั้งหมด
                             if (codeEditor.getSearcher() != null) {
                                 codeEditor.getSearcher().stopSearch();
                             }
+                            codeEditor.setSelection(zeroBasedLine, targetColumn);
+
+                            // 🌟 3. วิธีบังคับขีดเส้นใต้สีแดงลงบนจุดที่พังโดยตรง
+                            // ตรวจสอบว่าระบบ Editor มีแอปพลิเคชันรองรับ Diagnostic Span หรือไม่
+                            if (codeEditor.getText() != null) {
+                                int lineStart = codeEditor.getText().getLineStart(zeroBasedLine);
+                                int lineEnd = codeEditor.getText().getLineEnd(zeroBasedLine);
+                                
+                                // คํานวณจุดเริ่มต้นและจุดสิ้นสุดของคำที่จะขีดเส้นใต้สีแดง
+                                int highlightStart = lineStart + targetColumn;
+                                int highlightEnd = Math.min(lineEnd, highlightStart + 15); 
+                                
+                                // ป้องกันดัชนีวิ่งทะลุความยาวของตัวอักษรจริงในหน้าจอ
+                                if (highlightStart < codeEditor.getText().length()) {
+                                    highlightEnd = Math.min(highlightEnd, codeEditor.getText().length());
+                                    
+                                    // สร้าง Span สีแดงชนิดขีดเส้นใต้ผิดพลาด (Underline Error) 
+                                    // หมายเหตุ: โครงสร้างเซ็ตสแปนนี้อ้างอิงตามคลาสมาตรฐานของ Android Text / Editor
+                                    android.text.style.UnderlineSpan redUnderline = new android.text.style.UnderlineSpan();
+                                    android.text.style.ForegroundColorSpan redColor = new android.text.style.ForegroundColorSpan(Color.RED);
+                                    
+                                    codeEditor.getText().setSpan(redUnderline, highlightStart, highlightEnd, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                    codeEditor.getText().setSpan(redColor, highlightStart, highlightEnd, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                }
+                            }
+
+                            // 4. ดีดหน้าจอกระโดดพาวาร์ปไปหาบรรทัดที่พังทันที
+                            codeEditor.jumpToLine(zeroBasedLine);            
                             
-                            // 🌟 จัดการลากแถบสีเน้นคำผิดพลาดครอบคลุมจุดพัง
-                            codeEditor.setSelectionRegion(zeroBasedLine, 0, zeroBasedLine, targetColumn + 15);
-                            
-                            showToast("📂 วาร์ปไปยังจุดพังพร้อมทำไฮไลต์เรียบร้อยครับ");
+                            showToast("📍 วาร์ปไปยังจุดพังพร้อมขีดเส้นเตือนสีแดงเรียบร้อยครับ");
                         } catch (Exception layoutEx) {
                             layoutEx.printStackTrace();
-                            // กรณีฉุกเฉิน: วางเคอร์เซอร์ธรรมดาหาก Layout ไฮไลต์ซับซ้อนเกินไป
+                            // ระบบสำรอง: ดีดตัวกะพริบไปตั้งไว้ตรงไอคอนบรรทัดนั้น ๆ
                             try {
+                                codeEditor.jumpToLine(zeroBasedLine);
                                 codeEditor.setSelection(zeroBasedLine, targetColumn);
                             } catch (Exception e) { e.printStackTrace(); }
                         }
-                    }, 250); // หน่วงเวลา 250ms กำลังดีสำหรับการโหลดสลับไฟล์บนสมาร์ทโฟน
+                    }, 300); // เพิ่มเวลาเป็น 300ms เพื่อความชัวร์ในการเปิดไฟล์ขนาดใหญ่บนมือถือ
                 }
             } else {
                 showToast("❌ ไม่พบตำแหน่งไฟล์นี้บนหน่วยความจำในเครื่องท่าน");
