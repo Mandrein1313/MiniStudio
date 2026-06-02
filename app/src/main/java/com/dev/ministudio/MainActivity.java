@@ -263,13 +263,9 @@ public class MainActivity extends AppCompatActivity {
                 public void onLogAppend(final String text, final int color) { 
                     if (isPipelineStopped[0]) return;
 
-                    // แปลงข้อความเป็นพิมพ์เล็กเพื่อตรวจสอบเงื่อนไข
                     String lowerText = text != null ? text.toLowerCase() : "";
-
-                    // 🌟 1. ดักจับข้อความ Error ทุกรูปแบบ
                     boolean isErrorLine = lowerText.contains("error:") || lowerText.contains("failed:") || color == Color.RED;
 
-                    // ส่งให้ตัววิเคราะห์ระบบบั๊กประมวลผลพิกัด
                     boolean hasFailed = analyzer.analyzeLine(text, color, new BuildSummaryAnalyzer.LogOutputListener() {
                         @Override
                         public void onAppendLog(String logText, int logColor) {
@@ -283,12 +279,10 @@ public class MainActivity extends AppCompatActivity {
                         return;
                     }
 
-                    // 🌟 2. ป้องกัน Log เบิ้ลซ้ำซ้อนจากตัว Analyzer 
                     if (text != null && (text.startsWith("📍") || text.startsWith("💬"))) {
                         return;
                     }
 
-                    // 3. แสดงผล Log แยกตามกลุ่มสี
                     if (color == Color.GREEN || lowerText.contains("success")) {
                         appendLog(text, TerminalColor.SUGGEST_GREEN); 
                     } else if (color == Color.YELLOW) {
@@ -335,8 +329,8 @@ public class MainActivity extends AppCompatActivity {
                             appendLog("💬 ข้อความพัง: " + err.message, TerminalColor.TARGET_YELLOW);
                             appendLog("======================================", TerminalColor.DETAIL_RED);
                             
-                            // เรียกใช้งานระบบวาร์ปเซฟตี้
-                            executeJumpToError(err);
+                            // ส่งงานต่อให้เธรดหลักสั่งเปิดและมาร์กจุดพังทันที
+                            runOnUiThread(() -> executeJumpToError(err));
                         }
                     }
                 }
@@ -353,7 +347,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * 🚀 เวอร์ชันจบงาน: ขีดเส้นใต้สีแดงตรงจุดผิดพลาดโดยตรง (ไม่ใช้ระบบลากคลุมข้อความ)
+     * 🚀 เวอร์ชันเคลียร์งาน: ดีดหน้าจอ วางคีย์บอร์ดล็อกจุดพัง และดึงแผง Error แดงเตือนใจ
      */
     private void executeJumpToError(final ParsedError errorItem) {
         if (errorItem == null || currentProject == null) return;
@@ -367,59 +361,42 @@ public class MainActivity extends AppCompatActivity {
             appendLog("📂 กำลังตรวจสอบพิกัดไฟล์ในเครื่อง: " + targetFile.getAbsolutePath(), TerminalColor.LOG_GRAY);
 
             if (targetFile.exists()) {
-                // 1. สั่งเปิดไฟล์กางออกมาหน้าจอหลัก
+                // 1. สั่งเปิดไฟล์เป้าหมายกางขึ้นหน้าจอ
                 openFile(targetFile); 
                 
                 if (codeEditor != null) {
                     final int zeroBasedLine = Math.max(0, errorItem.line - 1); 
                     final int targetColumn = Math.max(0, errorItem.column);
 
-                    // 2. หน่วงเวลารอให้เนื้อหาไฟล์ประมวลผลลงตัวเรนเดอร์เสร็จก่อน
+                    // 2. ใช้ post ขจัดปัญหาแย่งเธรดเรนเดอร์ของตัววิวโค้ด
                     codeEditor.postDelayed(() -> {
                         try {
-                            // เคลียร์ประวัติการลากแถบไฮไลต์เก่าและการค้นหาเดิมทั้งหมด
                             if (codeEditor.getSearcher() != null) {
                                 codeEditor.getSearcher().stopSearch();
                             }
-                            codeEditor.setSelection(zeroBasedLine, targetColumn);
-
-                            // 🌟 3. วิธีบังคับขีดเส้นใต้สีแดงลงบนจุดที่พังโดยตรง
-                            // ตรวจสอบว่าระบบ Editor มีแอปพลิเคชันรองรับ Diagnostic Span หรือไม่
-                            if (codeEditor.getText() != null) {
-                                int lineStart = codeEditor.getText().getLineStart(zeroBasedLine);
-                                int lineEnd = codeEditor.getText().getLineEnd(zeroBasedLine);
-                                
-                                // คํานวณจุดเริ่มต้นและจุดสิ้นสุดของคำที่จะขีดเส้นใต้สีแดง
-                                int highlightStart = lineStart + targetColumn;
-                                int highlightEnd = Math.min(lineEnd, highlightStart + 15); 
-                                
-                                // ป้องกันดัชนีวิ่งทะลุความยาวของตัวอักษรจริงในหน้าจอ
-                                if (highlightStart < codeEditor.getText().length()) {
-                                    highlightEnd = Math.min(highlightEnd, codeEditor.getText().length());
-                                    
-                                    // สร้าง Span สีแดงชนิดขีดเส้นใต้ผิดพลาด (Underline Error) 
-                                    // หมายเหตุ: โครงสร้างเซ็ตสแปนนี้อ้างอิงตามคลาสมาตรฐานของ Android Text / Editor
-                                    android.text.style.UnderlineSpan redUnderline = new android.text.style.UnderlineSpan();
-                                    android.text.style.ForegroundColorSpan redColor = new android.text.style.ForegroundColorSpan(Color.RED);
-                                    
-                                    codeEditor.getText().setSpan(redUnderline, highlightStart, highlightEnd, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                                    codeEditor.getText().setSpan(redColor, highlightStart, highlightEnd, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                                }
-                            }
-
-                            // 4. ดีดหน้าจอกระโดดพาวาร์ปไปหาบรรทัดที่พังทันที
+                            
+                            // 3. ดีดหน้าจอกระโดดไปจุดเกิดเหตุแบบแม่นยำ
                             codeEditor.jumpToLine(zeroBasedLine);            
                             
-                            showToast("📍 วาร์ปไปยังจุดพังพร้อมขีดเส้นเตือนสีแดงเรียบร้อยครับ");
+                            // 4. บังคับวางเคอร์เซอร์กะพริบและทำไฮไลต์แถบเลือก (Text Selection) คลุมจุดที่คอมไพเลอร์มองว่าพัง
+                            // วิธีนี้ได้ผลแน่นอนเพราะเป็นการเรียกใช้ฟังก์ชันดั้งเดิมของตัวประมวลผล Editor
+                            codeEditor.setSelection(zeroBasedLine, targetColumn);
+                            codeEditor.setSelectionRegion(zeroBasedLine, targetColumn, zeroBasedLine, targetColumn + 4);
+                            
+                            // 🌟 5. ไม่ง้อเส้นใต้สีแดง แต่ใช้วิธีแสดงแถบแจ้งเตือนบิ๊กเบิ้มขึ้นจอแทน
+                            if (rvErrorPanel != null) {
+                                rvErrorPanel.setVisibility(View.VISIBLE);
+                                // หากคุณมี TextView สำหรับพ่นข้อความพังในแผงควบคุม สามารถยัดคำสั่งตรงนี้ได้ครับ เช่น:
+                                // tvErrorShortMessage.setText("Error บรรทัดที่ " + errorItem.line + ": " + errorItem.message);
+                            }
+                            
+                            showToast("🚨 วาร์ปล็อกเป้าหมายพังในบรรทัดที่ " + errorItem.line + " สำเร็จครับ!");
                         } catch (Exception layoutEx) {
                             layoutEx.printStackTrace();
-                            // ระบบสำรอง: ดีดตัวกะพริบไปตั้งไว้ตรงไอคอนบรรทัดนั้น ๆ
-                            try {
-                                codeEditor.jumpToLine(zeroBasedLine);
-                                codeEditor.setSelection(zeroBasedLine, targetColumn);
-                            } catch (Exception e) { e.printStackTrace(); }
+                            // แผนสำรองกรณีหน้าจอโหลดช้า
+                            codeEditor.jumpToLine(zeroBasedLine);
                         }
-                    }, 300); // เพิ่มเวลาเป็น 300ms เพื่อความชัวร์ในการเปิดไฟล์ขนาดใหญ่บนมือถือ
+                    }, 200); 
                 }
             } else {
                 showToast("❌ ไม่พบตำแหน่งไฟล์นี้บนหน่วยความจำในเครื่องท่าน");
@@ -429,8 +406,6 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
     }
-
-
 
     private void initializeFileTree() {
         if (currentProject == null) return;
