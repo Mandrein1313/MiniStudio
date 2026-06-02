@@ -12,7 +12,7 @@ import org.json.JSONArray;
 public class GeminiAssistant {
 
     // 🔑 ใช้คีย์ Groq ที่คุณมนตรีได้มา
-    private static final String API_KEY = "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";
+    private static final String API_KEY = "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"; 
     private static final String API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
     public interface AICallback {
@@ -78,5 +78,5 @@ public class GeminiAssistant {
         } catch (Exception e) {
             return "เกิดข้อผิดพลาดในการอ่านข้อมูล: " + e.getMessage();
         }
-    }}
+    }
 }
