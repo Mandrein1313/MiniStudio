@@ -79,7 +79,6 @@ public class XmlPreviewManager {
 
                         if (rootView == null) {
                             rootView = view;
-                            // 🔥 ทำให้ Root View เต็มขอบจออัตโนมัติ
                             makeRootViewFullScreen(rootView);
                         } else if (!parentStack.isEmpty()) {
                             parentStack.peek().addView(view);
@@ -109,14 +108,10 @@ public class XmlPreviewManager {
         }
     }
 
-    /** ทำให้ Root View เต็มขอบหน้าจอ */
     private void makeRootViewFullScreen(View rootView) {
         ViewGroup.LayoutParams params = rootView.getLayoutParams();
         if (params == null) {
-            params = new ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-            );
+            params = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         } else {
             params.width = ViewGroup.LayoutParams.MATCH_PARENT;
             params.height = ViewGroup.LayoutParams.MATCH_PARENT;
@@ -176,10 +171,8 @@ public class XmlPreviewManager {
                 return rv;
             case "Spinner":
                 Spinner spinner = new Spinner(context);
-                // เพิ่มข้อมูลตัวอย่าง
-                ArrayAdapter<String> adapter = new ArrayAdapter<>(context,
-                        android.R.layout.simple_spinner_item, 
-                        new String[]{"ตัวเลือก 1", "ตัวเลือก 2", "ตัวเลือก 3"});
+                ArrayAdapter<String> adapter = new ArrayAdapter<>(context, android.R.layout.simple_spinner_item,
+                        new String[]{"เลือกโปรเจกต์", "ตัวเลือก 1", "ตัวเลือก 2"});
                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
                 spinner.setAdapter(adapter);
                 return spinner;
@@ -208,7 +201,6 @@ public class XmlPreviewManager {
     }
 
     private void applyAttributes(View view, XmlPullParser parser) {
-        // ... (โค้ดเดิมทั้งหมด - ผมย่อเพื่อความกระชับ)
         ViewGroup.LayoutParams params = new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -238,11 +230,15 @@ public class XmlPreviewManager {
                     }
                     break;
                 case "text":
-                    if (view instanceof TextView tv) tv.setText(resourceResolver.resolveString(attrValue));
+                    if (view instanceof TextView tv) {
+                        tv.setText(resourceResolver.resolveString(attrValue));
+                    }
                     break;
                 case "title":
                 case "app:title":
-                    if (view instanceof Toolbar tb) tb.setTitle(resourceResolver.resolveString(attrValue));
+                    if (view instanceof Toolbar tb) {
+                        tb.setTitle(resourceResolver.resolveString(attrValue));
+                    }
                     break;
                 case "textColor":
                 case "titleTextColor":
@@ -250,13 +246,17 @@ public class XmlPreviewManager {
                     if (view instanceof TextView tv) {
                         tv.setTextColor(resourceResolver.resolveColor(attrValue));
                     } else if (view instanceof Toolbar tb) {
-                        try { tb.setTitleTextColor(Color.parseColor(attrValue)); } catch (Exception ignored) {}
+                        try {
+                            tb.setTitleTextColor(Color.parseColor(attrValue));
+                        } catch (Exception ignored) {}
                     }
                     break;
                 case "background":
                     try {
                         if (attrValue.startsWith("#")) {
                             view.setBackgroundColor(Color.parseColor(attrValue));
+                        } else {
+                            view.setBackgroundColor(resourceResolver.resolveColor(attrValue));
                         }
                     } catch (Exception ignored) {}
                     break;
@@ -269,7 +269,6 @@ public class XmlPreviewManager {
         view.setLayoutParams(params);
     }
 
-    // Helper Methods (parseLayoutSize, parseVisibility, ResourceResolver, etc.)
     private int parseLayoutSize(String value) {
         if ("match_parent".equalsIgnoreCase(value) || "fill_parent".equalsIgnoreCase(value)) {
             return ViewGroup.LayoutParams.MATCH_PARENT;
@@ -297,6 +296,73 @@ public class XmlPreviewManager {
         return attr.contains(":") ? attr.substring(attr.lastIndexOf(":") + 1) : attr;
     }
 
-    // ResourceResolver คงเดิม (ย่อ)
-    private static class ResourceResolver { /* ... เหมือนเดิม ... */ }
+    // ====================== RESOURCE RESOLVER ======================
+    private static class ResourceResolver {
+        private final Context context;
+        private final Resources resources;
+
+        ResourceResolver(Context context) {
+            this.context = context;
+            this.resources = context.getResources();
+        }
+
+        String resolveString(String value) {
+            if (value == null) return "";
+            if (value.startsWith("@string/")) {
+                String name = value.substring(8);
+                try {
+                    int id = resources.getIdentifier(name, "string", context.getPackageName());
+                    return id != 0 ? resources.getString(id) : value;
+                } catch (Exception e) { return value; }
+            }
+            return value;
+        }
+
+        int resolveColor(String value) {
+            if (value == null) return Color.BLACK;
+            if (value.startsWith("#")) {
+                try { return Color.parseColor(value); } catch (Exception e) { return Color.BLACK; }
+            }
+            if (value.startsWith("@color/")) {
+                String name = value.substring(7);
+                try {
+                    int id = resources.getIdentifier(name, "color", context.getPackageName());
+                    return id != 0 ? resources.getColor(id) : Color.BLACK;
+                } catch (Exception e) { return Color.BLACK; }
+            }
+            return Color.BLACK;
+        }
+
+        float resolveDimension(String value) {
+            if (value == null) return 14f;
+            if (value.startsWith("@dimen/")) {
+                String name = value.substring(7);
+                try {
+                    int id = resources.getIdentifier(name, "dimen", context.getPackageName());
+                    return id != 0 ? resources.getDimension(id) : 14f;
+                } catch (Exception e) { return 14f; }
+            }
+            return parseFloatDimension(value);
+        }
+
+        int resolveDimensionPx(String value) {
+            return (int) resolveDimension(value);
+        }
+
+        private float parseFloatDimension(String value) {
+            try {
+                if (value.endsWith("dp")) {
+                    float dp = Float.parseFloat(value.replace("dp", "").trim());
+                    return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.getDisplayMetrics());
+                }
+                if (value.endsWith("sp")) {
+                    float sp = Float.parseFloat(value.replace("sp", "").trim());
+                    return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, resources.getDisplayMetrics());
+                }
+                return Float.parseFloat(value);
+            } catch (Exception e) {
+                return 0f;
+            }
+        }
+    }
 }
