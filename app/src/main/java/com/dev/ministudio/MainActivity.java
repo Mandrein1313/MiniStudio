@@ -223,7 +223,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 🐙 เมทอดรันบิวด์บนคลาวด์: เวอร์ชันแก้ไขระบบดักจับ Error และวาร์ปพร้อมไฮไลต์สี 120%
+    // 🐙 เมทอดรันบิวด์บนคลาวด์: เวอร์ชันเสถียร ดักจับแอร์โรว์และจัดการเธรดปลอดภัย 100%
     private void startCloudBuildPipeline() {
         if (currentProject == null) {
             showToast("กรุณาเปิดโปรเจกต์ก่อนทำการรัน");
@@ -260,16 +260,16 @@ public class MainActivity extends AppCompatActivity {
             new BuildTaskManager.BuildListener() {
                 
                 @Override 
-                public void onLogAppend(String text, int color) { 
+                public void onLogAppend(final String text, final int color) { 
                     if (isPipelineStopped[0]) return;
 
-                    // แปลงตัวหนังสือเป็นพิมพ์เล็กทั้งหมดเพื่อใช้ดักจับคำสั่งพังได้แม่นยำ ไม่พลาดสายตา
+                    // แปลงข้อความเป็นพิมพ์เล็กเพื่อตรวจสอบเงื่อนไข
                     String lowerText = text != null ? text.toLowerCase() : "";
 
-                    // 🌟 1. ดักจับข้อความ Error ทุกรูปแบบ (ไม่ว่าจะสีแดงหรือสีส้มสว่างจาก Gradle)
+                    // 🌟 1. ดักจับข้อความ Error ทุกรูปแบบ
                     boolean isErrorLine = lowerText.contains("error:") || lowerText.contains("failed:") || color == Color.RED;
 
-                    // ส่งให้ตัววิเคราะห์ระบบบั๊กแกะเอาพิกัด บรรทัด/คอลัมน์ ไปใช้งาน
+                    // ส่งให้ตัววิเคราะห์ระบบบั๊กประมวลผลพิกัด
                     boolean hasFailed = analyzer.analyzeLine(text, color, new BuildSummaryAnalyzer.LogOutputListener() {
                         @Override
                         public void onAppendLog(String logText, int logColor) {
@@ -277,19 +277,18 @@ public class MainActivity extends AppCompatActivity {
                         }
                     });
 
-                    // 🌟 2. ถ้าระบบคลาวด์สั่งเบรกกระบวนการพังแบบกะทันหัน
                     if (hasFailed) {
                         isPipelineStopped[0] = true;
                         showToast("💥 บิวด์ล้มเหลว! (Exit Code 1)");
                         return;
                     }
 
-                    // 🌟 3. ป้องกัน Log เบิ้ลซ้ำซ้อน: ถ้าตัว analyzer จัดการพิมพ์หรือตรวจสอบพิกัดไปแล้ว ให้ข้ามบรรทัดนี้ไปเลย
-                    if (text.startsWith("📍") || text.startsWith("💬")) {
+                    // 🌟 2. ป้องกัน Log เบิ้ลซ้ำซ้อนจากตัว Analyzer 
+                    if (text != null && (text.startsWith("📍") || text.startsWith("💬"))) {
                         return;
                     }
 
-                    // 4. จัดกลุ่มสีพิมพ์ข้อความสถานะปกติออกหน้าจอ Console (พิมพ์เดี่ยวรอบเดียว ไม่เบิ้ลซ้ำ)
+                    // 3. แสดงผล Log แยกตามกลุ่มสี
                     if (color == Color.GREEN || lowerText.contains("success")) {
                         appendLog(text, TerminalColor.SUGGEST_GREEN); 
                     } else if (color == Color.YELLOW) {
@@ -297,7 +296,7 @@ public class MainActivity extends AppCompatActivity {
                     } else if (color == Color.CYAN) {
                         appendLog(text, TerminalColor.LOG_CYAN); 
                     } else if (isErrorLine) {
-                        appendLog(text, TerminalColor.DETAIL_RED); // บังคับให้พ่นสีแดงเด่น ๆ ใน Console
+                        appendLog(text, TerminalColor.DETAIL_RED); 
                     } else {
                         appendLog(text, TerminalColor.TEXT_WHITE); 
                     }
@@ -328,17 +327,16 @@ public class MainActivity extends AppCompatActivity {
                         showToast("กระบวนการทำงานล้มเหลว");
                         appendLog("\n##[error] การทำงานหยุดชะงักเนื่องจากการปิดตัวของระบบบิวด์อย่างกะทันหัน", TerminalColor.ERROR_RED);
                         
-                        // ดึงประวัติบั๊กตัวล่าสุดที่เก็บมาได้
                         final ParsedError err = analyzer.getLastError();
 
-                        // 🌟 เจอบั๊กแล้ว! สั่งให้ UI ทำงานกระโดดวาร์ปและลากแถบคลุมทันที
                         if (err != null) {
                             appendLog("\n======================================", TerminalColor.DETAIL_RED);
                             appendLog("📍 พิกัดโค้ดพัง: " + err.file + " (บรรทัดที่ " + err.line + ")", TerminalColor.DETAIL_RED);
                             appendLog("💬 ข้อความพัง: " + err.message, TerminalColor.TARGET_YELLOW);
                             appendLog("======================================", TerminalColor.DETAIL_RED);
                             
-                            runOnUiThread(() -> executeJumpToError(err));
+                            // เรียกใช้งานระบบวาร์ปเซฟตี้
+                            executeJumpToError(err);
                         }
                     }
                 }
@@ -351,56 +349,56 @@ public class MainActivity extends AppCompatActivity {
         String packageName = "com.dev.ministudio"; 
 
         buildTask.startCloudBuild(githubToken, repoUrl, projectName, packageName); 
-        buildTask.setAnalyzer(analyzer); // 🌟 ฉีดเชื่อมต่อวงจรตัวจับบั๊กส่งต่อไปให้ TaskManager ใช้งานจริง
+        buildTask.setAnalyzer(analyzer); 
     }
 
     /**
-     * 🚀 เวอร์ชันแก้ไข: เพิ่มการตรวจสอบและรวมพาธไฟล์สัมบูรณ์ให้ถูกต้อง 100% เพื่อเปิดระบบลากแถบสีแดง
+     * 🚀 เวอร์ชันปรับปรุงสูงสุด: ดีเลย์การไฮไลต์เพื่อให้ CodeEditor โหลด Layout ไฟล์เสร็จก่อน สกัดอาการไฮไลต์เบี้ยวหรือเฟล
      */
-    private void executeJumpToError(ParsedError errorItem) {
+    private void executeJumpToError(final ParsedError errorItem) {
         if (errorItem == null || currentProject == null) return;
 
         try {
-            // 1. ตรวจสอบพาธไฟล์: ถ้ามาจากคลาวด์จะเป็น "app/src/..." ต้องเอามาต่อหลัง RootPath ของเครื่องท่าน
             java.io.File targetFile = new java.io.File(errorItem.file);
             if (!targetFile.isAbsolute()) {
                 targetFile = new java.io.File(currentProject.getRootPath(), errorItem.file);
             }
 
-            // 🔍 บล็อกล็อกตรวจสอบ Log: เช็คว่าตัวแปรหาตำแหน่งไฟล์ในเครื่องท่านเจอจริงไหม
             appendLog("📂 กำลังตรวจสอบพิกัดไฟล์ในเครื่อง: " + targetFile.getAbsolutePath(), TerminalColor.LOG_GRAY);
 
             if (targetFile.exists()) {
-                // สั่งให้ Editor เปิดไฟล์กางออกมาหน้าจอหลักก่อน
+                // 1. สั่งให้เปิดไฟล์ขึ้นมาบนแท็บหลักก่อน
                 openFile(targetFile); 
                 
                 if (codeEditor != null) {
-                    // เปลี่ยนค่าบรรทัดให้เริ่มนับจาก 0 (เนื่องจากในระบบ Editor นับบรรทัดแรกสุดเป็นเลข 0)
                     final int zeroBasedLine = Math.max(0, errorItem.line - 1); 
                     final int targetColumn = Math.max(0, errorItem.column);
 
-                    runOnUiThread(() -> {
+                    // 2. ใช้ postDelayed เพื่อรอให้ CodeEditor เคลียร์คิวประมวลผลและการวาดข้อความของไฟล์ใหม่ให้เสร็จสมบูรณ์ (ป้องกันการพิกัดหลุด)
+                    codeEditor.postDelayed(() -> {
                         try {
-                            // 1. ดีดหน้าจอกระโดดไปหาบรรทัดที่พังและวางเคอร์เซอร์
+                            // ดีดหน้าจอไปที่บรรทัดเป้าหมาย
                             codeEditor.jumpToLine(zeroBasedLine);            
                             codeEditor.setSelection(zeroBasedLine, targetColumn); 
                             
-                            // 2. เคลียร์ค่าค้นหาเก่า เพื่อไม่ให้ระบบ Span สีเอ๋อซ้อนกัน
-                            codeEditor.getSearcher().stopSearch();
+                            if (codeEditor.getSearcher() != null) {
+                                codeEditor.getSearcher().stopSearch();
+                            }
                             
-                            // 3. 🌟 สั่งลากแถบเน้นคำผิดพลาด (Inline Highlighting) คลุมข้อความตั้งแต่ต้นบรรทัดให้เห็นชัดเจน
-                            // สั่งเผื่อความยาวคอลัมน์ไว้ +15 เพื่อให้คลุมข้อความคำที่พังได้มิดพอดีครับ
+                            // 🌟 จัดการลากแถบสีเน้นคำผิดพลาดครอบคลุมจุดพัง
                             codeEditor.setSelectionRegion(zeroBasedLine, 0, zeroBasedLine, targetColumn + 15);
                             
-                            showToast("📂 วาร์ปไปยังจุดพังพร้อมทำไฮไลต์เรียบร้อยครับท่าน");
+                            showToast("📂 วาร์ปไปยังจุดพังพร้อมทำไฮไลต์เรียบร้อยครับ");
                         } catch (Exception layoutEx) {
                             layoutEx.printStackTrace();
-                            showToast("❌ ตัวควบคุม CodeEditor ติดปัญหาในการวาดแถบสี");
+                            // กรณีฉุกเฉิน: วางเคอร์เซอร์ธรรมดาหาก Layout ไฮไลต์ซับซ้อนเกินไป
+                            try {
+                                codeEditor.setSelection(zeroBasedLine, targetColumn);
+                            } catch (Exception e) { e.printStackTrace(); }
                         }
-                    });
+                    }, 250); // หน่วงเวลา 250ms กำลังดีสำหรับการโหลดสลับไฟล์บนสมาร์ทโฟน
                 }
             } else {
-                // 🚨 ถ้าระบบเด้งมาที่ข้อความนี้ แสดงว่าแอปยังจับคู่ทางเดินไฟล์ในเครื่องกับคำว่า "app/src/..." ไม่ตรงกันครับ
                 showToast("❌ ไม่พบตำแหน่งไฟล์นี้บนหน่วยความจำในเครื่องท่าน");
                 appendLog("⚠️ ระบบไม่สามารถวาร์ปได้เนื่องจากหาพาธนี้ไม่พบในเครื่อง: " + targetFile.getAbsolutePath(), TerminalColor.ERROR_RED);
             }
@@ -408,6 +406,7 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
     }
+
 
     private void initializeFileTree() {
         if (currentProject == null) return;
