@@ -1,20 +1,20 @@
 package com.dev.ministudio;
 
 import android.content.Context;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.Handler;
 import android.os.Looper;
 import android.speech.tts.TextToSpeech;
-import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
 import android.text.Spanned;
+import android.text.style.BackgroundColorSpan;
 import android.text.style.ForegroundColorSpan;
+import android.text.style.RelativeSizeSpan;
 import android.text.style.StyleSpan;
-import android.graphics.Color;
-import android.graphics.Typeface;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.ArrayList;
-import java.util.List;
 
 import com.dev.ministudio.ai.GeminiAssistant;
 
@@ -27,8 +27,7 @@ public class AiLayoutAnalyzer {
 
     public interface OnAnalysisListener {
         void onStart();
-        void onSuccess(SpannableString formattedResult);
-        void onCodeExtracted(List<String> codes); // เพิ่ม Callback สำหรับดึงโค้ด
+        void onSuccess(CharSequence formattedResult);
         void onError(String error);
     }
 
@@ -38,31 +37,16 @@ public class AiLayoutAnalyzer {
         initTTS(context);
     }
 
-    // ฟังก์ชันสำหรับดึงโค้ดจากข้อความตอบกลับของ AI
-    public List<String> extractCodes(String responseText) {
-        List<String> codes = new ArrayList<>();
-        // Regex ค้นหา code block ที่อยู่ใน ```
-        Pattern pattern = Pattern.compile("```[\\s\\S]*?```");
-        
-        Matcher matcher = pattern.matcher(responseText);
-        while (matcher.find()) {
-            String codeBlock = matcher.group();
-            // ลบ backticks และ language identifier (เช่น ```java)
-            String code = codeBlock
-                    .replaceAll("```\\w*\\s*", "")
-                    .replaceAll("```", "")
-                    .trim();
-            if (!code.isEmpty()) {
-                codes.add(code);
-            }
-        }
-        return codes;
-    }
-
     private void initTTS(Context context) {
         this.tts = new TextToSpeech(context, status -> {
             if (status == TextToSpeech.SUCCESS) {
-                tts.setLanguage(new Locale("th", "TH"));
+                int result = tts.setLanguage(new Locale("th", "TH"));
+                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    tts.setLanguage(Locale.US);
+                }
+                // ปรับความเร็วให้พอดี ไม่เร็วเกินไป
+                tts.setSpeechRate(0.85f);
+                tts.setPitch(1.0f);
                 ttsInitialized = true;
             }
         });
@@ -74,20 +58,12 @@ public class AiLayoutAnalyzer {
         aiAssistant.askAI(prompt, new GeminiAssistant.AICallback() {
             @Override
             public void onSuccess(final String responseText) {
-                mainHandler.post(() -> {
-                    processResponse(responseText, listener);
-                    // สกัดโค้ดและส่งกลับไปที่ UI ถ้ามีโค้ดในคำตอบ
-                    List<String> extracted = extractCodes(responseText);
-                    if (!extracted.isEmpty() && listener != null) {
-                        listener.onCodeExtracted(extracted);
-                    }
-                });
+                mainHandler.post(() -> processResponse(responseText, listener));
             }
-
             @Override
             public void onError(final String errorMessage) {
-                mainHandler.post(() -> { 
-                    if (listener != null) listener.onError(errorMessage); 
+                mainHandler.post(() -> {
+                    if (listener != null) listener.onError(errorMessage);
                 });
             }
         });
@@ -95,36 +71,35 @@ public class AiLayoutAnalyzer {
 
     public void askAi(String userQuestion, final OnAnalysisListener listener) {
         if (listener != null) listener.onStart();
-        String prompt = "คุณคือผู้เชี่ยวชาญด้าน Android Development ช่วยตอบคำถามและถ้ามีโค้ดตัวอย่าง ให้ใส่ใน Code Block (```) เสมอ:\n\n" 
-                        + userQuestion;
+        String prompt = "คุณคือผู้เชี่ยวชาญด้าน Android Development ช่วยตอบคำถามหรือให้คำแนะนำเกี่ยวกับเรื่องนี้ให้หน่อยครับ: \n\n" + userQuestion;
         aiAssistant.askAI(prompt, new GeminiAssistant.AICallback() {
             @Override
             public void onSuccess(final String responseText) {
-                mainHandler.post(() -> {
-                    processResponse(responseText, listener);
-                    List<String> extracted = extractCodes(responseText);
-                    if (!extracted.isEmpty() && listener != null) {
-                        listener.onCodeExtracted(extracted);
-                    }
-                });
+                mainHandler.post(() -> processResponse(responseText, listener));
             }
-
             @Override
             public void onError(final String errorMessage) {
-                mainHandler.post(() -> { 
-                    if (listener != null) listener.onError(errorMessage); 
+                mainHandler.post(() -> {
+                    if (listener != null) listener.onError(errorMessage);
                 });
             }
         });
     }
 
     private void processResponse(String responseText, OnAnalysisListener listener) {
-        // ลบ code block ออกเพื่อนำไปพูด
-        String cleanText = responseText.replaceAll("```[\\s\\S]*?```", "")
-                                      .replaceAll("[*#`]", "");
-
+        // ทำความสะอาดข้อความสำหรับการพูด และเพิ่มช่องว่างเพื่อให้ TTS เว้นจังหวะ
+        String cleanText = responseText.replaceAll("[*#`]", "")
+                                       .replaceAll("\\.", " . ")
+                                       .replaceAll("!", " ! ");
+        
         speakText(cleanText);
-        if (listener != null) listener.onSuccess(formatAiResponse(responseText));
+        
+        // จัดรูปแบบข้อความสำหรับแสดงผล
+        CharSequence formatted = formatAiResponse(responseText);
+        
+        if (listener != null) {
+            listener.onSuccess(formatted);
+        }
     }
 
     private void speakText(String text) {
@@ -133,36 +108,44 @@ public class AiLayoutAnalyzer {
         }
     }
 
-    private SpannableString formatAiResponse(String text) {
-        SpannableString spannable = new SpannableString(text);
-        highlightPattern(spannable, "(Error|ข้อผิดพลาด|ปัญหา|Bug)", Color.RED);
-        highlightPattern(spannable, "(แนะนำ|ควร|ดีกว่า|ปรับปรุง|แก้ไข)", Color.parseColor("#4CAF50"));
-        return spannable;
+    private CharSequence formatAiResponse(String text) {
+        String processedText = text.replaceAll("\\*\\*", "");
+        SpannableStringBuilder ssb = new SpannableStringBuilder(processedText);
+
+        // 1. หัวข้อสำคัญ (สีม่วงสดใส + ตัวใหญ่ขึ้น)
+        applyStyle(ssb, "(วิเคราะห์|คำแนะนำ|สรุป|คะแนน|หัวข้อ)", Color.parseColor("#9C27B0"), true, 1.2f, -1);
+
+        // 2. เน้น Error/Warning (สีแดงส้ม + พื้นหลังสีเหลืองอ่อน)
+        applyStyle(ssb, "(Error|ข้อผิดพลาด|บัค|Bug|⚠️)", Color.parseColor("#D32F2F"), true, 1.0f, Color.parseColor("#FFF9C4"));
+
+        // 3. เน้นทางออก/วิธีแก้ไข (สีเขียวเข้ม + พื้นหลังสีเขียวอ่อน)
+        applyStyle(ssb, "(แก้ไข|ปรับปรุง|ดีกว่า|✅|Solution)", Color.parseColor("#2E7D32"), true, 1.0f, Color.parseColor("#E8F5E9"));
+
+        // 4. เน้นตัวเลขคะแนน (สีน้ำเงินเข้ม + ตัวหนาพิเศษ)
+        applyStyle(ssb, "\\d+/10", Color.parseColor("#1565C0"), true, 1.1f, -1);
+
+        return ssb;
     }
 
-    private void highlightPattern(SpannableString spannable, String regex, int color) {
+    private void applyStyle(SpannableStringBuilder ssb, String regex, int color, boolean bold, float sizeScale, int bgColor) {
         Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(spannable.toString());
+        Matcher matcher = pattern.matcher(ssb.toString());
         while (matcher.find()) {
-            spannable.setSpan(new ForegroundColorSpan(color), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            spannable.setSpan(new StyleSpan(Typeface.BOLD), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            ssb.setSpan(new ForegroundColorSpan(color), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            if (bold) ssb.setSpan(new StyleSpan(Typeface.BOLD), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            if (sizeScale != 1.0f) ssb.setSpan(new RelativeSizeSpan(sizeScale), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            if (bgColor != -1) ssb.setSpan(new BackgroundColorSpan(bgColor), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
     }
 
-private String buildAnalysisPrompt(String fileName, String rawCode) {
-    return "ไฟล์: " + fileName +
-           "\n\nโค้ด:\n" + rawCode +
-           "\n\n" +
-           "วิเคราะห์และแก้ไขโค้ดให้สมบูรณ์ " +
-           "ตอบกลับเป็น Code Block ```java เท่านั้น " +
-           "ห้ามอธิบาย ห้ามใส่ข้อความอื่น";
-}
+    private String buildAnalysisPrompt(String fileName, String rawCode) {
+        return "ไฟล์: " + fileName + "\n\nโค้ด:\n" + rawCode + "\n\nช่วยวิเคราะห์ปัญหา, Code Smell, คำแนะนำ และให้คะแนน 1-10 เป็นภาษาไทย พร้อมใส่ Emoji ให้ด้วย (เช่น ⚠️, ✅, 🌟)";
+    }
 
     public void shutdown() {
-        if (tts != null) { 
-            tts.stop(); 
-            tts.shutdown(); 
-            tts = null; 
+        if (tts != null) {
+            try { tts.stop(); tts.shutdown(); } catch (Exception e) {}
+            tts = null;
         }
     }
 }
