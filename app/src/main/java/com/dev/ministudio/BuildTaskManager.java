@@ -21,6 +21,9 @@ import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+// 🌟 1. เพิ่มการ Import คลาส GeminiAssistant เข้ามาใช้งาน
+import com.dev.ministudio.ai.GeminiAssistant;
+
 public class BuildTaskManager {
 
     public interface BuildListener {
@@ -195,19 +198,78 @@ public class BuildTaskManager {
                     if (logConn.getResponseCode() == 200) {
                         BufferedReader logReader = new BufferedReader(new InputStreamReader(logConn.getInputStream()));
                         
-                        // 🌟 🛠️ แก้ไขจุดสำคัญ: เรียกใช้ตัวแปรวิเคราะห์ภายนอก (externalAnalyzer) หากมีการผูกไว้ 
-                        // เพื่อให้ค่าตำแหน่งพิกัดบั๊กลิงก์ย้อนกลับส่งไปทำงานร่วมกับ UI วาร์ปหน้าจอหลักได้จริงครับ
-                        BuildSummaryAnalyzer analyzer = (externalAnalyzer != null) ? externalAnalyzer : new BuildSummaryAnalyzer();
+                        // 🌟 ดึงตัวแปรวิเคราะห์ภายนอกมาใช้งาน และใส่เป็น final เพื่อให้เรียกใช้ใน Callback ได้ปลอดภัย
+                        final BuildSummaryAnalyzer analyzer = (externalAnalyzer != null) ? externalAnalyzer : new BuildSummaryAnalyzer();
                         
+                        // เริ่มแกะวิเคราะห์หาโค้ดพังด้วย Regex ชุดต่าง ๆ ดั้งเดิม
                         while ((line = logReader.readLine()) != null) {
-                            boolean shouldStop = analyzer.analyzeLine(line, COLOR_WARNING, (txt, col) -> sendProgress(txt, col));
+
+                            boolean shouldStop =
+                                    analyzer.analyzeLine(
+                                            line,
+                                            COLOR_WARNING,
+                                            (txt, col) -> sendProgress(txt, col));
+
                             if (shouldStop) {
                                 break;
                             }
                         }
+
                         logReader.close();
 
-                        analyzer.printSummary((txt, col) -> sendProgress(txt, col));
+                        String prompt = analyzer.createAiPrompt();
+
+                        // ถ้าไม่มี Prompt (ไม่มี Error ตัวไหนจับได้เลย) ให้ข้ามระบบ AI ไปพ่น Summary ปกติ
+                        if (prompt == null) {
+
+                            analyzer.printSummary(
+                                    (txt, col) -> sendProgress(txt, col));
+
+                            return;
+                        }
+
+                        sendProgress(
+                                "\n🤖 AI Build Doctor กำลังวิเคราะห์ปัญหา...\n",
+                                COLOR_INFO);
+
+                        // 🌟 แก้ไข: ส่งผ่านตัวแปร context เข้าสู่ Constructor เพื่อให้ระบบ AI สามารถดึง API Key จาก SharedPreferences ได้ตามแผนที่วางไว้
+                        GeminiAssistant ai =
+                                new GeminiAssistant(context);
+
+                        ai.askAI(
+                                prompt,
+                                new GeminiAssistant.AICallback() {
+
+                                    @Override
+                                    public void onSuccess(String responseText) {
+
+                                        analyzer.setAiSuggestion(
+                                                responseText);
+
+                                        analyzer.printSummary(
+                                                (txt, col) ->
+                                                        sendProgress(
+                                                                txt,
+                                                                col));
+                                    }
+
+                                    @Override
+                                    public void onError(String errorMessage) {
+
+                                        sendProgress(
+                                                "\n⚠️ AI วิเคราะห์ไม่สำเร็จ: "
+                                                        + errorMessage
+                                                        + "\n",
+                                                COLOR_WARNING);
+
+                                        analyzer.printSummary(
+                                                (txt, col) ->
+                                                        sendProgress(
+                                                                txt,
+                                                                col));
+                                    }
+                                });
+
                         return;
                     }
                 }

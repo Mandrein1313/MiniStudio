@@ -30,6 +30,9 @@ public class BuildSummaryAnalyzer {
     private ParsedError lastError;
     private final ArrayList<ParsedError> errorList = new ArrayList<>();
 
+    // 🤖 ฟิลด์สำหรับเก็บคำแนะนำจาก AI
+    private String aiSuggestion = null;
+
     // 🎨 สีสันใหม่ที่สวยและชัดเจน
     private final int COLOR_HEADER = Color.parseColor("#FF5252");     // แดงสด (หัวข้อ)
     private final int COLOR_FILE = Color.parseColor("#FFAB40");       // ส้ม (ไฟล์)
@@ -46,6 +49,7 @@ public class BuildSummaryAnalyzer {
         hasError = false;
         errorType = "UNKNOWN";
         errorDetails = "";
+        aiSuggestion = null; // เคลียร์ค่า AI ทุกครั้งที่เริ่มบิวด์ใหม่
     }
 
     public ParsedError getLastError() {
@@ -54,6 +58,48 @@ public class BuildSummaryAnalyzer {
 
     public ArrayList<ParsedError> getErrorList() {
         return errorList;
+    }
+
+    // 🤖 เมธอดสำหรับรับคำแนะนำที่มาจาก AI
+    public void setAiSuggestion(String suggestion) {
+        this.aiSuggestion = suggestion;
+    }
+
+    // 🤖 ปรับปรุงจุดที่ 2 & 3: สร้าง Prompt ให้ฉลาดขึ้น + รองรับการส่งหลาย Error พร้อมกัน
+    public String createAiPrompt() {
+        if (!hasError) return null;
+        
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("คุณคือ Android Build Doctor ผู้เชี่ยวชาญการตรวจโค้ด\n\n");
+        prompt.append("วิเคราะห์ Error ที่เกิดขึ้นจากการบิวด์โปรเจกต์นี้:\n");
+        prompt.append("----------------------------------------\n");
+        
+        if (!errorList.isEmpty()) {
+            prompt.append("[รายการข้อผิดพลาดที่พบ]\n");
+            for (int i = 0; i < errorList.size(); i++) {
+                ParsedError e = errorList.get(i);
+                prompt.append(String.format("%d. ไฟล์: %s\n", i + 1, e.file));
+                prompt.append(String.format("   บรรทัด: %d\n", e.line));
+                prompt.append(String.format("   ข้อความ: %s\n\n", e.message));
+            }
+        } else {
+            // เคสทั่วไปที่ไม่ได้เข้า Regex (เช่น Git หรือ Auth Error)
+            prompt.append("ประเภท Error: ").append(errorType).append("\n");
+            prompt.append("รายละเอียด: ").append(errorDetails).append("\n\n");
+        }
+        
+        prompt.append("----------------------------------------\n");
+        prompt.append("เงื่อนไขการตอบกลับ:\n");
+        prompt.append("- ตอบเป็นภาษาไทยที่เข้าใจง่าย กระชับ\n");
+        prompt.append("- ใช้รูปแบบดังต่อไปนี้ในการตอบ:\n\n");
+        prompt.append("🔍 สาเหตุ:\n");
+        prompt.append("(อธิบายสั้นๆ ว่าเกิดจากอะไร)\n\n");
+        prompt.append("💡 วิธีแก้:\n");
+        prompt.append("(บอกขั้นตอนการแก้ไขเป็นข้อๆ)\n\n");
+        prompt.append("🛠 ตัวอย่างโค้ด:\n");
+        prompt.append("(แสดงตัวอย่างโค้ดที่ถูกต้อง หรือจุดที่ต้องระวัง ถ้ามี)");
+        
+        return prompt.toString();
     }
 
     public boolean analyzeLine(String line, int defaultColor, LogOutputListener listener) {
@@ -139,7 +185,7 @@ public class BuildSummaryAnalyzer {
         listener.onAppendLog("🔍 วิเคราะห์สาเหตุการบิวด์ล้มเหลว\n", COLOR_HEADER);
 
         if (lastError != null) {
-            listener.onAppendLog("📍 ไฟล์: ", COLOR_HEADER);
+            listener.onAppendLog("📍 ไฟล์ล่าสุดที่พบปัญหา: ", COLOR_HEADER);
             listener.onAppendLog(lastError.file + "\n", COLOR_FILE);
             
             listener.onAppendLog("📍 บรรทัดที่: ", COLOR_HEADER);
@@ -159,6 +205,14 @@ public class BuildSummaryAnalyzer {
                 listener.onAppendLog("📌 ประเภท: ", COLOR_HEADER);
                 listener.onAppendLog("ข้อผิดพลาด Kotlin\n", COLOR_TYPE);
                 break;
+            case "GIT_URL_MISSING":
+                listener.onAppendLog("📌 ประเภท: ", COLOR_HEADER);
+                listener.onAppendLog("Git Error\n", COLOR_TYPE);
+                break;
+            case "AUTH_ERROR":
+                listener.onAppendLog("📌 ประเภท: ", COLOR_HEADER);
+                listener.onAppendLog("Authentication Error\n", COLOR_TYPE);
+                break;
             default:
                 listener.onAppendLog("📌 ประเภท: ", COLOR_HEADER);
                 listener.onAppendLog(errorType + "\n", COLOR_TYPE);
@@ -168,13 +222,24 @@ public class BuildSummaryAnalyzer {
         listener.onAppendLog("💬 รายละเอียด: ", COLOR_HEADER);
         listener.onAppendLog(errorDetails + "\n", COLOR_MESSAGE);
 
-        listener.onAppendLog("💡 คำแนะนำ: ", COLOR_HEADER);
+        // 🤖 ปรับปรุงจุดที่ 1: แยกหัวข้อถอดคำว่า (AI) ออก หาก AI ไม่ได้ทำงาน
+        if (aiSuggestion != null && !aiSuggestion.trim().isEmpty()) {
+            listener.onAppendLog("🤖 AI Build Doctor: \n", COLOR_HEADER);
+        } else {
+            listener.onAppendLog("💡 คำแนะนำ: ", COLOR_HEADER);
+        }
         listener.onAppendLog(getSuggestion() + "\n", COLOR_SUGGEST);
 
         listener.onAppendLog("═".repeat(50) + "\n", COLOR_HEADER);
     }
 
     private String getSuggestion() {
+        // 🤖 ถ้ามีข้อมูลคำแนะนำจาก AI ให้คืนค่าของ AI ทันที
+        if (aiSuggestion != null && !aiSuggestion.trim().isEmpty()) {
+            return aiSuggestion;
+        }
+
+        // ถ้าไม่มีให้ใช้ Local Template สำรองแบบเดิม
         switch (errorType) {
             case "JAVA_ERROR":
                 return "ตรวจสอบไวยากรณ์, เครื่องหมาย {}, (), ; ตรงบรรทัดที่ระบุ";
@@ -182,6 +247,10 @@ public class BuildSummaryAnalyzer {
                 return "ตรวจสอบแท็ก XML เปิด-ปิด ไม่ตรงกัน หรือแอตทริบิวต์ผิด";
             case "KOTLIN_ERROR":
                 return "ตรวจสอบประเภทตัวแปร, Null Safety, หรือการสืบทอดคลาส";
+            case "GIT_URL_MISSING":
+                return "กรุณาตรวจสอบ URL ของ Repository ในการตั้งค่าให้ถูกต้อง";
+            case "AUTH_ERROR":
+                return "กรุณาตรวจสอบ GitHub Token หรือสิทธิ์การเข้าถึงคลังโค้ด";
             default:
                 return "ตรวจสอบโค้ดและลอง Build ใหม่ครับ";
         }

@@ -1,5 +1,7 @@
 package com.dev.ministudio.ai;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import java.io.OutputStream;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -11,8 +13,21 @@ import org.json.JSONArray;
 
 public class GeminiAssistant {
 
-    private static final String API_KEY = "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"; 
     private static final String API_URL = "https://api.groq.com/openai/v1/chat/completions";
+    
+    // 🌟 เพิ่มตัวแปรสำหรับเก็บ Context
+    private final Context context;
+
+    // 🌟 ปรับปรุง Constructor ให้รับ Context เข้ามาใช้งาน
+    public GeminiAssistant(Context context) {
+        this.context = context;
+    }
+
+    // 🌟 เมธอดสำหรับดึง API Key จาก SharedPreferences บันทึกในชื่อไฟล์ ai_settings
+    private String getApiKey() {
+        SharedPreferences prefs = context.getSharedPreferences("ai_settings", Context.MODE_PRIVATE);
+        return prefs.getString("groq_api_key", "");
+    }
 
     public interface AICallback {
         void onSuccess(String responseText);
@@ -23,11 +38,21 @@ public class GeminiAssistant {
         new Thread(() -> {
             HttpURLConnection conn = null;
             try {
+                // ตรวจสอบเบื้องต้นว่ามีคีย์หรือไม่ ถ้าไม่มีให้แจ้งเตือนทันทีโดยไม่ต้องยิง API ให้เสียเวลา
+                String apiKey = getApiKey();
+                if (apiKey == null || apiKey.trim().isEmpty()) {
+                    callback.onError("ไม่พบ Groq API Key ในการตั้งค่า กรุณากรอกคีย์ก่อนใช้งาน");
+                    return;
+                }
+
                 URL url = new URL(API_URL);
                 conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-                conn.setRequestProperty("Authorization", "Bearer " + API_KEY);
+                
+                // 🌟 แก้ไขมาใช้คีย์ที่ดึงมาจาก SharedPreferences
+                conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+                
                 conn.setDoOutput(true);
                 conn.setConnectTimeout(30000);
                 conn.setReadTimeout(60000);
