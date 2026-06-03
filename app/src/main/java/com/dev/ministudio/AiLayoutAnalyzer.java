@@ -30,7 +30,8 @@ public class AiLayoutAnalyzer {
     }
 
     public AiLayoutAnalyzer(Context context) {
-        this.aiAssistant = new GeminiAssistant();
+        // 🌟 แก้ไขจุดสำคัญ: ส่งผ่าน context เข้าไป เพื่อให้ระบบ AI สามารถดึง API Key ได้ถูกต้อง
+        this.aiAssistant = new GeminiAssistant(context);
         this.mainHandler = new Handler(Looper.getMainLooper());
         initTTS(context);
     }
