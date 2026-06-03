@@ -107,8 +107,8 @@ public class AiLayoutAnalyzer {
     }
 
     private void processResponse(String responseText, OnAnalysisListener listener) {
-        String cleanText = responseText.replaceAll("
-```[\\s\\S]*?```", "").replaceAll("[*#`]", "");
+        String cleanText = responseText.replaceAll("```[\\s\\S]*?```", "").replaceAll("[*#`]", "");
+
         speakText(cleanText);
         if (listener != null) listener.onSuccess(formatAiResponse(responseText));
     }
