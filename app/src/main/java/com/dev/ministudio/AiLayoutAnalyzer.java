@@ -41,15 +41,20 @@ public class AiLayoutAnalyzer {
     // ฟังก์ชันสำหรับดึงโค้ดจากข้อความตอบกลับของ AI
     public List<String> extractCodes(String responseText) {
         List<String> codes = new ArrayList<>();
-        // Regex ค้นหาข้อความใน ``` ... ```
-        Pattern pattern = Pattern.compile("```[\\s\\S]*?
-```");
+        // Regex ค้นหา code block ที่อยู่ใน ```
+        Pattern pattern = Pattern.compile("```[\\s\\S]*?```");
+        
         Matcher matcher = pattern.matcher(responseText);
         while (matcher.find()) {
-            // ลบเครื่องหมาย ``` ออก
-            String code = matcher.group().replaceAll("
-```\\w*", "").replaceAll("```", "").trim();
-            codes.add(code);
+            String codeBlock = matcher.group();
+            // ลบ backticks และ language identifier (เช่น ```java)
+            String code = codeBlock
+                    .replaceAll("```\\w*\\s*", "")
+                    .replaceAll("```", "")
+                    .trim();
+            if (!code.isEmpty()) {
+                codes.add(code);
+            }
         }
         return codes;
     }
@@ -78,16 +83,20 @@ public class AiLayoutAnalyzer {
                     }
                 });
             }
+
             @Override
             public void onError(final String errorMessage) {
-                mainHandler.post(() -> { if (listener != null) listener.onError(errorMessage); });
+                mainHandler.post(() -> { 
+                    if (listener != null) listener.onError(errorMessage); 
+                });
             }
         });
     }
 
     public void askAi(String userQuestion, final OnAnalysisListener listener) {
         if (listener != null) listener.onStart();
-        String prompt = "คุณคือผู้เชี่ยวชาญด้าน Android Development ช่วยตอบคำถามและถ้ามีโค้ดตัวอย่าง ให้ใส่ใน Code Block (```) เสมอ:\n\n" + userQuestion;
+        String prompt = "คุณคือผู้เชี่ยวชาญด้าน Android Development ช่วยตอบคำถามและถ้ามีโค้ดตัวอย่าง ให้ใส่ใน Code Block (```) เสมอ:\n\n" 
+                        + userQuestion;
         aiAssistant.askAI(prompt, new GeminiAssistant.AICallback() {
             @Override
             public void onSuccess(final String responseText) {
@@ -99,22 +108,29 @@ public class AiLayoutAnalyzer {
                     }
                 });
             }
+
             @Override
             public void onError(final String errorMessage) {
-                mainHandler.post(() -> { if (listener != null) listener.onError(errorMessage); });
+                mainHandler.post(() -> { 
+                    if (listener != null) listener.onError(errorMessage); 
+                });
             }
         });
     }
 
     private void processResponse(String responseText, OnAnalysisListener listener) {
-        String cleanText = responseText.replaceAll("```[\\s\\S]*?```", "").replaceAll("[*#`]", "");
+        // ลบ code block ออกเพื่อนำไปพูด
+        String cleanText = responseText.replaceAll("```[\\s\\S]*?```", "")
+                                      .replaceAll("[*#`]", "");
 
         speakText(cleanText);
         if (listener != null) listener.onSuccess(formatAiResponse(responseText));
     }
 
     private void speakText(String text) {
-        if (tts != null && ttsInitialized) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "AI_ANALYSIS");
+        if (tts != null && ttsInitialized) {
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "AI_ANALYSIS");
+        }
     }
 
     private SpannableString formatAiResponse(String text) {
@@ -134,10 +150,15 @@ public class AiLayoutAnalyzer {
     }
 
     private String buildAnalysisPrompt(String fileName, String rawCode) {
-        return "ไฟล์: " + fileName + "\n\nโค้ด:\n" + rawCode + "\n\nช่วยวิเคราะห์ปัญหา และให้โค้ดที่แก้ไขแล้วใน Code Block เท่านั้น";
+        return "ไฟล์: " + fileName + "\n\nโค้ด:\n" + rawCode + 
+               "\n\nช่วยวิเคราะห์ปัญหา และให้โค้ดที่แก้ไขแล้วใน Code Block เท่านั้น";
     }
 
     public void shutdown() {
-        if (tts != null) { tts.stop(); tts.shutdown(); tts = null; }
+        if (tts != null) { 
+            tts.stop(); 
+            tts.shutdown(); 
+            tts = null; 
+        }
     }
 }
