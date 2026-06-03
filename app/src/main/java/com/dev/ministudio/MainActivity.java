@@ -49,7 +49,6 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import android.text.SpannableString;
-import android.text.SpannableString;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -208,17 +207,14 @@ public class MainActivity extends AppCompatActivity {
         
         if (btnSendToAi != null && etAiInput != null) {
             btnSendToAi.setOnClickListener(v -> {
-                String userQuestion = etAiInput.getText().toString();
+                String userQuestion = etAiInput.getText().toString().trim();
                 if (userQuestion.isEmpty()) {
-                    // เปลี่ยนเป็นแสดงผลใน Console แทน Toast ถ้าไม่มีฟังก์ชัน showToast
                     tvConsoleLog.append("\n⚠️ กรุณาพิมพ์คำถามก่อนครับ");
                     return;
                 }
                 
-                // 1. แสดงคำถามของเราใน Console
                 tvConsoleLog.append("\n\n👤 คุณ: " + userQuestion);
                 
-                // 2. ส่งประวัติ chatHistory + คำถามใหม่ไปให้ AI
                 String fullPrompt = chatHistory + "\nผู้ใช้ถาม: " + userQuestion;
                 
                 aiLayoutAnalyzer.askAi(fullPrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
@@ -227,46 +223,28 @@ public class MainActivity extends AppCompatActivity {
                         tvConsoleLog.append("\n🤖 AI กำลังคิด...");
                     }
                     
-                  @Override
-public void onSuccess(android.text.SpannableString formattedResult) {
+                    @Override
+                    public void onSuccess(SpannableString formattedResult, String rawResponse) {
+                        tvConsoleLog.append("\n🤖 AI: ");
+                        tvConsoleLog.append(formattedResult);
 
-tvConsoleLog.append("\n🤖 AI: ");
-tvConsoleLog.append(formattedResult);
+                        String aiCode = extractCodeBlock(rawResponse);
 
-String aiCode =
-        extractCodeBlock(formattedResult.toString());
+                        if (aiCode != null && !aiCode.isEmpty()) {
+                            pendingAiCode = aiCode;
+                            if (btnApplyAiCode != null) btnApplyAiCode.setVisibility(View.VISIBLE);
+                            tvConsoleLog.append("\n\n✅ พบโค้ดจาก AI กด Apply ได้เลย");
+                        } else {
+                            pendingAiCode = null;
+                            if (btnApplyAiCode != null) btnApplyAiCode.setVisibility(View.GONE);
+                        }
 
-if (aiCode != null) {
+                        chatHistory += "\nผู้ใช้: " + userQuestion + "\nAI: " + rawResponse;
 
-    pendingAiCode = aiCode;
-
-    if (btnApplyAiCode != null) {
-        btnApplyAiCode.setVisibility(View.VISIBLE);
-    }
-
-    tvConsoleLog.append(
-        "\n\n✅ พบโค้ดจาก AI กด Apply ได้เลย"
-    );
-
-} else {
-
-    pendingAiCode = null;
-
-    if (btnApplyAiCode != null) {
-        btnApplyAiCode.setVisibility(View.GONE);
-    }
-}
-
-chatHistory +=
-        "\nผู้ใช้: " + userQuestion +
-        "\nAI: " + formattedResult.toString();
-
-if (consoleScrollView != null) {
-    consoleScrollView.post(() ->
-            consoleScrollView.fullScroll(View.FOCUS_DOWN));
-}
-
-}
+                        if (consoleScrollView != null) {
+                            consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
+                        }
+                    }
                     
                     @Override
                     public void onError(String errorMessage) {
@@ -274,9 +252,8 @@ if (consoleScrollView != null) {
                     }
                 });
                 
-                etAiInput.setText(""); // ล้างช่องพิมพ์
+                etAiInput.setText("");
             });
-       
         }
 
    }
@@ -841,7 +818,7 @@ if (consoleScrollView != null) {
         btnAskAI.setClickable(true);
         btnAskAI.setFocusable(true);
 
-        btnAskAI.setOnClickListener(v -> {
+btnAskAI.setOnClickListener(v -> {
             if (codeEditor == null || tvConsoleLog == null || currentProject == null) return;
 
             if (consolePanel != null) consolePanel.setVisibility(View.VISIBLE);
@@ -850,29 +827,41 @@ if (consoleScrollView != null) {
             String fileName = (currentFile != null) ? currentFile.getName() : "UnknownFile.java";
             String currentCode = codeEditor.getText().toString();
 
-            // เรียกทำงานผ่านอินเตอร์เฟสคลาสแยกตัวใหม่ที่ปลอดภัย
-// เปลี่ยนจากเดิมเป็นแบบนี้ครับ:
-  aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
-    @Override
-    public void onStart() {
-        tvConsoleLog.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ด...");
-    }
+            aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
+                @Override
+                public void onStart() {
+                    tvConsoleLog.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ด...");
+                }
 
-    // เปลี่ยนจาก String เป็น android.text.SpannableString
-    @Override
-    public void onSuccess(android.text.SpannableString formattedResult) {
-        tvConsoleLog.setText(formattedResult); // แสดงผลแบบมีสีสันทันที!
-        if (consoleScrollView != null) {
-            consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
-        }
-    }
+                @Override
+                public void onSuccess(SpannableString formattedResult, String rawResponse) {
+                    tvConsoleLog.setText(formattedResult); 
 
-    @Override
-    public void onError(String errorMessage) {
-        tvConsoleLog.setText("❌ AI เกิดข้อผิดพลาดชั่วคราว: " + errorMessage);
-    }
-   });
-});
+                    String aiCode = extractCodeBlock(rawResponse);
+
+                    if (aiCode != null && !aiCode.isEmpty()) {
+                        pendingAiCode = aiCode;
+                        if (btnApplyAiCode != null) {
+                            btnApplyAiCode.setVisibility(View.VISIBLE);
+                        }
+                    } else {
+                        pendingAiCode = null;
+                        if (btnApplyAiCode != null) {
+                            btnApplyAiCode.setVisibility(View.GONE);
+                        }
+                    }
+
+                    if (consoleScrollView != null) {
+                        consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
+                    }
+                }
+
+                @Override
+                public void onError(String errorMessage) {
+                    tvConsoleLog.setText("❌ AI เกิดข้อผิดพลาด: " + errorMessage);
+                }
+            });
+        });
 
         shortcutBar.addView(btnAskAI); 
     }
@@ -1176,5 +1165,12 @@ private String extractCodeBlock(String text) {
 
     return null;
 }
+@Override
+    protected void onDestroy() {
+        if (aiLayoutAnalyzer != null) {
+            aiLayoutAnalyzer.shutdown();
+        }
+        super.onDestroy();
+    }
 
 }

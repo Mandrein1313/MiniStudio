@@ -27,7 +27,7 @@ public class AiLayoutAnalyzer {
 
     public interface OnAnalysisListener {
         void onStart();
-        void onSuccess(SpannableString formattedResult);
+        void onSuccess(SpannableString formattedResult, String rawResponse);
         void onError(String error);
     }
 
@@ -41,7 +41,6 @@ public class AiLayoutAnalyzer {
         tts = new TextToSpeech(context, status -> {
             if (status == TextToSpeech.SUCCESS) {
                 int result = tts.setLanguage(new Locale("th", "TH"));
-
                 if (result == TextToSpeech.LANG_MISSING_DATA || 
                     result == TextToSpeech.LANG_NOT_SUPPORTED) {
                     tts.setLanguage(Locale.US);
@@ -68,9 +67,7 @@ public class AiLayoutAnalyzer {
             @Override
             public void onError(String errorMessage) {
                 mainHandler.post(() -> {
-                    if (listener != null) {
-                        listener.onError(errorMessage);
-                    }
+                    if (listener != null) listener.onError(errorMessage);
                 });
             }
         });
@@ -90,9 +87,7 @@ public class AiLayoutAnalyzer {
             @Override
             public void onError(String errorMessage) {
                 mainHandler.post(() -> {
-                    if (listener != null) {
-                        listener.onError(errorMessage);
-                    }
+                    if (listener != null) listener.onError(errorMessage);
                 });
             }
         });
@@ -100,73 +95,45 @@ public class AiLayoutAnalyzer {
 
     private String buildAnalysisPrompt(String fileName, String rawCode) {
         return """
-                คุณคือ Senior Android Engineer ที่มีประสบการณ์กว่า 10 ปี 
-                เชี่ยวชาญด้าน Clean Architecture, Performance Optimization และ Modern Android Development
+                คุณคือ Senior Android Engineer ที่มีประสบการณ์กว่า 10 ปี
                 
-                ไฟล์ที่กำลังวิเคราะห์: %s
+                ไฟล์: %s
                 
                 โค้ดปัจจุบัน:
                 ```java
                 %s
                 ```
                 
-                กรุณาวิเคราะห์โค้ดนี้อย่างละเอียดในฐานะ Senior Developer:
+                วิเคราะห์ให้ละเอียดแบบ Senior Developer จริงๆ:
+                1. สรุปภาพรวม
+                2. ปัญหาที่พบ (เรียงตามความรุนแรง)
+                3. คำแนะนำ + โค้ดที่ปรับปรุงแล้ว (ถ้ามี)
                 
-                ### 1. สรุปภาพรวม
-                - จุดแข็งของโค้ด
-                - ปัญหาหลักที่พบ (เรียงตามความรุนแรง)
+                ส่งโค้ดสมบูรณ์ใน Code Block เท่านั้น
                 
-                ### 2. ปัญหาที่พบ
-                สำหรับแต่ละข้อ ระบุ:
-                - ปัญหา / Code Smell / Bug / Performance Issue
-                - ผลกระทบ
-                - คำแนะนำการแก้ไข
-                
-                ### 3. โค้ดที่ปรับปรุงแล้ว (ถ้าจำเป็น)
-                ให้ส่งโค้ดเวอร์ชันสมบูรณ์เท่านั้นใน Code Block
-                
-                ```java
-                // Complete improved code here
-                ```
-                
-                **กฎสำคัญ:**
-                - ใช้ Best Practice ปี 2025-2026
-                - โค้ดต้อง Compile ได้จริง
-                - ใช้ภาษาที่เป็นธรรมชาติเหมือนรีวิวโค้ดให้เพื่อนร่วมทีม
-                - ถ้าไม่จำเป็นต้องแก้ทั้งไฟล์ ให้บอกชัดเจน
-                
-                เริ่มวิเคราะห์ได้เลยครับ
+                เริ่มเลยครับ
                 """.formatted(fileName, rawCode);
     }
 
     private String buildGeneralAskPrompt(String userQuestion) {
         return """
-                คุณคือ Senior Android Developer ที่เชี่ยวชาญสูง
+                คุณคือ Senior Android Developer ชั้นนำ
                 
                 %s
                 
-                ถ้าต้องแก้ไขหรือเขียนโค้ดใหม่ ให้ส่งโค้ดฉบับสมบูรณ์ภายใน Code Block เท่านั้น
+                ถ้ามีการแก้ไขโค้ด ให้ตอบด้วยโค้ดฉบับสมบูรณ์ใน Code Block เท่านั้น
                 
-                ```java
-                // โค้ดสมบูรณ์ที่นี่
-                ```
-                
-                หรือ
-                
-                ```xml
-                <!-- XML Code -->
-                ```
-                
-                ห้ามส่งโค้ดลอยๆ นอก Code Block เพื่อให้ระบบสามารถนำไปใช้งานได้ทันที
-                
-                ตอบอย่างละเอียดและเป็นมิตรครับ
+                ตอบให้ดีที่สุดเลยครับ
                 """.formatted(userQuestion);
     }
 
     private void processResponse(String responseText, OnAnalysisListener listener) {
-        // อ่านออกเสียงเฉพาะข้อความหลัก (ไม่รวม markdown)
+        // เก็บ raw response สำหรับคัดลอก
+        String rawResponse = responseText;
+
+        // เตรียมข้อความสำหรับอ่านออกเสียง (ไม่รวม code block)
         String cleanTextForSpeak = responseText
-                .replaceAll("```[\\s\\S]*?```", "") // ลบ code block
+                .replaceAll("```[\\s\\S]*?```", "")
                 .replaceAll("\\*\\*|__", "")
                 .replaceAll("#+", "")
                 .replaceAll("`", "")
@@ -177,7 +144,7 @@ public class AiLayoutAnalyzer {
         SpannableString formatted = formatAiResponse(responseText);
 
         if (listener != null) {
-            listener.onSuccess(formatted);
+            listener.onSuccess(formatted, rawResponse);
         }
     }
 
@@ -190,10 +157,9 @@ public class AiLayoutAnalyzer {
     private SpannableString formatAiResponse(String text) {
         SpannableString spannable = new SpannableString(text);
 
-        // Highlight important keywords
         highlightPattern(spannable, "(Error|ข้อผิดพลาด|Bug|ปัญหา|Critical)", Color.RED);
-        highlightPattern(spannable, "(แนะนำ|ควร|ดีกว่า|ปรับปรุง|แก้ไข|แนะนำให้)", Color.parseColor("#4CAF50"));
-        highlightPattern(spannable, "(สรุป|คะแนน|Overall|Recommendation)", Color.parseColor("#2196F3"));
+        highlightPattern(spannable, "(แนะนำ|ควร|ดีกว่า|ปรับปรุง|แก้ไข)", Color.parseColor("#4CAF50"));
+        highlightPattern(spannable, "(สรุป|คะแนน|Recommendation)", Color.parseColor("#2196F3"));
         highlightPattern(spannable, "(```java|```xml|```kotlin)", Color.parseColor("#FF9800"));
 
         return spannable;
@@ -204,20 +170,10 @@ public class AiLayoutAnalyzer {
         Matcher matcher = pattern.matcher(spannable.toString());
 
         while (matcher.find()) {
-            // Color
-            spannable.setSpan(
-                    new ForegroundColorSpan(color),
-                    matcher.start(),
-                    matcher.end(),
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            );
-            // Bold
-            spannable.setSpan(
-                    new StyleSpan(Typeface.BOLD),
-                    matcher.start(),
-                    matcher.end(),
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            );
+            spannable.setSpan(new ForegroundColorSpan(color), 
+                    matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            spannable.setSpan(new StyleSpan(Typeface.BOLD), 
+                    matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
     }
 
@@ -226,8 +182,7 @@ public class AiLayoutAnalyzer {
             try {
                 tts.stop();
                 tts.shutdown();
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
             tts = null;
         }
     }
