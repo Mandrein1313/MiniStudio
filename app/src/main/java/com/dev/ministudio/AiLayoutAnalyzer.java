@@ -1,17 +1,15 @@
 package com.dev.ministudio;
 
 import android.content.Context;
-import android.graphics.Color;
-import android.graphics.Typeface;
 import android.os.Handler;
 import android.os.Looper;
 import android.speech.tts.TextToSpeech;
-import android.text.SpannableStringBuilder;
+import android.text.SpannableString;
 import android.text.Spanned;
-import android.text.style.BackgroundColorSpan;
 import android.text.style.ForegroundColorSpan;
-import android.text.style.RelativeSizeSpan;
 import android.text.style.StyleSpan;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -27,7 +25,7 @@ public class AiLayoutAnalyzer {
 
     public interface OnAnalysisListener {
         void onStart();
-        void onSuccess(CharSequence formattedResult);
+        void onSuccess(SpannableString formattedResult);
         void onError(String error);
     }
 
@@ -44,9 +42,8 @@ public class AiLayoutAnalyzer {
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                     tts.setLanguage(Locale.US);
                 }
-                // ปรับความเร็วให้พอดี ไม่เร็วเกินไป
-                tts.setSpeechRate(0.85f);
-                tts.setPitch(1.0f);
+                tts.setSpeechRate(0.95f);
+                tts.setPitch(1.05f);
                 ttsInitialized = true;
             }
         });
@@ -87,15 +84,20 @@ public class AiLayoutAnalyzer {
     }
 
     private void processResponse(String responseText, OnAnalysisListener listener) {
-        // ทำความสะอาดข้อความสำหรับการพูด และเพิ่มช่องว่างเพื่อให้ TTS เว้นจังหวะ
-        String cleanText = responseText.replaceAll("[*#`]", "")
-                                       .replaceAll("\\.", " . ")
-                                       .replaceAll("!", " ! ");
+        // ทำความสะอาดข้อความสำหรับการพูด
+        String cleanText = responseText
+                .replaceAll("\\*\\*", "")
+                .replaceAll("\\*", "")
+                .replaceAll("#+", "")
+                .replaceAll("`", "")
+                .replaceAll("/", " ")
+                .replaceAll("\\\\", " ")
+                .replaceAll("-", " ");
         
         speakText(cleanText);
         
         // จัดรูปแบบข้อความสำหรับแสดงผล
-        CharSequence formatted = formatAiResponse(responseText);
+        SpannableString formatted = formatAiResponse(responseText);
         
         if (listener != null) {
             listener.onSuccess(formatted);
@@ -108,38 +110,29 @@ public class AiLayoutAnalyzer {
         }
     }
 
-    private CharSequence formatAiResponse(String text) {
+    private SpannableString formatAiResponse(String text) {
+        // ลบเครื่องหมาย ** ออกจากข้อความที่จะแสดงผลเพื่อให้หน้าจอสะอาดตา
         String processedText = text.replaceAll("\\*\\*", "");
-        SpannableStringBuilder ssb = new SpannableStringBuilder(processedText);
+        SpannableString spannable = new SpannableString(processedText);
 
-        // 1. หัวข้อสำคัญ (สีม่วงสดใส + ตัวใหญ่ขึ้น)
-        applyStyle(ssb, "(วิเคราะห์|คำแนะนำ|สรุป|คะแนน|หัวข้อ)", Color.parseColor("#9C27B0"), true, 1.2f, -1);
+        highlightPattern(spannable, "(Error|ข้อผิดพลาด|ปัญหา|Bug)", Color.RED);
+        highlightPattern(spannable, "(แนะนำ|ควร|ดีกว่า|ปรับปรุง|แก้ไข)", Color.parseColor("#4CAF50"));
+        highlightPattern(spannable, "(คำแนะนำ|สรุป|คะแนน)", Color.parseColor("#2196F3"));
 
-        // 2. เน้น Error/Warning (สีแดงส้ม + พื้นหลังสีเหลืองอ่อน)
-        applyStyle(ssb, "(Error|ข้อผิดพลาด|บัค|Bug|⚠️)", Color.parseColor("#D32F2F"), true, 1.0f, Color.parseColor("#FFF9C4"));
-
-        // 3. เน้นทางออก/วิธีแก้ไข (สีเขียวเข้ม + พื้นหลังสีเขียวอ่อน)
-        applyStyle(ssb, "(แก้ไข|ปรับปรุง|ดีกว่า|✅|Solution)", Color.parseColor("#2E7D32"), true, 1.0f, Color.parseColor("#E8F5E9"));
-
-        // 4. เน้นตัวเลขคะแนน (สีน้ำเงินเข้ม + ตัวหนาพิเศษ)
-        applyStyle(ssb, "\\d+/10", Color.parseColor("#1565C0"), true, 1.1f, -1);
-
-        return ssb;
+        return spannable;
     }
 
-    private void applyStyle(SpannableStringBuilder ssb, String regex, int color, boolean bold, float sizeScale, int bgColor) {
+    private void highlightPattern(SpannableString spannable, String regex, int color) {
         Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(ssb.toString());
+        Matcher matcher = pattern.matcher(spannable.toString());
         while (matcher.find()) {
-            ssb.setSpan(new ForegroundColorSpan(color), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            if (bold) ssb.setSpan(new StyleSpan(Typeface.BOLD), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            if (sizeScale != 1.0f) ssb.setSpan(new RelativeSizeSpan(sizeScale), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            if (bgColor != -1) ssb.setSpan(new BackgroundColorSpan(bgColor), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            spannable.setSpan(new ForegroundColorSpan(color), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            spannable.setSpan(new StyleSpan(Typeface.BOLD), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
     }
 
     private String buildAnalysisPrompt(String fileName, String rawCode) {
-        return "ไฟล์: " + fileName + "\n\nโค้ด:\n" + rawCode + "\n\nช่วยวิเคราะห์ปัญหา, Code Smell, คำแนะนำ และให้คะแนน 1-10 เป็นภาษาไทย พร้อมใส่ Emoji ให้ด้วย (เช่น ⚠️, ✅, 🌟)";
+        return "ไฟล์: " + fileName + "\n\nโค้ด:\n" + rawCode + "\n\nช่วยวิเคราะห์ปัญหา, Code Smell, คำแนะนำ และให้คะแนน 1-10 เป็นภาษาไทย";
     }
 
     public void shutdown() {
