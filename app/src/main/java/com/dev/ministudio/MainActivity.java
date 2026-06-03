@@ -325,6 +325,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
                 
+
                 @Override 
                 public void onBuildStarted() { 
                     showToast("กำลังเริ่มระบบ Cloud Workflow... 🐙"); 
@@ -350,20 +351,25 @@ public class MainActivity extends AppCompatActivity {
                         showToast("กระบวนการทำงานล้มเหลว");
                         appendLog("\n##[error] การทำงานหยุดชะงักเนื่องจากการปิดตัวของระบบบิวด์อย่างกะทันหัน", TerminalColor.ERROR_RED);
                         
+                        // เรียกใช้ตัวสรุปผลแบบสีสัน
+                        if (analyzer != null) {
+                            analyzer.printSummary(new BuildSummaryAnalyzer.LogOutputListener() {
+                                @Override
+                                public void onAppendLog(String text, int color) {
+                                    appendColoredText(tvConsoleLog, text, color);
+                                }
+                            });
+                        }
+                        
                         final ParsedError err = analyzer.getLastError();
-
                         if (err != null) {
-                            appendLog("\n======================================", TerminalColor.DETAIL_RED);
-                            appendLog("📍 พิกัดโค้ดพัง: " + err.file + " (บรรทัดที่ " + err.line + ")", TerminalColor.DETAIL_RED);
-                            appendLog("💬 ข้อความพัง: " + err.message, TerminalColor.TARGET_YELLOW);
-                            appendLog("======================================", TerminalColor.DETAIL_RED);
-                            
                             runOnUiThread(() -> executeJumpToError(err));
                         }
                     }
                 }
             }
         );
+
         
         String githubToken = savedToken; 
         String projectName = currentProject.getProjectName();
@@ -1034,4 +1040,19 @@ public class MainActivity extends AppCompatActivity {
             this.iconRes = iconRes;
         }
     }
+    
+    // เพิ่มเมธอดนี้ไว้ก่อนปีกกาปิดตัวสุดท้ายของไฟล์ MainActivity.java
+    private void appendColoredText(TextView tv, String text, int color) {
+        runOnUiThread(() -> {
+            android.text.SpannableString spannable = new android.text.SpannableString(text);
+            spannable.setSpan(new android.text.style.ForegroundColorSpan(color), 
+                              0, text.length(), 
+                              android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            tv.append(spannable);
+            if (consoleScrollView != null) {
+                consoleScrollView.post(() -> consoleScrollView.fullScroll(android.view.View.FOCUS_DOWN));
+            }
+        });
+    }
+
 }
