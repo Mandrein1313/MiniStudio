@@ -49,6 +49,7 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import android.text.SpannableString;
+import android.text.SpannableString;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -99,7 +100,8 @@ public class MainActivity extends AppCompatActivity {
     private FrameLayout previewContainer;
     private boolean isPreviewMode = false; 
     private String chatHistory = "";
-    
+    private Button btnApplyAiCode;
+    private String pendingAiCode;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -129,6 +131,26 @@ public class MainActivity extends AppCompatActivity {
         consolePanel = findViewById(R.id.consolePanel);
         consoleScrollView = findViewById(R.id.consoleScrollView);
         tvConsoleLog = findViewById(R.id.tvConsoleLog);
+        btnApplyAiCode = findViewById(R.id.btnApplyAiCode);
+        
+        if (btnApplyAiCode != null) {
+
+    btnApplyAiCode.setOnClickListener(v -> {
+
+        if (pendingAiCode == null) {
+            showToast("ไม่มีโค้ดจาก AI");
+            return;
+        }
+
+        codeEditor.setText(pendingAiCode);
+
+        pendingAiCode = null;
+
+        btnApplyAiCode.setVisibility(View.GONE);
+
+        showToast("✅ Apply โค้ดสำเร็จ");
+    });
+}
 
         findViewById(R.id.btnClearConsole).setOnClickListener(v -> tvConsoleLog.setText(""));
         findViewById(R.id.btnCloseConsole).setOnClickListener(v -> consolePanel.setVisibility(View.GONE));
@@ -205,18 +227,46 @@ public class MainActivity extends AppCompatActivity {
                         tvConsoleLog.append("\n🤖 AI กำลังคิด...");
                     }
                     
-                    @Override
-                    public void onSuccess(android.text.SpannableString formattedResult) {
-                        tvConsoleLog.append("\n🤖 AI: ");
-                        tvConsoleLog.append(formattedResult);
-                        
-                        // 3. เก็บประวัติเพื่อเอาไปใช้ต่อในคำถามถัดไป
-                        chatHistory += "\nผู้ใช้: " + userQuestion + "\nAI: " + formattedResult.toString();
-                        
-                        if (consoleScrollView != null) {
-                            consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
-                        }
-                    }
+                  @Override
+public void onSuccess(android.text.SpannableString formattedResult) {
+
+tvConsoleLog.append("\n🤖 AI: ");
+tvConsoleLog.append(formattedResult);
+
+String aiCode =
+        extractCodeBlock(formattedResult.toString());
+
+if (aiCode != null) {
+
+    pendingAiCode = aiCode;
+
+    if (btnApplyAiCode != null) {
+        btnApplyAiCode.setVisibility(View.VISIBLE);
+    }
+
+    tvConsoleLog.append(
+        "\n\n✅ พบโค้ดจาก AI กด Apply ได้เลย"
+    );
+
+} else {
+
+    pendingAiCode = null;
+
+    if (btnApplyAiCode != null) {
+        btnApplyAiCode.setVisibility(View.GONE);
+    }
+}
+
+chatHistory +=
+        "\nผู้ใช้: " + userQuestion +
+        "\nAI: " + formattedResult.toString();
+
+if (consoleScrollView != null) {
+    consoleScrollView.post(() ->
+            consoleScrollView.fullScroll(View.FOCUS_DOWN));
+}
+
+}
                     
                     @Override
                     public void onError(String errorMessage) {
@@ -229,7 +279,8 @@ public class MainActivity extends AppCompatActivity {
        
         }
 
-    }
+   }
+    
     private void setupLogic() {
         // 🤖 เริ่มการทำงานของคลาสแยกจัดการ AI ตัวใหม่
         aiLayoutAnalyzer = new com.dev.ministudio.AiLayoutAnalyzer(this);
@@ -1108,6 +1159,22 @@ public class MainActivity extends AppCompatActivity {
             consoleScrollView.post(() -> consoleScrollView.fullScroll(android.view.View.FOCUS_DOWN));
         }
     }
+    
+private String extractCodeBlock(String text) {
 
+    java.util.regex.Pattern pattern =
+            java.util.regex.Pattern.compile(
+                    "```\\w*\\s*([\\s\\S]*?)```"
+            );
+
+    java.util.regex.Matcher matcher =
+            pattern.matcher(text);
+
+    if (matcher.find()) {
+        return matcher.group(1).trim();
+    }
+
+    return null;
+}
 
 }
