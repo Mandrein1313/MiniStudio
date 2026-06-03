@@ -861,6 +861,7 @@ previewContainer = findViewById(R.id.previewContainer);
         tvConsoleLog.setText("❌ Error: " + errorMessage);
     }
 });
+   });
         shortcutBar.addView(btnAskAI); 
     }
 
