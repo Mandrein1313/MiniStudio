@@ -99,8 +99,7 @@ public class MainActivity extends AppCompatActivity {
     private FrameLayout previewContainer;
     private boolean isPreviewMode = false; 
     private String chatHistory = "";
-    private Button btnApplyAiCode;
-    private String pendingAiCode;
+    
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -130,26 +129,6 @@ public class MainActivity extends AppCompatActivity {
         consolePanel = findViewById(R.id.consolePanel);
         consoleScrollView = findViewById(R.id.consoleScrollView);
         tvConsoleLog = findViewById(R.id.tvConsoleLog);
-        btnApplyAiCode = findViewById(R.id.btnApplyAiCode);
-        
-        if (btnApplyAiCode != null) {
-
-    btnApplyAiCode.setOnClickListener(v -> {
-
-        if (pendingAiCode == null) {
-            showToast("ไม่มีโค้ดจาก AI");
-            return;
-        }
-
-        codeEditor.setText(pendingAiCode);
-
-        pendingAiCode = null;
-
-        btnApplyAiCode.setVisibility(View.GONE);
-
-        showToast("✅ Apply โค้ดสำเร็จ");
-    });
-}
 
         findViewById(R.id.btnClearConsole).setOnClickListener(v -> tvConsoleLog.setText(""));
         findViewById(R.id.btnCloseConsole).setOnClickListener(v -> consolePanel.setVisibility(View.GONE));
@@ -207,14 +186,17 @@ public class MainActivity extends AppCompatActivity {
         
         if (btnSendToAi != null && etAiInput != null) {
             btnSendToAi.setOnClickListener(v -> {
-                String userQuestion = etAiInput.getText().toString().trim();
+                String userQuestion = etAiInput.getText().toString();
                 if (userQuestion.isEmpty()) {
+                    // เปลี่ยนเป็นแสดงผลใน Console แทน Toast ถ้าไม่มีฟังก์ชัน showToast
                     tvConsoleLog.append("\n⚠️ กรุณาพิมพ์คำถามก่อนครับ");
                     return;
                 }
                 
+                // 1. แสดงคำถามของเราใน Console
                 tvConsoleLog.append("\n\n👤 คุณ: " + userQuestion);
                 
+                // 2. ส่งประวัติ chatHistory + คำถามใหม่ไปให้ AI
                 String fullPrompt = chatHistory + "\nผู้ใช้ถาม: " + userQuestion;
                 
                 aiLayoutAnalyzer.askAi(fullPrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
@@ -224,23 +206,13 @@ public class MainActivity extends AppCompatActivity {
                     }
                     
                     @Override
-                    public void onSuccess(SpannableString formattedResult, String rawResponse) {
+                    public void onSuccess(android.text.SpannableString formattedResult) {
                         tvConsoleLog.append("\n🤖 AI: ");
                         tvConsoleLog.append(formattedResult);
-
-                        String aiCode = extractCodeBlock(rawResponse);
-
-                        if (aiCode != null && !aiCode.isEmpty()) {
-                            pendingAiCode = aiCode;
-                            if (btnApplyAiCode != null) btnApplyAiCode.setVisibility(View.VISIBLE);
-                            tvConsoleLog.append("\n\n✅ พบโค้ดจาก AI กด Apply ได้เลย");
-                        } else {
-                            pendingAiCode = null;
-                            if (btnApplyAiCode != null) btnApplyAiCode.setVisibility(View.GONE);
-                        }
-
-                        chatHistory += "\nผู้ใช้: " + userQuestion + "\nAI: " + rawResponse;
-
+                        
+                        // 3. เก็บประวัติเพื่อเอาไปใช้ต่อในคำถามถัดไป
+                        chatHistory += "\nผู้ใช้: " + userQuestion + "\nAI: " + formattedResult.toString();
+                        
                         if (consoleScrollView != null) {
                             consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
                         }
@@ -252,12 +224,12 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
                 
-                etAiInput.setText("");
+                etAiInput.setText(""); // ล้างช่องพิมพ์
             });
+       
         }
 
-   }
-    
+    }
     private void setupLogic() {
         // 🤖 เริ่มการทำงานของคลาสแยกจัดการ AI ตัวใหม่
         aiLayoutAnalyzer = new com.dev.ministudio.AiLayoutAnalyzer(this);
@@ -818,7 +790,7 @@ public class MainActivity extends AppCompatActivity {
         btnAskAI.setClickable(true);
         btnAskAI.setFocusable(true);
 
-btnAskAI.setOnClickListener(v -> {
+        btnAskAI.setOnClickListener(v -> {
             if (codeEditor == null || tvConsoleLog == null || currentProject == null) return;
 
             if (consolePanel != null) consolePanel.setVisibility(View.VISIBLE);
@@ -827,41 +799,29 @@ btnAskAI.setOnClickListener(v -> {
             String fileName = (currentFile != null) ? currentFile.getName() : "UnknownFile.java";
             String currentCode = codeEditor.getText().toString();
 
-            aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
-                @Override
-                public void onStart() {
-                    tvConsoleLog.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ด...");
-                }
+            // เรียกทำงานผ่านอินเตอร์เฟสคลาสแยกตัวใหม่ที่ปลอดภัย
+// เปลี่ยนจากเดิมเป็นแบบนี้ครับ:
+  aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
+    @Override
+    public void onStart() {
+        tvConsoleLog.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ด...");
+    }
 
-                @Override
-                public void onSuccess(SpannableString formattedResult, String rawResponse) {
-                    tvConsoleLog.setText(formattedResult); 
+    // เปลี่ยนจาก String เป็น android.text.SpannableString
+    @Override
+    public void onSuccess(android.text.SpannableString formattedResult) {
+        tvConsoleLog.setText(formattedResult); // แสดงผลแบบมีสีสันทันที!
+        if (consoleScrollView != null) {
+            consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
+        }
+    }
 
-                    String aiCode = extractCodeBlock(rawResponse);
-
-                    if (aiCode != null && !aiCode.isEmpty()) {
-                        pendingAiCode = aiCode;
-                        if (btnApplyAiCode != null) {
-                            btnApplyAiCode.setVisibility(View.VISIBLE);
-                        }
-                    } else {
-                        pendingAiCode = null;
-                        if (btnApplyAiCode != null) {
-                            btnApplyAiCode.setVisibility(View.GONE);
-                        }
-                    }
-
-                    if (consoleScrollView != null) {
-                        consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
-                    }
-                }
-
-                @Override
-                public void onError(String errorMessage) {
-                    tvConsoleLog.setText("❌ AI เกิดข้อผิดพลาด: " + errorMessage);
-                }
-            });
-        });
+    @Override
+    public void onError(String errorMessage) {
+        tvConsoleLog.setText("❌ AI เกิดข้อผิดพลาดชั่วคราว: " + errorMessage);
+    }
+   });
+});
 
         shortcutBar.addView(btnAskAI); 
     }
@@ -1148,29 +1108,6 @@ btnAskAI.setOnClickListener(v -> {
             consoleScrollView.post(() -> consoleScrollView.fullScroll(android.view.View.FOCUS_DOWN));
         }
     }
-    
-private String extractCodeBlock(String text) {
 
-    java.util.regex.Pattern pattern =
-            java.util.regex.Pattern.compile(
-                    "```\\w*\\s*([\\s\\S]*?)```"
-            );
-
-    java.util.regex.Matcher matcher =
-            pattern.matcher(text);
-
-    if (matcher.find()) {
-        return matcher.group(1).trim();
-    }
-
-    return null;
-}
-@Override
-    protected void onDestroy() {
-        if (aiLayoutAnalyzer != null) {
-            aiLayoutAnalyzer.shutdown();
-        }
-        super.onDestroy();
-    }
 
 }

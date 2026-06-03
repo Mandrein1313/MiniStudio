@@ -270,43 +270,35 @@
                 android:paddingHorizontal="4dp" />
         </HorizontalScrollView>
 
-<LinearLayout
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="8dp"
-    android:background="#1E1E1E">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="8dp"
+            android:background="#1E1E1E">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
+            <EditText
+                android:id="@+id/etAiInput"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="40dp"
+                android:hint="ถาม AI เกี่ยวกับโค้ด..."
+                android:textColor="#FFFFFF"
+                android:textColorHint="#666666"
+                android:background="#2D2D2D"
+                android:paddingHorizontal="10dp"
+                android:textSize="14sp" />
 
-        <EditText
-            android:id="@+id/etAiInput"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_weight="1"
-            android:hint="ถาม AI เกี่ยวกับโค้ด..." />
+            <Button
+                android:id="@+id/btnSendToAi"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:text="ส่งถาม"
+                android:textSize="12sp"
+                android:backgroundTint="#BB86FC" />
+        </LinearLayout>
 
-        <Button
-            android:id="@+id/btnSendToAi"
-            android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:layout_marginStart="8dp"
-            android:text="ส่งถาม" />
-    </LinearLayout>
-
-    <Button
-        android:id="@+id/btnApplyAiCode"
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:layout_marginTop="6dp"
-        android:text="✅ Apply โค้ดนี้ลง Editor"
-        android:visibility="gone" />
-
-</LinearLayout>
-                
     </LinearLayout>
 
     <com.google.android.material.navigation.NavigationView
