@@ -226,9 +226,10 @@ public class MainActivity extends AppCompatActivity {
                 
                 etAiInput.setText(""); // ล้างช่องพิมพ์
             });
+       
         }
 
-    
+    }
     private void setupLogic() {
         // 🤖 เริ่มการทำงานของคลาสแยกจัดการ AI ตัวใหม่
         aiLayoutAnalyzer = new com.dev.ministudio.AiLayoutAnalyzer(this);
