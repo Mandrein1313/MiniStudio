@@ -763,6 +763,7 @@ public class MainActivity extends AppCompatActivity {
     public void onError(String errorMessage) {
         tvConsoleLog.setText("❌ AI เกิดข้อผิดพลาดชั่วคราว: " + errorMessage);
     }
+   });
 });
 
         shortcutBar.addView(btnAskAI); 
