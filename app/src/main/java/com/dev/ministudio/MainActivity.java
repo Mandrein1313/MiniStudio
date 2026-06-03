@@ -49,7 +49,7 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import android.text.SpannableString;
-import java.util.List;
+
 
 
 
@@ -181,7 +181,7 @@ public class MainActivity extends AppCompatActivity {
             rvErrorPanel.setLayoutManager(new LinearLayoutManager(this));
         }
 
-        previewContainer = findViewById(R.id.previewContainer);
+previewContainer = findViewById(R.id.previewContainer);
 
         // --- ส่วนเสริม: ระบบปุ่มถาม AI ---
         android.widget.Button btnSendToAi = findViewById(R.id.btnSendToAi);
@@ -191,7 +191,6 @@ public class MainActivity extends AppCompatActivity {
             btnSendToAi.setOnClickListener(v -> {
                 String userQuestion = etAiInput.getText().toString();
                 if (userQuestion.isEmpty()) {
-                    // เปลี่ยนเป็นแสดงผลใน Console แทน Toast ถ้าไม่มีฟังก์ชัน showToast
                     tvConsoleLog.append("\n⚠️ กรุณาพิมพ์คำถามก่อนครับ");
                     return;
                 }
@@ -225,11 +224,28 @@ public class MainActivity extends AppCompatActivity {
                     public void onError(String errorMessage) {
                         tvConsoleLog.append("\n❌ AI ตอบไม่ได้: " + errorMessage);
                     }
+                    
+                    // ==================== เพิ่มเมธอดนี้เพื่อแก้ Error ====================
+                    @Override
+                    public void onCodeExtracted(List<String> codes) {
+                        if (codes != null && !codes.isEmpty()) {
+                            tvConsoleLog.append("\n\n📋 AI ส่งโค้ดมา " + codes.size() + " ชิ้น");
+                            
+                            for (String code : codes) {
+                                tvConsoleLog.append("\n\n```java\n" + code + "\n```");
+                            }
+                            
+                            // เลื่อน Console ลงล่างอัตโนมัติ
+                            if (consoleScrollView != null) {
+                                consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
+                            }
+                        }
+                    }
+                    // =====================================================================
                 });
                 
                 etAiInput.setText(""); // ล้างช่องพิมพ์
             });
-       
         }
 
     }
