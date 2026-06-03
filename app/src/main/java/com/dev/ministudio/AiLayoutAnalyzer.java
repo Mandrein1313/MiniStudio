@@ -32,7 +32,6 @@ public class AiLayoutAnalyzer {
     public AiLayoutAnalyzer(Context context) {
         this.aiAssistant = new GeminiAssistant();
         this.mainHandler = new Handler(Looper.getMainLooper());
-        
         initTTS(context);
     }
 
@@ -41,7 +40,6 @@ public class AiLayoutAnalyzer {
             if (status == TextToSpeech.SUCCESS) {
                 int result = tts.setLanguage(new Locale("th", "TH"));
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    // Fallback to English
                     tts.setLanguage(Locale.US);
                 }
                 tts.setSpeechRate(0.95f);
@@ -53,16 +51,12 @@ public class AiLayoutAnalyzer {
 
     public void analyzeCode(String fileName, String rawCode, final OnAnalysisListener listener) {
         if (listener != null) listener.onStart();
-
-        // Prompt ที่ดีขึ้น
         String prompt = buildAnalysisPrompt(fileName, rawCode);
-
         aiAssistant.askAI(prompt, new GeminiAssistant.AICallback() {
             @Override
             public void onSuccess(final String responseText) {
                 mainHandler.post(() -> processResponse(responseText, listener));
             }
-
             @Override
             public void onError(final String errorMessage) {
                 mainHandler.post(() -> {
@@ -72,31 +66,37 @@ public class AiLayoutAnalyzer {
         });
     }
 
-    private String buildAnalysisPrompt(String fileName, String rawCode) {
-        return """
-                คุณคือผู้เชี่ยวชาญด้าน Android Development (Kotlin + Jetpack Compose / XML)
-                วิเคราะห์โค้ดไฟล์นี้ให้ละเอียด:
-                
-                ไฟล์: %s
-                
-                โค้ด:
-                %s
-                
-                โปรดวิเคราะห์ดังนี้:
-                1. ปัญหาที่อาจเกิดขึ้น (Bug, Performance, Security, Memory Leak)
-                2. Code Smell / Best Practice ที่ควรปรับปรุง
-                3. คำแนะนำการแก้ไข (พร้อมตัวอย่างโค้ดถ้าจำเป็น)
-                4. คะแนนคุณภาพโค้ด (เต็ม 10)
-                
-                ตอบด้วยภาษาไทยที่อ่านง่าย และใช้ **ข้อความสำคัญ** เพื่อให้เด่นชัด
-                """.formatted(fileName, rawCode);
+    public void askAi(String userQuestion, final OnAnalysisListener listener) {
+        if (listener != null) listener.onStart();
+        String prompt = "คุณคือผู้เชี่ยวชาญด้าน Android Development ช่วยตอบคำถามหรือให้คำแนะนำเกี่ยวกับเรื่องนี้ให้หน่อยครับ: \n\n" + userQuestion;
+        aiAssistant.askAI(prompt, new GeminiAssistant.AICallback() {
+            @Override
+            public void onSuccess(final String responseText) {
+                mainHandler.post(() -> processResponse(responseText, listener));
+            }
+            @Override
+            public void onError(final String errorMessage) {
+                mainHandler.post(() -> {
+                    if (listener != null) listener.onError(errorMessage);
+                });
+            }
+        });
     }
 
     private void processResponse(String responseText, OnAnalysisListener listener) {
-        // อ่านเสียง
-        speakText(responseText);
+        // ทำความสะอาดข้อความสำหรับการพูด
+        String cleanText = responseText
+                .replaceAll("\\*\\*", "")
+                .replaceAll("\\*", "")
+                .replaceAll("#+", "")
+                .replaceAll("`", "")
+                .replaceAll("/", " ")
+                .replaceAll("\\\\", " ")
+                .replaceAll("-", " ");
         
-        // จัดรูปแบบข้อความ
+        speakText(cleanText);
+        
+        // จัดรูปแบบข้อความสำหรับแสดงผล
         SpannableString formatted = formatAiResponse(responseText);
         
         if (listener != null) {
@@ -106,44 +106,15 @@ public class AiLayoutAnalyzer {
 
     private void speakText(String text) {
         if (tts != null && ttsInitialized) {
-            String cleanText = text
-                    .replaceAll("\\*\\*", "")
-                    .replaceAll("#+", "")
-                    .replaceAll("```[\\s\\S]*?```", "");
-            
-            tts.speak(cleanText, TextToSpeech.QUEUE_FLUSH, null, "AI_ANALYSIS");
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "AI_ANALYSIS");
         }
     }
-    
-    // 🌟 เมธอดสำหรับถามคำถาม AI แบบอิสระ (ไม่ใช่แค่การวิเคราะห์โค้ด)
-    public void askAi(String userQuestion, final OnAnalysisListener listener) {
-        if (listener != null) listener.onStart();
-
-        // เราเปลี่ยน Prompt ให้รับคำถามจากผู้ใช้โดยตรง
-        String prompt = "คุณคือผู้เชี่ยวชาญด้าน Android Development ช่วยตอบคำถามหรือให้คำแนะนำเกี่ยวกับเรื่องนี้ให้หน่อยครับ: \n\n" + userQuestion;
-
-        aiAssistant.askAI(prompt, new GeminiAssistant.AICallback() {
-            @Override
-            public void onSuccess(final String responseText) {
-                mainHandler.post(() -> processResponse(responseText, listener));
-            }
-
-            @Override
-            public void onError(final String errorMessage) {
-                mainHandler.post(() -> {
-                    if (listener != null) listener.onError(errorMessage);
-                });
-            }
-        });
-    }
-
-
 
     private SpannableString formatAiResponse(String text) {
-        SpannableString spannable = new SpannableString(text);
+        // ลบเครื่องหมาย ** ออกจากข้อความที่จะแสดงผลเพื่อให้หน้าจอสะอาดตา
+        String processedText = text.replaceAll("\\*\\*", "");
+        SpannableString spannable = new SpannableString(processedText);
 
-        // Highlighting สำหรับ Markdown และคำสำคัญ
-        highlightPattern(spannable, "\\*\\*(.+?)\\*\\*", Color.parseColor("#FF9800")); // Bold
         highlightPattern(spannable, "(Error|ข้อผิดพลาด|ปัญหา|Bug)", Color.RED);
         highlightPattern(spannable, "(แนะนำ|ควร|ดีกว่า|ปรับปรุง|แก้ไข)", Color.parseColor("#4CAF50"));
         highlightPattern(spannable, "(คำแนะนำ|สรุป|คะแนน)", Color.parseColor("#2196F3"));
@@ -154,30 +125,19 @@ public class AiLayoutAnalyzer {
     private void highlightPattern(SpannableString spannable, String regex, int color) {
         Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(spannable.toString());
-
         while (matcher.find()) {
-            int start = matcher.start();
-            int end = matcher.end();
-            
-            // กรณีเป็น **ข้อความ** ให้ตัด ** ออก
-            if (regex.contains("\\*\\*")) {
-                start += 2;
-                end -= 2;
-            }
-
-            spannable.setSpan(new ForegroundColorSpan(color), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            spannable.setSpan(new StyleSpan(Typeface.BOLD), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            spannable.setSpan(new ForegroundColorSpan(color), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            spannable.setSpan(new StyleSpan(Typeface.BOLD), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
+    }
+
+    private String buildAnalysisPrompt(String fileName, String rawCode) {
+        return "ไฟล์: " + fileName + "\n\nโค้ด:\n" + rawCode + "\n\nช่วยวิเคราะห์ปัญหา, Code Smell, คำแนะนำ และให้คะแนน 1-10 เป็นภาษาไทย";
     }
 
     public void shutdown() {
         if (tts != null) {
-            try {
-                tts.stop();
-                tts.shutdown();
-            } catch (Exception e) {
-                // Ignore
-            }
+            try { tts.stop(); tts.shutdown(); } catch (Exception e) {}
             tts = null;
         }
     }

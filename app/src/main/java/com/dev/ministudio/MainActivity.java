@@ -98,8 +98,8 @@ public class MainActivity extends AppCompatActivity {
     // 🌟 ระบบ XML Preview กล่องและตัวแปรควบคุมสถานะ
     private FrameLayout previewContainer;
     private boolean isPreviewMode = false; 
+    private String chatHistory = "";
     
- 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -186,35 +186,48 @@ public class MainActivity extends AppCompatActivity {
         
         if (btnSendToAi != null && etAiInput != null) {
             btnSendToAi.setOnClickListener(v -> {
-                String question = etAiInput.getText().toString();
-                if (question.isEmpty()) {
-                    showToast("กรุณาพิมพ์คำถามก่อนครับ");
+                String userQuestion = etAiInput.getText().toString();
+                if (userQuestion.isEmpty()) {
+                    // เปลี่ยนเป็นแสดงผลใน Console แทน Toast ถ้าไม่มีฟังก์ชัน showToast
+                    tvConsoleLog.append("\n⚠️ กรุณาพิมพ์คำถามก่อนครับ");
                     return;
                 }
                 
-                aiLayoutAnalyzer.askAi(question, new AiLayoutAnalyzer.OnAnalysisListener() {
+                // 1. แสดงคำถามของเราใน Console
+                tvConsoleLog.append("\n\n👤 คุณ: " + userQuestion);
+                
+                // 2. ส่งประวัติ chatHistory + คำถามใหม่ไปให้ AI
+                String fullPrompt = chatHistory + "\nผู้ใช้ถาม: " + userQuestion;
+                
+                aiLayoutAnalyzer.askAi(fullPrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
                     @Override
                     public void onStart() {
-                        tvConsoleLog.setText("🤖 AI กำลังคิดคำตอบ...");
+                        tvConsoleLog.append("\n🤖 AI กำลังคิด...");
                     }
+                    
                     @Override
                     public void onSuccess(android.text.SpannableString formattedResult) {
-                        tvConsoleLog.setText(formattedResult);
+                        tvConsoleLog.append("\n🤖 AI: ");
+                        tvConsoleLog.append(formattedResult);
+                        
+                        // 3. เก็บประวัติเพื่อเอาไปใช้ต่อในคำถามถัดไป
+                        chatHistory += "\nผู้ใช้: " + userQuestion + "\nAI: " + formattedResult.toString();
+                        
                         if (consoleScrollView != null) {
                             consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
                         }
                     }
+                    
                     @Override
                     public void onError(String errorMessage) {
-                        tvConsoleLog.setText("❌ AI ตอบไม่ได้: " + errorMessage);
+                        tvConsoleLog.append("\n❌ AI ตอบไม่ได้: " + errorMessage);
                     }
                 });
+                
+                etAiInput.setText(""); // ล้างช่องพิมพ์
             });
         }
-    }
 
-    
-    
     
     private void setupLogic() {
         // 🤖 เริ่มการทำงานของคลาสแยกจัดการ AI ตัวใหม่
@@ -1078,18 +1091,22 @@ public class MainActivity extends AppCompatActivity {
         }
     }
     
-    // เพิ่มเมธอดนี้ไว้ก่อนปีกกาปิดตัวสุดท้ายของไฟล์ MainActivity.java
+    // เพิ่มเมธอดนี้ไว้ก่อนปีกกาปิดตัวสุดท้ายของ MainActivity.java
     private void appendColoredText(TextView tv, String text, int color) {
-        runOnUiThread(() -> {
-            android.text.SpannableString spannable = new android.text.SpannableString(text);
-            spannable.setSpan(new android.text.style.ForegroundColorSpan(color), 
-                              0, text.length(), 
-                              android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-            tv.append(spannable);
-            if (consoleScrollView != null) {
-                consoleScrollView.post(() -> consoleScrollView.fullScroll(android.view.View.FOCUS_DOWN));
-            }
-        });
+        // ใช้ SpannableString เพื่อใส่สีให้ข้อความที่จะต่อท้าย
+        android.text.SpannableString spannable = new android.text.SpannableString(text);
+        spannable.setSpan(new android.text.style.ForegroundColorSpan(color), 
+                          0, text.length(), 
+                          android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        
+        // ต่อท้ายข้อความใน TextView
+        tv.append(spannable);
+        
+        // เลื่อน ScrollView ลงด้านล่างสุด
+        if (consoleScrollView != null) {
+            consoleScrollView.post(() -> consoleScrollView.fullScroll(android.view.View.FOCUS_DOWN));
+        }
     }
+
 
 }
