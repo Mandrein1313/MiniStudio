@@ -48,6 +48,7 @@ import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
+import android.text.SpannableString;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -742,26 +743,27 @@ public class MainActivity extends AppCompatActivity {
             String currentCode = codeEditor.getText().toString();
 
             // เรียกทำงานผ่านอินเตอร์เฟสคลาสแยกตัวใหม่ที่ปลอดภัย
-            aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
-                @Override
-                public void onStart() {
-                    tvConsoleLog.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ดและตรวจหาจุดพังอย่างละเอียด กรุณารอสักครู่...\n");
-                }
+// เปลี่ยนจากเดิมเป็นแบบนี้ครับ:
+  aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
+    @Override
+    public void onStart() {
+        tvConsoleLog.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ด...");
+    }
 
-                @Override
-                public void onSuccess(String responseText) {
-                    tvConsoleLog.setText("🤖 [คำแนะนำและจุดพังวิเคราะห์โดย AI]:\n\n" + responseText);
-                    if (consoleScrollView != null) {
-                        consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
-                    }
-                }
+    // เปลี่ยนจาก String เป็น android.text.SpannableString
+    @Override
+    public void onSuccess(android.text.SpannableString formattedResult) {
+        tvConsoleLog.setText(formattedResult); // แสดงผลแบบมีสีสันทันที!
+        if (consoleScrollView != null) {
+            consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
+        }
+    }
 
-                @Override
-                public void onError(String errorMessage) {
-                    tvConsoleLog.setText("❌ AI เกิดข้อผิดพลาดชั่วคราว: " + errorMessage);
-                }
-            });
-        });
+    @Override
+    public void onError(String errorMessage) {
+        tvConsoleLog.setText("❌ AI เกิดข้อผิดพลาดชั่วคราว: " + errorMessage);
+    }
+});
 
         shortcutBar.addView(btnAskAI); 
     }
