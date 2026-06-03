@@ -11,7 +11,7 @@ public class BuildSummaryAnalyzer {
         void onAppendLog(String text, int color);
     }
 
-    // 🌟 อัปเกรด Regex ใหม่: เพิ่ม (?:.*\\s)? ด้านหน้า เพื่อรองรับข้อความที่มี Prefix เวลา (Timestamp) แทรกเข้ามาแบบในรูปภาพล่าสุด
+    // 🌟 Regex ปรับปรุงใหม่
     private static final Pattern JAVAC_ERROR =
             Pattern.compile("(?:.*\\s)?(.*?\\.java):(\\d+):\\s*error:\\s*(.*)",
                     Pattern.CASE_INSENSITIVE);
@@ -30,9 +30,15 @@ public class BuildSummaryAnalyzer {
     private ParsedError lastError;
     private final ArrayList<ParsedError> errorList = new ArrayList<>();
 
-    private final int COLOR_ERROR = Color.parseColor("#FF8A80");
-    private final int COLOR_WARNING = Color.parseColor("#FFB74D");
+    // 🎨 สีสันใหม่ที่สวยและชัดเจน
+    private final int COLOR_HEADER = Color.parseColor("#FF5252");     // แดงสด (หัวข้อ)
+    private final int COLOR_FILE = Color.parseColor("#FFAB40");       // ส้ม (ไฟล์)
+    private final int COLOR_LINE = Color.parseColor("#64B5F6");       // น้ำเงิน (บรรทัด)
+    private final int COLOR_TYPE = Color.parseColor("#FFAB40");       // ส้ม (ประเภท)
+    private final int COLOR_MESSAGE = Color.parseColor("#FF8A80");    // แดงอ่อน (รายละเอียด)
+    private final int COLOR_SUGGEST = Color.parseColor("#81C784");    // เขียว (คำแนะนำ)
     private final int COLOR_SUCCESS = Color.parseColor("#81C784");
+    private final int COLOR_SEPARATOR = Color.parseColor("#BDBDBD");
 
     public void clearErrors() {
         errorList.clear();
@@ -51,38 +57,26 @@ public class BuildSummaryAnalyzer {
     }
 
     public boolean analyzeLine(String line, int defaultColor, LogOutputListener listener) {
-        if (line == null) {
+        if (line == null) return false;
+
+        // ตรวจสอบ Error ด้วย Regex
+        if (checkRegexError(line, JAVAC_ERROR, "JAVA_ERROR") ||
+            checkRegexError(line, XML_ERROR, "XML_AAPT2_ERROR") ||
+            checkRegexError(line, KOTLIN_ERROR, "KOTLIN_ERROR")) {
             return false;
         }
 
-        // ===================================
-        // 🌟 1. ตรวจสอบกลุ่ม Java / XML / Kotlin ข้อผิดพลาดโค้ดพัง
-        // ===================================
-        if (checkRegexError(line, JAVAC_ERROR, "JAVA_ERROR")
-                || checkRegexError(line, XML_ERROR, "XML_AAPT2_ERROR")
-                || checkRegexError(line, KOTLIN_ERROR, "KOTLIN_ERROR")) {
-            
-            // หมายเหตุ: ปล่อยให้แสดงสถานะล็อกปกติไปก่อน ไม่เพิ่งด่วนตัดจบบัดเดี๋ยวนั้น เพื่อป้องกัน Log พ่นขาดตอน
-            return false; 
-        }
-
-        // ===================================
-        // 🌟 2. ดักพิกัดคอลัมน์จากสัญลักษณ์ลูกศรชี้ (Column Marker ^)
-        // ===================================
+        // ดักตำแหน่ง ^ (ลูกศรชี้ตำแหน่งผิด)
         if (hasError && lastError != null && line.contains("^")) {
             int colIndex = line.indexOf("^");
             if (colIndex >= 0) {
-                // บล็อกคำนวณตำแหน่งคอลัมน์: นำค่าความยาวนำหน้ามาลบออก (ถ้าเป็นไปได้) เพื่อให้เส้นใต้ชี้ตรงจุดคำผิดพอดี
-                lastError.column = colIndex; 
+                lastError.column = colIndex;
             }
         }
 
-        // แปลงเป็นพิมพ์เล็กเพื่อดักคำสั่งทั่วไป
         String lowerLine = line.toLowerCase();
 
-        // ===================================
-        // 🌟 3. ตรวจสอบหมวดหมู่ปัญหา Git / Token ขาดหาย
-        // ===================================
+        // ตรวจสอบข้อผิดพลาดอื่นๆ
         if (lowerLine.contains("repository not found")) {
             hasError = true;
             errorType = "GIT_URL_MISSING";
@@ -90,49 +84,21 @@ public class BuildSummaryAnalyzer {
             return false;
         }
 
-        if (line.contains("Authentication failed")
-                || line.contains("401 Unauthorized")
-                || line.contains("Bad credentials")
-                || line.contains("403 Forbidden")) {
+        if (line.contains("Authentication failed") || line.contains("401 Unauthorized") ||
+            line.contains("Bad credentials") || line.contains("403 Forbidden")) {
             hasError = true;
             errorType = "AUTH_ERROR";
-            errorDetails = "GitHub Token ไม่ถูกต้องหรือไม่มีสิทธิ์เข้าถึง";
+            errorDetails = "GitHub Token ไม่ถูกต้องหรือไม่มีสิทธิ์";
             return false;
         }
 
-        // ===================================
-        // 🌟 4. ตรวจสอบโครงสร้างไฟล์ Gradle หาย
-        // ===================================
-        if (line.contains("build.gradle' not found")
-                || line.contains("Build file")
-                || line.contains("settings.gradle")
-                || line.contains("settings.gradle.kts")) {
-            hasError = true;
-            errorType = "GRADLE_STRUCTURE_ERROR";
-            errorDetails = "ไม่พบไฟล์ Gradle ที่จำเป็น";
-            return false;
-        }
-
-        // ===================================
-        // 🌟 5. ตัวจับปัญหาระบบจัดหาทรัพยากรหน้าจอ (AAPT2)
-        // ===================================
-        if (lowerLine.contains("aapt") && lowerLine.contains("error")) {
-            hasError = true;
-            errorType = "AAPT2_ERROR";
-            errorDetails = line;
-            return false;
-        }
-
-        // ===================================
-        // 🌟 6. ตัวแจ้งเตือนดักจบขั้นสุดท้ายเมื่อระบบหยุดรันลง (Exit Code)
-        // ===================================
         if (lowerLine.contains("build failed") || lowerLine.contains("compilejava failed")) {
             hasError = true;
             if (errorType.equals("UNKNOWN")) {
                 errorType = "BUILD_COMPILE_FAILED";
-                errorDetails = "กระบวนการคอมไพล์ซอร์สโค้ดล้มเหลว";
+                errorDetails = "กระบวนการคอมไพล์ล้มเหลว";
             }
-            return true; // 💥 ส่งค่า True เพื่อสั่งเบรกสเตตัสใน MainActivity ตอนจบกระบวนการจริง ๆ
+            return true;
         }
 
         return false;
@@ -140,15 +106,13 @@ public class BuildSummaryAnalyzer {
 
     private boolean checkRegexError(String line, Pattern pattern, String typeStr) {
         Matcher m = pattern.matcher(line);
-        if (!m.find()) {
-            return false;
-        }
+        if (!m.find()) return false;
+
         try {
-            String file = m.group(1).trim(); // 🌟 จุดเพิ่มเช็ค: ใช้ .trim() ป้องกันเศษเว้นวรรค
+            String file = m.group(1).trim();
             int lineNumber = Integer.parseInt(m.group(2));
             String message = m.group(3).trim();
 
-            // เคลียร์เศษพาร์ทระบบคลาวด์ส่วนเกินออก เพื่อให้ได้พาธไฟล์สัมพัทธ์ในโปรเจกต์เครื่องท่าน
             if (file.contains("app/src/")) {
                 file = file.substring(file.indexOf("app/src/"));
             }
@@ -167,40 +131,59 @@ public class BuildSummaryAnalyzer {
         return false;
     }
 
+    // 🎨 ฟังก์ชันแสดงผลสรุปที่สวยงาม
     public void printSummary(LogOutputListener listener) {
-        if (!hasError || listener == null) {
-            return;
-        }
-        listener.onAppendLog("\n======================================\n", COLOR_ERROR);
-        listener.onAppendLog("🔍 วิเคราะห์สาเหตุการบิวด์ล้มเหลว\n", COLOR_ERROR);
+        if (!hasError || listener == null) return;
+
+        listener.onAppendLog("\n" + "═".repeat(50) + "\n", COLOR_HEADER);
+        listener.onAppendLog("🔍 วิเคราะห์สาเหตุการบิวด์ล้มเหลว\n", COLOR_HEADER);
 
         if (lastError != null) {
-            listener.onAppendLog("📍 ไฟล์: " + lastError.file + "\n", COLOR_ERROR);
-            listener.onAppendLog("📍 บรรทัด: " + lastError.line + "\n", COLOR_ERROR);
+            listener.onAppendLog("📍 ไฟล์: ", COLOR_HEADER);
+            listener.onAppendLog(lastError.file + "\n", COLOR_FILE);
+            
+            listener.onAppendLog("📍 บรรทัดที่: ", COLOR_HEADER);
+            listener.onAppendLog(lastError.line + "\n", COLOR_LINE);
         }
 
-        // 🌟 จุดเพิ่มเช็คสวิตช์เคส: ปรับเงื่อนไขให้รองรับชื่อประเภทใหม่ตรงล็อก เพื่อแชร์สเตตัสให้หน้าจอหลักทำงานได้ถูกต้อง
         switch (errorType) {
             case "JAVA_ERROR":
-                listener.onAppendLog("📌 ประเภท: ข้อผิดพลาดไฟล์ภาษา Java (Compile Error)\n", COLOR_WARNING);
-                listener.onAppendLog("💬 รายละเอียด: " + errorDetails + "\n", COLOR_WARNING);
-                listener.onAppendLog("💡 แนะนำ: ตรวจสอบไวยากรณ์โค้ด เครื่องหมายปีกกา คลาส หรือเซมิโคลอนในพิกัดบรรทัดดังกล่าวครับ\n", COLOR_SUCCESS);
+                listener.onAppendLog("📌 ประเภท: ", COLOR_HEADER);
+                listener.onAppendLog("ข้อผิดพลาด Java (Compile Error)\n", COLOR_TYPE);
                 break;
             case "XML_AAPT2_ERROR":
-                listener.onAppendLog("📌 ประเภท: ข้อผิดพลาดไฟล์เลย์เอาต์ XML (AAPT2)\n", COLOR_WARNING);
-                listener.onAppendLog("💬 รายละเอียด: " + errorDetails + "\n", COLOR_WARNING);
-                listener.onAppendLog("💡 แนะนำ: ตรวจสอบแท็กเปิด-ปิด หรือแอตทริบิวต์หน้าจอที่พิมพ์ผิดในไฟล์ XML ครับ\n", COLOR_SUCCESS);
+                listener.onAppendLog("📌 ประเภท: ", COLOR_HEADER);
+                listener.onAppendLog("ข้อผิดพลาด XML (AAPT2)\n", COLOR_TYPE);
                 break;
             case "KOTLIN_ERROR":
-                listener.onAppendLog("📌 ประเภท: ข้อผิดพลาดไฟล์ภาษา Kotlin (Kotlin Compiler)\n", COLOR_WARNING);
-                listener.onAppendLog("💬 รายละเอียด: " + errorDetails + "\n", COLOR_WARNING);
-                listener.onAppendLog("💡 แนะนำ: เช็คประเภทตัวแปร การสืบทอดคลาส หรือ Null Safety ตรงบรรทัดที่พังครับ\n", COLOR_SUCCESS);
+                listener.onAppendLog("📌 ประเภท: ", COLOR_HEADER);
+                listener.onAppendLog("ข้อผิดพลาด Kotlin\n", COLOR_TYPE);
                 break;
             default:
-                listener.onAppendLog("📌 ประเภท: " + errorType + "\n", COLOR_WARNING);
-                listener.onAppendLog("💬 รายละเอียด: " + errorDetails + "\n", COLOR_WARNING);
+                listener.onAppendLog("📌 ประเภท: ", COLOR_HEADER);
+                listener.onAppendLog(errorType + "\n", COLOR_TYPE);
                 break;
         }
-        listener.onAppendLog("======================================\n", COLOR_ERROR);
+
+        listener.onAppendLog("💬 รายละเอียด: ", COLOR_HEADER);
+        listener.onAppendLog(errorDetails + "\n", COLOR_MESSAGE);
+
+        listener.onAppendLog("💡 คำแนะนำ: ", COLOR_HEADER);
+        listener.onAppendLog(getSuggestion() + "\n", COLOR_SUGGEST);
+
+        listener.onAppendLog("═".repeat(50) + "\n", COLOR_HEADER);
+    }
+
+    private String getSuggestion() {
+        switch (errorType) {
+            case "JAVA_ERROR":
+                return "ตรวจสอบไวยากรณ์, เครื่องหมาย {}, (), ; ตรงบรรทัดที่ระบุ";
+            case "XML_AAPT2_ERROR":
+                return "ตรวจสอบแท็ก XML เปิด-ปิด ไม่ตรงกัน หรือแอตทริบิวต์ผิด";
+            case "KOTLIN_ERROR":
+                return "ตรวจสอบประเภทตัวแปร, Null Safety, หรือการสืบทอดคลาส";
+            default:
+                return "ตรวจสอบโค้ดและลอง Build ใหม่ครับ";
+        }
     }
 }
