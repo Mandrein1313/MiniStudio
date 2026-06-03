@@ -114,6 +114,30 @@ public class AiLayoutAnalyzer {
             tts.speak(cleanText, TextToSpeech.QUEUE_FLUSH, null, "AI_ANALYSIS");
         }
     }
+    
+    // 🌟 เมธอดสำหรับถามคำถาม AI แบบอิสระ (ไม่ใช่แค่การวิเคราะห์โค้ด)
+    public void askAi(String userQuestion, final OnAnalysisListener listener) {
+        if (listener != null) listener.onStart();
+
+        // เราเปลี่ยน Prompt ให้รับคำถามจากผู้ใช้โดยตรง
+        String prompt = "คุณคือผู้เชี่ยวชาญด้าน Android Development ช่วยตอบคำถามหรือให้คำแนะนำเกี่ยวกับเรื่องนี้ให้หน่อยครับ: \n\n" + userQuestion;
+
+        aiAssistant.askAI(prompt, new GeminiAssistant.AICallback() {
+            @Override
+            public void onSuccess(final String responseText) {
+                mainHandler.post(() -> processResponse(responseText, listener));
+            }
+
+            @Override
+            public void onError(final String errorMessage) {
+                mainHandler.post(() -> {
+                    if (listener != null) listener.onError(errorMessage);
+                });
+            }
+        });
+    }
+
+
 
     private SpannableString formatAiResponse(String text) {
         SpannableString spannable = new SpannableString(text);

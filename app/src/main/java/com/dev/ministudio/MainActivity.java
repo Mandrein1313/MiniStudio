@@ -98,6 +98,8 @@ public class MainActivity extends AppCompatActivity {
     // 🌟 ระบบ XML Preview กล่องและตัวแปรควบคุมสถานะ
     private FrameLayout previewContainer;
     private boolean isPreviewMode = false; 
+    
+ 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -177,7 +179,42 @@ public class MainActivity extends AppCompatActivity {
         }
 
         previewContainer = findViewById(R.id.previewContainer);
+
+        // --- ส่วนเสริม: ระบบปุ่มถาม AI ---
+        android.widget.Button btnSendToAi = findViewById(R.id.btnSendToAi);
+        android.widget.EditText etAiInput = findViewById(R.id.etAiInput);
+        
+        if (btnSendToAi != null && etAiInput != null) {
+            btnSendToAi.setOnClickListener(v -> {
+                String question = etAiInput.getText().toString();
+                if (question.isEmpty()) {
+                    showToast("กรุณาพิมพ์คำถามก่อนครับ");
+                    return;
+                }
+                
+                aiLayoutAnalyzer.askAi(question, new AiLayoutAnalyzer.OnAnalysisListener() {
+                    @Override
+                    public void onStart() {
+                        tvConsoleLog.setText("🤖 AI กำลังคิดคำตอบ...");
+                    }
+                    @Override
+                    public void onSuccess(android.text.SpannableString formattedResult) {
+                        tvConsoleLog.setText(formattedResult);
+                        if (consoleScrollView != null) {
+                            consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
+                        }
+                    }
+                    @Override
+                    public void onError(String errorMessage) {
+                        tvConsoleLog.setText("❌ AI ตอบไม่ได้: " + errorMessage);
+                    }
+                });
+            });
+        }
     }
+
+    
+    
     
     private void setupLogic() {
         // 🤖 เริ่มการทำงานของคลาสแยกจัดการ AI ตัวใหม่
