@@ -49,6 +49,9 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import android.text.SpannableString;
+import java.util.List;
+
+
 
 public class MainActivity extends AppCompatActivity {
 
@@ -742,23 +745,15 @@ public class MainActivity extends AppCompatActivity {
             RippleDrawable rippleDrawable = new RippleDrawable(colorStateList, shape, null);
             btn.setBackground(rippleDrawable);
 
-            params.gravity = Gravity.CENTER_VERTICAL;
             btn.setLayoutParams(params);
             btn.setClickable(true);
             btn.setFocusable(true);
 
             btn.setOnClickListener(v -> {
                 if (codeEditor == null) return;
-
-                if (shortcut.equals("↩")) {
-                    if (codeEditor.canUndo()) {
-                        codeEditor.undo();
-                    }
-                } else if (shortcut.equals("↪")) {
-                    if (codeEditor.canRedo()) {
-                        codeEditor.redo();
-                    }
-                } else {
+                if (shortcut.equals("↩")) { if (codeEditor.canUndo()) codeEditor.undo(); } 
+                else if (shortcut.equals("↪")) { if (codeEditor.canRedo()) codeEditor.redo(); } 
+                else {
                     if (codeEditor.getCursor() != null) {
                         int line = codeEditor.getCursor().getLeftLine();
                         int column = codeEditor.getCursor().getLeftColumn();
@@ -766,11 +761,9 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             });
-
             shortcutBar.addView(btn);
         }
 
-        // 🤖 [จุดปรับปรุงลอจิกเรียกใช้คลาสแยกและลด Error 400]
         TextView btnAskAI = new TextView(this);
         btnAskAI.setText("🤖 ถาม AI");
         btnAskAI.setTextSize(14);
@@ -792,39 +785,30 @@ public class MainActivity extends AppCompatActivity {
 
         btnAskAI.setOnClickListener(v -> {
             if (codeEditor == null || tvConsoleLog == null || currentProject == null) return;
-
             if (consolePanel != null) consolePanel.setVisibility(View.VISIBLE);
             
             java.io.File currentFile = currentProject.getCurrentOpenFile();
             String fileName = (currentFile != null) ? currentFile.getName() : "UnknownFile.java";
             String currentCode = codeEditor.getText().toString();
 
-            // เรียกทำงานผ่านอินเตอร์เฟสคลาสแยกตัวใหม่ที่ปลอดภัย
-// เปลี่ยนจากเดิมเป็นแบบนี้ครับ:
-  aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
-    @Override
-    public void onStart() {
-        tvConsoleLog.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ด...");
-    }
-
-    // เปลี่ยนจาก String เป็น android.text.SpannableString
-    @Override
-    public void onSuccess(android.text.SpannableString formattedResult) {
-        tvConsoleLog.setText(formattedResult); // แสดงผลแบบมีสีสันทันที!
-        if (consoleScrollView != null) {
-            consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
-        }
-    }
-
-    @Override
-    public void onError(String errorMessage) {
-        tvConsoleLog.setText("❌ AI เกิดข้อผิดพลาดชั่วคราว: " + errorMessage);
-    }
-   });
-});
-
+            aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
+                @Override public void onStart() { tvConsoleLog.setText("🤖 MiniStudio AI กำลังวิเคราะห์..."); }
+                @Override public void onSuccess(android.text.SpannableString formattedResult) {
+                    tvConsoleLog.setText(formattedResult);
+                    if (consoleScrollView != null) consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
+                }
+                @Override public void onCodeExtracted(List<String> codes) {
+                    if (!codes.isEmpty()) {
+                        copyToClipboard(codes.get(0));
+                        tvConsoleLog.append("\n\n✅ คัดลอกโค้ดลง Clipboard แล้วครับ");
+                    }
+                }
+                @Override public void onError(String errorMessage) { tvConsoleLog.setText("❌ Error: " + errorMessage); }
+            });
+        });
         shortcutBar.addView(btnAskAI); 
     }
+
     
     private void applyEditorFontSize(float sizeSp) {
         if (codeEditor != null) {
@@ -1108,6 +1092,13 @@ public class MainActivity extends AppCompatActivity {
             consoleScrollView.post(() -> consoleScrollView.fullScroll(android.view.View.FOCUS_DOWN));
         }
     }
+private void copyToClipboard(String text) {
+    android.content.ClipboardManager clipboard = (android.content.ClipboardManager) 
+            getSystemService(Context.CLIPBOARD_SERVICE);
+    android.content.ClipData clip = android.content.ClipData.newPlainText("CodeFromAI", text);
+    clipboard.setPrimaryClip(clip);
+    showToast("📋 คัดลอกโค้ดสำเร็จ!");
+}
 
 
 }
