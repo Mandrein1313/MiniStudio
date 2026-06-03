@@ -232,7 +232,11 @@ previewContainer = findViewById(R.id.previewContainer);
                             tvConsoleLog.append("\n\n📋 AI ส่งโค้ดมา " + codes.size() + " ชิ้น");
                             
                             for (String code : codes) {
-                                tvConsoleLog.append("\n\n```java\n" + code + "\n```");
+                                tvConsoleLog.append(
+    "\n\n================ CODE ================\n"
+    + code +
+    "\n======================================"
+);
                             }
                             
                             // เลื่อน Console ลงล่างอัตโนมัติ
@@ -807,21 +811,56 @@ previewContainer = findViewById(R.id.previewContainer);
             String fileName = (currentFile != null) ? currentFile.getName() : "UnknownFile.java";
             String currentCode = codeEditor.getText().toString();
 
-            aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
-                @Override public void onStart() { tvConsoleLog.setText("🤖 MiniStudio AI กำลังวิเคราะห์..."); }
-                @Override public void onSuccess(android.text.SpannableString formattedResult) {
-                    tvConsoleLog.setText(formattedResult);
-                    if (consoleScrollView != null) consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
-                }
-                @Override public void onCodeExtracted(List<String> codes) {
-                    if (!codes.isEmpty()) {
-                        copyToClipboard(codes.get(0));
-                        tvConsoleLog.append("\n\n✅ คัดลอกโค้ดลง Clipboard แล้วครับ");
-                    }
-                }
-                @Override public void onError(String errorMessage) { tvConsoleLog.setText("❌ Error: " + errorMessage); }
-            });
-        });
+ aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
+
+    @Override
+    public void onStart() {
+        tvConsoleLog.setText("🤖 MiniStudio AI กำลังวิเคราะห์...");
+    }
+
+    @Override
+    public void onSuccess(android.text.SpannableString formattedResult) {
+        tvConsoleLog.setText(formattedResult);
+
+        if (consoleScrollView != null) {
+            consoleScrollView.post(() ->
+                consoleScrollView.fullScroll(View.FOCUS_DOWN)
+            );
+        }
+    }
+
+    @Override
+    public void onCodeExtracted(List<String> codes) {
+        if (codes == null || codes.isEmpty()) {
+            return;
+        }
+
+        StringBuilder allCode = new StringBuilder();
+
+        for (String code : codes) {
+            allCode.append(code)
+                   .append("\n\n");
+        }
+
+        String finalCode = allCode.toString();
+
+        copyToClipboard(finalCode);
+
+        // วางลง Editor อัตโนมัติ
+        pasteCodeToEditor(finalCode);
+
+        tvConsoleLog.append(
+            "\n\n📋 คัดลอกและวางโค้ด "
+            + codes.size()
+            + " ชุดลง Editor แล้ว"
+        );
+    }
+
+    @Override
+    public void onError(String errorMessage) {
+        tvConsoleLog.setText("❌ Error: " + errorMessage);
+    }
+});
         shortcutBar.addView(btnAskAI); 
     }
 
@@ -1092,29 +1131,46 @@ previewContainer = findViewById(R.id.previewContainer);
         }
     }
     
-    // เพิ่มเมธอดนี้ไว้ก่อนปีกกาปิดตัวสุดท้ายของ MainActivity.java
-    private void appendColoredText(TextView tv, String text, int color) {
-        // ใช้ SpannableString เพื่อใส่สีให้ข้อความที่จะต่อท้าย
-        android.text.SpannableString spannable = new android.text.SpannableString(text);
-        spannable.setSpan(new android.text.style.ForegroundColorSpan(color), 
-                          0, text.length(), 
-                          android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-        
-        // ต่อท้ายข้อความใน TextView
-        tv.append(spannable);
-        
-        // เลื่อน ScrollView ลงด้านล่างสุด
-        if (consoleScrollView != null) {
-            consoleScrollView.post(() -> consoleScrollView.fullScroll(android.view.View.FOCUS_DOWN));
-        }
+// เพิ่มเมธอดนี้ไว้ก่อนปีกกาปิดตัวสุดท้ายของ MainActivity.java
+private void appendColoredText(TextView tv, String text, int color) {
+    android.text.SpannableString spannable =
+            new android.text.SpannableString(text);
+
+    spannable.setSpan(
+            new android.text.style.ForegroundColorSpan(color),
+            0,
+            text.length(),
+            android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+    );
+
+    tv.append(spannable);
+
+    if (consoleScrollView != null) {
+        consoleScrollView.post(() ->
+                consoleScrollView.fullScroll(android.view.View.FOCUS_DOWN));
     }
+}
+
 private void copyToClipboard(String text) {
-    android.content.ClipboardManager clipboard = (android.content.ClipboardManager) 
-            getSystemService(Context.CLIPBOARD_SERVICE);
-    android.content.ClipData clip = android.content.ClipData.newPlainText("CodeFromAI", text);
+    android.content.ClipboardManager clipboard =
+            (android.content.ClipboardManager)
+                    getSystemService(Context.CLIPBOARD_SERVICE);
+
+    android.content.ClipData clip =
+            android.content.ClipData.newPlainText("CodeFromAI", text);
+
     clipboard.setPrimaryClip(clip);
+
     showToast("📋 คัดลอกโค้ดสำเร็จ!");
 }
 
+private void pasteCodeToEditor(String code) {
+    runOnUiThread(() -> {
+        if (codeEditor != null) {
+            codeEditor.setText(code);
+            showToast("✅ วางโค้ดลง Editor สำเร็จ");
+        }
+    });
+}
 
 }

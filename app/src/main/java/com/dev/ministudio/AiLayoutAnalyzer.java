@@ -149,10 +149,14 @@ public class AiLayoutAnalyzer {
         }
     }
 
-    private String buildAnalysisPrompt(String fileName, String rawCode) {
-        return "ไฟล์: " + fileName + "\n\nโค้ด:\n" + rawCode + 
-               "\n\nช่วยวิเคราะห์ปัญหา และให้โค้ดที่แก้ไขแล้วใน Code Block เท่านั้น";
-    }
+private String buildAnalysisPrompt(String fileName, String rawCode) {
+    return "ไฟล์: " + fileName +
+           "\n\nโค้ด:\n" + rawCode +
+           "\n\n" +
+           "วิเคราะห์และแก้ไขโค้ดให้สมบูรณ์ " +
+           "ตอบกลับเป็น Code Block ```java เท่านั้น " +
+           "ห้ามอธิบาย ห้ามใส่ข้อความอื่น";
+}
 
     public void shutdown() {
         if (tts != null) { 
