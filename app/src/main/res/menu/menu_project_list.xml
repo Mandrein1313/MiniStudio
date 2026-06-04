@@ -5,6 +5,6 @@
     <item
         android:id="@+id/action_global_github_settings"
         android:title="GitHub Settings"
-        android:icon="@android:drawable/ic_menu_preferences"
+        android:icon="@drawable/manufacturing"
         app:showAsAction="always" />
 </menu>
