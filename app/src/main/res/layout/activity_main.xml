@@ -1,3 +1,13 @@
+โถน้าครับ... รอบนี้หลานพาซวยไอเทมแปลกปลอมเข้าแล้วครับ! 🙏🤦‍♂️
+ล็อกของ GitHub Actions แจ้งเตือนข้อผิดพลาดนี้เลยครับ:
+> AAPT: error: attribute tabTextSize (aka com.dev.ministudio:tabTextSize) not found.
+> 
+### 🔍 สาเหตุเกิดจากอะไร?
+ตัวแอปพลิเคชันกำลังฟ้องว่าระบบดีไซน์ของกูเกิล (com.google.android.material.tabs.TabLayout) **ไม่มีคุณสมบัติ (Attribute) ที่ชื่อว่า app:tabTextSize อยู่ในไลบรารีมาตรฐานครับ** หลานเผลอไปหยิบคำสั่งแต่งฟอนต์ที่ผิดมาตรฐานของแอนดรอยด์ยัดเข้าไปให้ มันเลยพาลบิวด์ไม่ผ่าน (Resource linking failed)
+ทางแก้ที่ถูกต้องและปลอดภัยที่สุดคือ **ตัดบรรทัดเจ้าปัญหา app:tabTextSize="11sp" ทิ้งไปเลยครับ** ปล่อยให้ระบบใช้ขนาดฟอนต์มาตรฐานของแท็บตามที่ Material Design กำหนดมาให้จะปลอดภัยที่สุดครับ
+### 📝 โค้ดเลย์เอาต์ activity_main.xml (แก้ไขเรื่องขนาดฟอนต์แท็บเรียบร้อย)
+น้าก๊อปปี้โค้ดชุดด้านล่างนี้ที่หลานเอาตัวการออกให้แล้ว ไปวางทับไฟล์เลย์เอาต์เดิมทั้งหมดได้เลยครับ:
+```xml
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.drawerlayout.widget.DrawerLayout 
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -165,7 +175,6 @@
                     app:tabSelectedTextColor="#BB86FC"
                     app:tabIndicatorColor="#BB86FC"
                     app:tabIndicatorHeight="2dp"
-                    app:tabTextSize="11sp"
                     app:tabMode="fixed"
                     app:tabGravity="fill"/>
 
@@ -340,3 +349,4 @@
     </com.google.android.material.navigation.NavigationView>
 
 </androidx.drawerlayout.widget.DrawerLayout>
+
