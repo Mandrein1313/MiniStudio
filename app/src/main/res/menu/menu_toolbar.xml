@@ -28,5 +28,9 @@
         android:id="@+id/action_redo"
         android:title="Redo"
         app:showAsAction="never" />
+        
+        <item
+    android:id="@+id/action_ai_settings"
+    android:title="AI Settings"/>
 
 </menu>

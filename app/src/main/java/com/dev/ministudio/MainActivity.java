@@ -923,6 +923,18 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         
+       if(id == R.id.action_ai_settings){
+
+    startActivity(
+            new Intent(
+                    this,
+                    AISettingsActivity.class
+            )
+    );
+
+    return true;
+}
+        
         if (id == R.id.action_undo) { if (codeEditor.canUndo()) codeEditor.undo(); return true; } 
         if (id == R.id.action_redo) { if (codeEditor.canRedo()) codeEditor.redo(); return true; }
         if (id == R.id.action_search) {
@@ -1108,6 +1120,12 @@ public class MainActivity extends AppCompatActivity {
             consoleScrollView.post(() -> consoleScrollView.fullScroll(android.view.View.FOCUS_DOWN));
         }
     }
-
+@Override
+protected void onDestroy() {
+    super.onDestroy();
+    if (aiLayoutAnalyzer != null) {
+        aiLayoutAnalyzer.shutdown();
+    }
+}
 
 }

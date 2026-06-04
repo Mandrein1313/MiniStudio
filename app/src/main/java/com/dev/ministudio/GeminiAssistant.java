@@ -15,16 +15,24 @@ public class GeminiAssistant {
 
     private static final String API_URL = "https://api.groq.com/openai/v1/chat/completions";
     
-    // 🌟 เพิ่มตัวแปรสำหรับเก็บ Context
+    // 🌟 ตัวแปรสำหรับเก็บ Context
     private final Context context;
 
-    // 🌟 ปรับปรุง Constructor ให้รับ Context เข้ามาใช้งาน
+    // 🌟 ปรับปรุงเพื่อใช้ getApplicationContext() ป้องกัน Memory Leak เด็ดขาดตามที่คุยกันไว้ครับ
     public GeminiAssistant(Context context) {
-        this.context = context;
+        this.context = context != null ? context.getApplicationContext() : null;
+    }
+
+    // 🌟 เมทอดสำหรับตรวจสอบว่ามี API Key บันทึกไว้แล้วหรือยัง (เพื่อให้ AiLayoutAnalyzer สามารถเช็กได้ก่อนยิงงาน)
+    public boolean hasApiKey() {
+        if (context == null) return false;
+        String key = getApiKey();
+        return key != null && !key.trim().isEmpty();
     }
 
     // 🌟 เมธอดสำหรับดึง API Key จาก SharedPreferences บันทึกในชื่อไฟล์ ai_settings
     private String getApiKey() {
+        if (context == null) return "";
         SharedPreferences prefs = context.getSharedPreferences("ai_settings", Context.MODE_PRIVATE);
         return prefs.getString("groq_api_key", "");
     }

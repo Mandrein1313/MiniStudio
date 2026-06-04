@@ -30,10 +30,11 @@ public class AiLayoutAnalyzer {
     }
 
     public AiLayoutAnalyzer(Context context) {
-        // 🌟 แก้ไขจุดสำคัญ: ส่งผ่าน context เข้าไป เพื่อให้ระบบ AI สามารถดึง API Key ได้ถูกต้อง
-        this.aiAssistant = new GeminiAssistant(context);
+        // 🌟 แก้ไขจุดที่ 1: ป้องกัน Memory Leak โดยการใช้ getApplicationContext() ให้กับทัั้งระบบ AI และ TTS
+        Context appContext = context.getApplicationContext();
+        this.aiAssistant = new GeminiAssistant(appContext);
         this.mainHandler = new Handler(Looper.getMainLooper());
-        initTTS(context);
+        initTTS(appContext);
     }
 
     private void initTTS(Context context) {
@@ -51,6 +52,14 @@ public class AiLayoutAnalyzer {
     }
 
     public void analyzeCode(String fileName, String rawCode, final OnAnalysisListener listener) {
+        // 🌟 แก้ไขจุดที่ 2: เช็ก API Key ก่อนส่งคำขอไปยังเซิร์ฟเวอร์ ถ้าไม่มีคีย์ให้ตีกลับทันที
+        if (!aiAssistant.hasApiKey()) {
+            if (listener != null) {
+                listener.onError("ยังไม่ได้ตั้งค่า API Key กรุณากรอก Key ก่อนใช้งานครับ");
+            }
+            return;
+        }
+
         if (listener != null) listener.onStart();
         String prompt = buildAnalysisPrompt(fileName, rawCode);
         aiAssistant.askAI(prompt, new GeminiAssistant.AICallback() {
@@ -68,6 +77,14 @@ public class AiLayoutAnalyzer {
     }
 
     public void askAi(String userQuestion, final OnAnalysisListener listener) {
+        // 🌟 แก้ไขจุดที่ 2: เช็ก API Key สำหรับช่องสนทนาทั่วไปด้วยเช่นกัน
+        if (!aiAssistant.hasApiKey()) {
+            if (listener != null) {
+                listener.onError("ยังไม่ได้ตั้งค่า API Key กรุณากรอก Key ก่อนใช้งานครับ");
+            }
+            return;
+        }
+
         if (listener != null) listener.onStart();
         String prompt = "คุณคือผู้เชี่ยวชาญด้าน Android Development ช่วยตอบคำถามหรือให้คำแนะนำเกี่ยวกับเรื่องนี้ให้หน่อยครับ: \n\n" + userQuestion;
         aiAssistant.askAI(prompt, new GeminiAssistant.AICallback() {
@@ -138,7 +155,12 @@ public class AiLayoutAnalyzer {
 
     public void shutdown() {
         if (tts != null) {
-            try { tts.stop(); tts.shutdown(); } catch (Exception e) {}
+            try { 
+                tts.stop(); 
+                tts.shutdown(); 
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             tts = null;
         }
     }
