@@ -7,7 +7,8 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import android.content.SharedPreferences;
 
-public class AISettingsActivity extends AppCompatActivity {
+// เปลี่ยนจาก AISettingsActivity เป็น AiSettingsActivity
+public class AiSettingsActivity extends AppCompatActivity { 
 
     private EditText etApiKey;
 

@@ -49,6 +49,8 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import android.text.SpannableString;
+import android.content.Intent;
+
 
 public class MainActivity extends AppCompatActivity {
 
