@@ -10,24 +10,25 @@ import androidx.recyclerview.widget.RecyclerView;
 
 public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.ViewHolder> {
 
-    private final MainActivity activity;
-    // 🌟 สร้างตัวแปรเก็บข้อความแยกกันระหว่างหน้า Console และหน้า AI
-    private String consoleText = "ยังไม่มี Build Log...";
-    private String aiText = "พิมพ์คำถามด้านล่างเพื่อคุยกับ AI ของน้าได้เลยครับ";
+    // 🌟 สร้างตัวแปรเก็บ TextView แยกไว้ เพื่อส่งคืนกลับไปให้ MainActivity นำไปใช้งาน
+    private TextView tvConsole;
+    private TextView tvAiOutput;
 
+    // 🌟 [แก้ไข 1] เพิ่ม Constructor แบบไม่มีอาร์กิวเมนต์ เพื่อแก้บั๊กบรรทัดที่ 299
+    public PanelPagerAdapter() {
+    }
+
+    // มีเผื่อไว้ถ้าโค้ดส่วนอื่นต้องการเรียกใช้แบบส่งพารามิเตอร์
     public PanelPagerAdapter(MainActivity activity) {
-        this.activity = activity;
     }
 
-    // ฟังก์ชันสำหรับสั่งอัปเดตข้อความจากฝั่ง MainActivity
-    public void updateConsoleText(String text) {
-        this.consoleText = text;
-        notifyItemChanged(0); // แจ้งเตือนแท็บ Console (ตำแหน่ง 0) ให้อัปเดตจอ
+    // 🌟 [แก้ไข 2] เพิ่มฟังก์ชันคืนค่า TextView กลับไปให้ MainActivity ตามที่โค้ดเก่าน้าต้องการ
+    public TextView getTvConsole() {
+        return tvConsole;
     }
 
-    public void updateAiText(String text) {
-        this.aiText = text;
-        notifyItemChanged(1); // แจ้งเตือนแท็บ AI (ตำแหน่ง 1) ให้อัปเดตจอ
+    public TextView getTvAiOutput() {
+        return tvAiOutput;
     }
 
     @Override
@@ -51,16 +52,7 @@ public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.Vi
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        // 🌟 [แก้ไข] นำข้อความที่เก็บไว้ไปพ่นลง TextView ของแท็บนั้น ๆ
-        if (position == 0) {
-            if (holder.tvConsole != null) {
-                holder.tvConsole.setText(consoleText);
-            }
-        } else {
-            if (holder.tvAiOutput != null) {
-                holder.tvAiOutput.setText(aiText);
-            }
-        }
+        // ในระบบของน้า เมื่อผูก ViewHolder เสร็จ ตัวแปรด้านบนจะถูกดึงไปใช้ผ่าน MainActivity เองครับ
     }
 
     @Override
@@ -68,11 +60,8 @@ public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.Vi
         return 2;
     }
 
-    static class ViewHolder extends RecyclerView.ViewHolder {
-        // 🌟 [แก้ไข] ประกาศตัวแปรเพื่ออ้างอิงถึง TextView ภายในไฟล์ XML ย่อย
-        TextView tvConsole;
-        TextView tvAiOutput;
-
+    // 🌟 [แก้ไข 3] ทำหน้าที่ผูกตัวแปรเข้ากับไอดี XML เมื่อหน้าจอแต่ละหน้าถูกสร้างขึ้นมา
+    class ViewHolder extends RecyclerView.ViewHolder {
         ViewHolder(View itemView, int viewType) {
             super(itemView);
             if (viewType == 0) {
