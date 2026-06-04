@@ -20,8 +20,10 @@ public class AiSettingsActivity extends AppCompatActivity {
         etApiKey = findViewById(R.id.etApiKey);
         Button btnSave = findViewById(R.id.btnSaveApi);
 
+        // 🌟 แก้ไขจุดสำคัญ: เปลี่ยนชื่อไฟล์จาก "AISettings" เป็น "ai_settings" ตัวเล็ก 
+        // เพื่อให้ตรงกับตัวดึงค่าในคลาส GeminiAssistant ครับน้า
         SharedPreferences prefs =
-                getSharedPreferences("AISettings", MODE_PRIVATE);
+                getSharedPreferences("ai_settings", MODE_PRIVATE);
 
         etApiKey.setText(
                 prefs.getString("groq_api_key", "")
