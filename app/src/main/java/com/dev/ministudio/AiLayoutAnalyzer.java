@@ -135,7 +135,7 @@ public class AiLayoutAnalyzer {
 
         highlightPattern(spannable, "(Error|ข้อผิดพลาด|ปัญหา|Bug)", Color.RED);
         highlightPattern(spannable, "(แนะนำ|ควร|ดีกว่า|ปรับปรุง|แก้ไข)", Color.parseColor("#4CAF50"));
-        highlightPattern(spannable, "(คำแนะนำ|สรุป|คะแนน)", Color.parseColor("#2196F3"));
+        highlightPattern(spannable, "(คำแนะนำ|สรุป|ปรับปรุง)", Color.parseColor("#2196F3"));
 
         return spannable;
     }
