@@ -925,17 +925,16 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         
-       if(id == R.id.action_ai_settings){
-
+if(id == R.id.action_ai_settings){
     startActivity(
-            new Intent(
-                    this,
-                    AISettingsActivity.class
-            )
+        new Intent(
+            this,
+            AiSettingsActivity.class // 🌟 เปลี่ยนเป็นตัว i เล็กให้ถูกต้อง
+        )
     );
-
     return true;
 }
+
         
         if (id == R.id.action_undo) { if (codeEditor.canUndo()) codeEditor.undo(); return true; } 
         if (id == R.id.action_redo) { if (codeEditor.canRedo()) codeEditor.redo(); return true; }
