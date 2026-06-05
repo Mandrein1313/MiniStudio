@@ -275,31 +275,43 @@ public class MainActivity extends AppCompatActivity {
             aiLayoutAnalyzer.askAi(fullPrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
                 @Override
                 public void onStart() {
-                    if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
-                    if (tvAiOutput != null) {
-                        tvAiOutput.append("\n🤖 AI กำลังคิด...");
-                        autoScrollTabContainer(tvAiOutput);
-                    }
+                    runOnUiThread(() -> {
+                        try {
+                            if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+                            if (tvAiOutput != null) {
+                                tvAiOutput.append("\n🤖 AI กำลังคิด...");
+                                autoScrollTabContainer(tvAiOutput);
+                            }
+                        } catch (Exception e) { e.printStackTrace(); }
+                    });
                 }
 
                 @Override
                 public void onSuccess(android.text.SpannableString formattedResult) {
-                    if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
-                    if (tvAiOutput != null) {
-                        tvAiOutput.append("\n🤖 AI: ");
-                        tvAiOutput.append(formattedResult);
-                        autoScrollTabContainer(tvAiOutput);
-                    }
-                    chatHistory += "\nผู้ใช้: " + userQuestion + "\nAI: " + formattedResult.toString();
+                    runOnUiThread(() -> {
+                        try {
+                            if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+                            if (tvAiOutput != null) {
+                                tvAiOutput.append("\n🤖 AI: ");
+                                tvAiOutput.append(formattedResult);
+                                autoScrollTabContainer(tvAiOutput);
+                            }
+                            chatHistory += "\nผู้ใช้: " + userQuestion + "\nAI: " + formattedResult.toString();
+                        } catch (Exception e) { e.printStackTrace(); }
+                    });
                 }
 
                 @Override
                 public void onError(String errorMessage) {
-                    if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
-                    if (tvAiOutput != null) {
-                        tvAiOutput.append("\n❌ AI ตอบไม่ได้: " + errorMessage);
-                        autoScrollTabContainer(tvAiOutput);
-                    }
+                    runOnUiThread(() -> {
+                        try {
+                            if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+                            if (tvAiOutput != null) {
+                                tvAiOutput.append("\n❌ AI ตอบไม่ได้: " + errorMessage);
+                                autoScrollTabContainer(tvAiOutput);
+                            }
+                        } catch (Exception e) { e.printStackTrace(); }
+                    });
                 }
             });
 
@@ -442,7 +454,6 @@ public class MainActivity extends AppCompatActivity {
                             showToast("กระบวนการทำงานล้มเหลว");
                             appendLog("\n##[error] การทำงานหยุดช้าลงเนื่องจากการปิดตัวของระบบบิวด์อย่างกะทันหัน", TerminalColor.ERROR_RED);
                             
-                            // 🌟 แก้ไขจุดที่ 1: พ่นสรุป Error Log ใส่ Console ให้เสร็จสิ้นก่อน
                             if (analyzer != null) {
                                 analyzer.printSummary(new BuildSummaryAnalyzer.LogOutputListener() {
                                     @Override
@@ -456,7 +467,6 @@ public class MainActivity extends AppCompatActivity {
                             final ParsedError err = analyzer.getLastError();
                             if (err != null) {
                                 runOnUiThread(() -> {
-                                    // ❌ นำคำสั่ง fullPanelDialog.dismiss(); ออกเพื่อให้หน้าต่างค้างโชว์ Error เหมือนเดิมครับน้า
                                     executeJumpToError(err);
                                 });
                             }
@@ -761,45 +771,52 @@ public class MainActivity extends AppCompatActivity {
             showFullPanelDialog(1); 
 
             java.io.File currentFile = currentProject.getCurrentOpenFile();
-            String fileName = (currentFile != null) ? currentFile.getName() : "UnknownFile.java";
-            String currentCode = codeEditor.getText().toString();
+            final String fileName = (currentFile != null) ? currentFile.getName() : "UnknownFile.java";
+            final String currentCode = codeEditor.getText().toString();
 
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                // 🌟 แก้ไขจุดที่ 2: ป้องกันตัวแปรเป็น Null โดยการดึงวิวตรง และดัก Error ด้วย Try-Catch อย่างรัดกุม
+                // 🌟 ปรับปรุงจุดแก้ไขที่ 2: บังคับให้งานอัปเดต UI ทั้งหมดทำงานใน Main Thread (runOnUiThread) ปลอดภัย 100%
                 aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
                     @Override
                     public void onStart() {
-                        try {
-                            if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput(); 
-                            if (tvAiOutput != null) {
-                                tvAiOutput.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ด...");
-                                autoScrollTabContainer(tvAiOutput);
-                            }
-                        } catch (Exception e) { e.printStackTrace(); }
+                        runOnUiThread(() -> {
+                            try {
+                                if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput(); 
+                                if (tvAiOutput != null) {
+                                    tvAiOutput.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ด...");
+                                    autoScrollTabContainer(tvAiOutput);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
                     }
 
                     @Override
-                    public void onSuccess(android.text.SpannableString formattedResult) {
-                        try {
-                            if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
-                            if (tvAiOutput != null) {
-                                tvAiOutput.setText(formattedResult); 
-                                autoScrollTabContainer(tvAiOutput); 
-                            }
-                        } catch (Exception e) { e.printStackTrace(); }
+                    public void onSuccess(final android.text.SpannableString formattedResult) {
+                        runOnUiThread(() -> {
+                            try {
+                                if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+                                if (tvAiOutput != null) {
+                                    tvAiOutput.setText(formattedResult); 
+                                    autoScrollTabContainer(tvAiOutput); 
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
                     }
 
                     @Override
-                    public void onError(String errorMessage) {
-                        try {
-                            if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
-                            if (tvAiOutput != null) {
-                                tvAiOutput.setText("❌ AI เกิดข้อผิดพลาด: " + errorMessage);
-                            }
-                        } catch (Exception e) { e.printStackTrace(); }
+                    public void onError(final String errorMessage) {
+                        runOnUiThread(() -> {
+                            try {
+                                if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+                                if (tvAiOutput != null) {
+                                    tvAiOutput.setText("❌ AI เกิดข้อผิดพลาด: " + errorMessage);
+                                    autoScrollTabContainer(tvAiOutput);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
                     }
                 });
-            }, 400); // 🚀 ขยายเวลาดีเลย์ขึ้นเล็กน้อยเพื่อให้ Dialog ผูก View เสร็จแน่นอน
+            }, 500); // 🚀 เพิ่มเวลาดีเลย์เป็น 500ms เพื่อความแน่นอนในการสร้างคอมโพเนนต์หน้าจอ
         });
 
         shortcutBar.addView(btnAskAI); 
