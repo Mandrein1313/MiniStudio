@@ -213,6 +213,12 @@ public class MainActivity extends AppCompatActivity {
         if (btnToggleExpand != null) btnToggleExpand.setVisibility(View.GONE);
 
         fullPanelDialog.findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
+            if (dialogPanelAdapter != null) {
+                TextView consoleView = dialogPanelAdapter.getTvConsole();
+                TextView aiView = dialogPanelAdapter.getTvAiOutput();
+                if (consoleView != null) consoleView.setText("");
+                if (aiView != null) aiView.setText("");
+            }
             if (tvConsole != null) tvConsole.setText("");
             if (tvAiOutput != null) tvAiOutput.setText("");
         });
@@ -269,7 +275,7 @@ public class MainActivity extends AppCompatActivity {
             aiLayoutAnalyzer.askAi(fullPrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
                 @Override
                 public void onStart() {
-                    tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+                    if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
                     if (tvAiOutput != null) {
                         tvAiOutput.append("\n🤖 AI กำลังคิด...");
                         autoScrollTabContainer(tvAiOutput);
@@ -278,7 +284,7 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onSuccess(android.text.SpannableString formattedResult) {
-                    tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+                    if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
                     if (tvAiOutput != null) {
                         tvAiOutput.append("\n🤖 AI: ");
                         tvAiOutput.append(formattedResult);
@@ -289,7 +295,7 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onError(String errorMessage) {
-                    tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+                    if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
                     if (tvAiOutput != null) {
                         tvAiOutput.append("\n❌ AI ตอบไม่ได้: " + errorMessage);
                         autoScrollTabContainer(tvAiOutput);
@@ -436,6 +442,7 @@ public class MainActivity extends AppCompatActivity {
                             showToast("กระบวนการทำงานล้มเหลว");
                             appendLog("\n##[error] การทำงานหยุดช้าลงเนื่องจากการปิดตัวของระบบบิวด์อย่างกะทันหัน", TerminalColor.ERROR_RED);
                             
+                            // 🌟 แก้ไขจุดที่ 1: พ่นสรุป Error Log ใส่ Console ให้เสร็จสิ้นก่อน
                             if (analyzer != null) {
                                 analyzer.printSummary(new BuildSummaryAnalyzer.LogOutputListener() {
                                     @Override
@@ -449,7 +456,7 @@ public class MainActivity extends AppCompatActivity {
                             final ParsedError err = analyzer.getLastError();
                             if (err != null) {
                                 runOnUiThread(() -> {
-                                    if (fullPanelDialog != null) fullPanelDialog.dismiss(); 
+                                    // ❌ นำคำสั่ง fullPanelDialog.dismiss(); ออกเพื่อให้หน้าต่างค้างโชว์ Error เหมือนเดิมครับน้า
                                     executeJumpToError(err);
                                 });
                             }
@@ -547,7 +554,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // 🌟 ระบบกดค้างเพื่อแสดง BottomSheet เมนูจัดการไฟล์ที่หายไป เอากลับมาให้แล้วครับน้า
         treeView.setOnItemLongClickListener((parent, view, position, id) -> {
             FileNode selectedNode = masterFileList.get(position);
             File currentFile = selectedNode.file;
@@ -759,40 +765,46 @@ public class MainActivity extends AppCompatActivity {
             String currentCode = codeEditor.getText().toString();
 
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                // 🌟 แก้ไขจุดที่ 2: ป้องกันตัวแปรเป็น Null โดยการดึงวิวตรง และดัก Error ด้วย Try-Catch อย่างรัดกุม
                 aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
                     @Override
                     public void onStart() {
-                        if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput(); 
-                        if (tvAiOutput != null) {
-                            tvAiOutput.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ด...");
-                            autoScrollTabContainer(tvAiOutput);
-                        }
+                        try {
+                            if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput(); 
+                            if (tvAiOutput != null) {
+                                tvAiOutput.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ด...");
+                                autoScrollTabContainer(tvAiOutput);
+                            }
+                        } catch (Exception e) { e.printStackTrace(); }
                     }
 
                     @Override
                     public void onSuccess(android.text.SpannableString formattedResult) {
-                        if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
-                        if (tvAiOutput != null) {
-                            tvAiOutput.setText(formattedResult); 
-                            autoScrollTabContainer(tvAiOutput); 
-                        }
+                        try {
+                            if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+                            if (tvAiOutput != null) {
+                                tvAiOutput.setText(formattedResult); 
+                                autoScrollTabContainer(tvAiOutput); 
+                            }
+                        } catch (Exception e) { e.printStackTrace(); }
                     }
 
                     @Override
                     public void onError(String errorMessage) {
-                        if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
-                        if (tvAiOutput != null) {
-                            tvAiOutput.setText("❌ AI เกิดข้อผิดพลาด: " + errorMessage);
-                        }
+                        try {
+                            if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+                            if (tvAiOutput != null) {
+                                tvAiOutput.setText("❌ AI เกิดข้อผิดพลาด: " + errorMessage);
+                            }
+                        } catch (Exception e) { e.printStackTrace(); }
                     }
                 });
-            }, 300);
+            }, 400); // 🚀 ขยายเวลาดีเลย์ขึ้นเล็กน้อยเพื่อให้ Dialog ผูก View เสร็จแน่นอน
         });
 
         shortcutBar.addView(btnAskAI); 
     }
 
-    // 🌟 [ระบบค้นหา/แทนคำกลับมาแล้วครับ]
     private void findAndHighlight() {
         String query = etFind.getText().toString();
         String content = codeEditor.getText().toString();
@@ -833,7 +845,6 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) { e.printStackTrace(); }
     }
 
-    // 🌟 [ระบบแทนที่คำกลับมาแล้วครับ]
     private void replaceText() {
         String target = etFind.getText().toString();
         String replacement = etReplace.getText().toString();
@@ -859,7 +870,6 @@ public class MainActivity extends AppCompatActivity {
         if (id == R.id.action_build) { startCloudBuildPipeline(); return true; }
         if (id == R.id.action_preview) { toggleXmlPreview(); return true; }
         
-        // 🌟 [ระบบเปิดหน้าต่างตั้งค่า AI Settings กลับมาประจำการแล้วครับน้า!]
         if (id == R.id.action_ai_settings) {
             startActivity(new Intent(this, AiSettingsActivity.class));
             return true;
