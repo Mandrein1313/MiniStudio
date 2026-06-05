@@ -30,7 +30,6 @@ public class AiLayoutAnalyzer {
     }
 
     public AiLayoutAnalyzer(Context context) {
-        // 🌟 แก้ไขจุดที่ 1: ป้องกัน Memory Leak โดยการใช้ getApplicationContext() ให้กับทัั้งระบบ AI และ TTS
         Context appContext = context.getApplicationContext();
         this.aiAssistant = new GeminiAssistant(appContext);
         this.mainHandler = new Handler(Looper.getMainLooper());
@@ -52,7 +51,6 @@ public class AiLayoutAnalyzer {
     }
 
     public void analyzeCode(String fileName, String rawCode, final OnAnalysisListener listener) {
-        // 🌟 แก้ไขจุดที่ 2: เช็ก API Key ก่อนส่งคำขอไปยังเซิร์ฟเวอร์ ถ้าไม่มีคีย์ให้ตีกลับทันที
         if (!aiAssistant.hasApiKey()) {
             if (listener != null) {
                 listener.onError("ยังไม่ได้ตั้งค่า API Key กรุณากรอก Key ก่อนใช้งานครับ");
@@ -62,7 +60,9 @@ public class AiLayoutAnalyzer {
 
         if (listener != null) listener.onStart();
         String prompt = buildAnalysisPrompt(fileName, rawCode);
-        aiAssistant.askAI(prompt, new GeminiAssistant.AICallback() {
+        
+        // 🌟 แก้จุดที่ 1: เปลี่ยนจาก askAI เป็น askAi (ตัว i พิมพ์เล็กเพื่อให้ตรงกับ GeminiAssistant.java)
+        aiAssistant.askAi(prompt, new GeminiAssistant.AICallback() {
             @Override
             public void onSuccess(final String responseText) {
                 mainHandler.post(() -> processResponse(responseText, listener));
@@ -77,7 +77,6 @@ public class AiLayoutAnalyzer {
     }
 
     public void askAi(String userQuestion, final OnAnalysisListener listener) {
-        // 🌟 แก้ไขจุดที่ 2: เช็ก API Key สำหรับช่องสนทนาทั่วไปด้วยเช่นกัน
         if (!aiAssistant.hasApiKey()) {
             if (listener != null) {
                 listener.onError("ยังไม่ได้ตั้งค่า API Key กรุณากรอก Key ก่อนใช้งานครับ");
@@ -87,7 +86,9 @@ public class AiLayoutAnalyzer {
 
         if (listener != null) listener.onStart();
         String prompt = "คุณคือผู้เชี่ยวชาญด้าน Android Development ช่วยตอบคำถามหรือให้คำแนะนำเกี่ยวกับเรื่องนี้ให้หน่อยครับ: \n\n" + userQuestion;
-        aiAssistant.askAI(prompt, new GeminiAssistant.AICallback() {
+        
+        // 🌟 แก้จุดที่ 2: เปลี่ยนจาก askAI เป็น askAi (ตัว i พิมพ์เล็กเพื่อให้ตรงกับ GeminiAssistant.java)
+        aiAssistant.askAi(prompt, new GeminiAssistant.AICallback() {
             @Override
             public void onSuccess(final String responseText) {
                 mainHandler.post(() -> processResponse(responseText, listener));
@@ -102,7 +103,6 @@ public class AiLayoutAnalyzer {
     }
 
     private void processResponse(String responseText, OnAnalysisListener listener) {
-        // ทำความสะอาดข้อความสำหรับการพูด
         String cleanText = responseText
                 .replaceAll("\\*\\*", "")
                 .replaceAll("\\*", "")
@@ -114,7 +114,6 @@ public class AiLayoutAnalyzer {
         
         speakText(cleanText);
         
-        // จัดรูปแบบข้อความสำหรับแสดงผล
         SpannableString formatted = formatAiResponse(responseText);
         
         if (listener != null) {
@@ -129,7 +128,6 @@ public class AiLayoutAnalyzer {
     }
 
     private SpannableString formatAiResponse(String text) {
-        // ลบเครื่องหมาย ** ออกจากข้อความที่จะแสดงผลเพื่อให้หน้าจอสะอาดตา
         String processedText = text.replaceAll("\\*\\*", "");
         SpannableString spannable = new SpannableString(processedText);
 
