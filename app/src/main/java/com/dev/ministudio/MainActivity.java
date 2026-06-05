@@ -70,7 +70,7 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView tabRecyclerView;
     private TabAdapter tabAdapter;
 
-    // 🌟 ระบบ Dialog เต็มหน้าจอชุดใหม่ (มาแทนแผงด้านล่างเดิม)
+    // 🌟 ระบบ Dialog เต็มหน้าจอชุดใหม่ (Full-screen Panel)
     private android.app.Dialog fullPanelDialog;
     private TabLayout dialogTabLayout;
     private ViewPager2 dialogViewPager;
@@ -193,7 +193,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 🌟 ฟังก์ชันเสกหน้าต่าง Dialog เต็มหน้าจอ (Full-screen Panel)
+    // 🌟 ฟังก์ชันเปิดหน้าต่าง Dialog คอนโซลแบบเต็มหน้าจอ
     private void showFullPanelDialog(int initialTabPosition) {
         if (fullPanelDialog != null && fullPanelDialog.isShowing()) {
             dialogViewPager.setCurrentItem(initialTabPosition, true);
@@ -201,16 +201,14 @@ public class MainActivity extends AppCompatActivity {
         }
 
         fullPanelDialog = new android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
-        fullPanelDialog.setContentView(R.layout.dialog_full_console_panel); // 🛠️ ใช้ Layout เดิมสร้างใหม่เป็นแบบคลุมจอ
+        fullPanelDialog.setContentView(R.layout.dialog_full_console_panel);
         fullPanelDialog.setCancelable(true);
 
         dialogTabLayout = fullPanelDialog.findViewById(R.id.tabLayout);
         dialogViewPager = fullPanelDialog.findViewById(R.id.viewPager);
         
-        // ผูกปุ่มภายใน Dialog 
         fullPanelDialog.findViewById(R.id.btnCloseConsole).setOnClickListener(v -> fullPanelDialog.dismiss());
         
-        // ซ่อนปุ่มย่อขยายดั้งเดิมเนื่องจากเราเต็มจอ 100% แล้ว
         View btnToggleExpand = fullPanelDialog.findViewById(R.id.btnToggleExpand);
         if (btnToggleExpand != null) btnToggleExpand.setVisibility(View.GONE);
 
@@ -221,13 +219,12 @@ public class MainActivity extends AppCompatActivity {
 
         dialogPanelAdapter = new PanelPagerAdapter(this);
         dialogViewPager.setAdapter(dialogPanelAdapter);
-        dialogViewPager.setUserInputEnabled(false); // ล็อกการปัดนิ้วเพื่อให้อ่านโค้ดถนัด
+        dialogViewPager.setUserInputEnabled(false); 
 
         new TabLayoutMediator(dialogTabLayout, dialogViewPager, (tab, position) -> {
             tab.setText(position == 0 ? "Console" : "AI");
         }).attach();
 
-        // บังคับให้วิวเจาะจงโหลดโครงสร้างย่อยทันที
         dialogViewPager.post(() -> {
             if (dialogPanelAdapter != null) {
                 tvConsole = dialogPanelAdapter.getTvConsole();
@@ -354,8 +351,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
         saveFile(); 
-        
-        // 🌟 เปิดหน้าต่าง Dialog แบบเต็มจอขึ้นมาแสดงทันทีที่กดรันบิวด์
         showFullPanelDialog(0);
 
         final BuildSummaryAnalyzer analyzer = new BuildSummaryAnalyzer();
@@ -454,7 +449,7 @@ public class MainActivity extends AppCompatActivity {
                             final ParsedError err = analyzer.getLastError();
                             if (err != null) {
                                 runOnUiThread(() -> {
-                                    if (fullPanelDialog != null) fullPanelDialog.dismiss(); // ปิดหน้าต่างเพื่อให้วาร์ปกลับไปหน้าโค้ดเอดิเตอร์หลัก
+                                    if (fullPanelDialog != null) fullPanelDialog.dismiss(); 
                                     executeJumpToError(err);
                                 });
                             }
@@ -540,12 +535,103 @@ public class MainActivity extends AppCompatActivity {
                 fileTreeAdapter.notifyDataSetChanged();
                 
             } else {
-                fileTreeAdapter.setSelectedPosition(position);
-                currentProject.setCurrentOpenFile(selectedNode.file);
-                openFile(selectedNode.file);
-                drawerLayout.closeDrawers();
+                String fileName = selectedNode.file.getName().toLowerCase();
+                if (fileName.endsWith(".png") || fileName.endsWith(".jpg") || fileName.endsWith(".jpeg") || fileName.endsWith(".webp")) {
+                    dialogManager.showImageViewerDialog(selectedNode.file);
+                } else {
+                    fileTreeAdapter.setSelectedPosition(position);
+                    currentProject.setCurrentOpenFile(selectedNode.file);
+                    openFile(selectedNode.file);
+                    drawerLayout.closeDrawers();
+                }
             }
         });
+
+        // 🌟 ระบบกดค้างเพื่อแสดง BottomSheet เมนูจัดการไฟล์ที่หายไป เอากลับมาให้แล้วครับน้า
+        treeView.setOnItemLongClickListener((parent, view, position, id) -> {
+            FileNode selectedNode = masterFileList.get(position);
+            File currentFile = selectedNode.file;
+            lastClickedPosition = position;
+
+            com.google.android.material.bottomsheet.BottomSheetDialog bottomSheetDialog = 
+                new com.google.android.material.bottomsheet.BottomSheetDialog(this);
+            
+            View dialogView = getLayoutInflater().inflate(R.layout.dialog_bottom_file_menu, null);
+            bottomSheetDialog.setContentView(dialogView);
+
+            TextView tvHeader = dialogView.findViewById(R.id.tvDialogHeader);
+            LinearLayout menuContainer = dialogView.findViewById(R.id.menuContainer);
+
+            tvHeader.setText(selectedNode.isDirectory ? "จัดการโฟลเดอร์: " + currentFile.getName() : "จัดการไฟล์: " + currentFile.getName());
+
+            List<MenuOption> options = new ArrayList<>();
+            options.add(new MenuOption("สร้างไฟล์ใหม่", android.R.drawable.ic_menu_add));
+            options.add(new MenuOption("สร้างโฟลเดอร์ใหม่", android.R.drawable.ic_menu_preferences)); 
+            options.add(new MenuOption("เปลี่ยนชื่อ", android.R.drawable.ic_menu_edit));
+            options.add(new MenuOption("ลบ", android.R.drawable.ic_menu_delete));
+            
+            if (selectedNode.isDirectory) {
+                options.add(new MenuOption("นำเข้าไฟล์ (Import)", android.R.drawable.ic_menu_share));
+            }
+
+            for (MenuOption option : options) {
+                View itemView = getLayoutInflater().inflate(R.layout.dialog_menu_item, null);
+                ImageView imgIcon = itemView.findViewById(R.id.menuIcon);
+                TextView tvTitle = itemView.findViewById(R.id.menuTitle);
+
+                tvTitle.setText(option.title);
+                imgIcon.setImageResource(option.iconRes);
+
+                itemView.setOnClickListener(v -> {
+                    bottomSheetDialog.dismiss(); 
+                    if (option.title.equals("สร้างไฟล์ใหม่")) {
+                        dialogManager.showCreateFileDialog(selectedNode.isDirectory ? currentFile : currentFile.getParentFile(), selectedNode.isDirectory ? selectedNode : findParentNode(selectedNode));
+                    } else if (option.title.equals("สร้างโฟลเดอร์ใหม่")) {
+                        dialogManager.showCreateFolderDialog(selectedNode.isDirectory ? currentFile : currentFile.getParentFile(), selectedNode.isDirectory ? selectedNode : findParentNode(selectedNode));
+                    } else if (option.title.equals("เปลี่ยนชื่อ")) {
+                        dialogManager.showRenameDialog(currentFile, selectedNode);
+                    } else if (option.title.equals("ลบ")) {
+                        dialogManager.showDeleteConfirmationDialog(currentFile.getName(), () -> {
+                            boolean success = FileSystemManager.deleteFileOrFolder(currentFile);
+                            if (success) {
+                                showToast("ลบสำเร็จแล้ว");
+                                masterFileList.remove(position);
+                                if (fileTreeAdapter != null) {
+                                    fileTreeAdapter.setSelectedPosition(-1);
+                                    fileTreeAdapter.notifyDataSetChanged();
+                                }
+                            } else {
+                                showToast("ลบไม่สำเร็จ");
+                            }
+                        });
+                    } else if (option.title.equals("นำเข้าไฟล์ (Import)")) {
+                        folderForImport = currentFile; 
+                        openFilePicker(); 
+                    }
+                });
+                menuContainer.addView(itemView);
+            }
+            bottomSheetDialog.show();
+            return true;
+        });
+    }
+
+    private FileNode findParentNode(FileNode childNode) {
+        if (childNode == null || lastClickedPosition == -1) return null;
+        for (int i = lastClickedPosition; i >= 0; i--) {
+            FileNode potentialParent = masterFileList.get(i);
+            if (potentialParent.isDirectory && potentialParent.depth < childNode.depth) {
+                return potentialParent; 
+            }
+        }
+        return null;
+    }
+
+    private void openFilePicker() {
+        android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_GET_CONTENT);
+        intent.setType("*/*"); 
+        intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+        startActivityForResult(android.content.Intent.createChooser(intent, "เลือกไฟล์ที่จะนำเข้า"), PICK_FILE_REQUEST_CODE);
     }
 
     private void openFile(File file) {
@@ -649,7 +735,7 @@ public class MainActivity extends AppCompatActivity {
             shortcutBar.addView(btn);
         }
 
-        // 🤖 ปุ่มลัดถาม AI บน Shortcut bar (เปลี่ยนมาเปิดครอบจอ)
+        // 🤖 ปุ่มลัดถาม AI บน Shortcut bar 
         TextView btnAskAI = new TextView(this);
         btnAskAI.setText("🤖 ถาม AI");
         btnAskAI.setTextSize(14);
@@ -666,7 +752,7 @@ public class MainActivity extends AppCompatActivity {
         btnAskAI.setOnClickListener(v -> {
             if (codeEditor == null || currentProject == null) return;
 
-            showFullPanelDialog(1); // เปิด Dialog คลุมจอแล้วสลับไปที่แท็บ AI (Index 1) Immediately
+            showFullPanelDialog(1); 
 
             java.io.File currentFile = currentProject.getCurrentOpenFile();
             String fileName = (currentFile != null) ? currentFile.getName() : "UnknownFile.java";
@@ -706,6 +792,7 @@ public class MainActivity extends AppCompatActivity {
         shortcutBar.addView(btnAskAI); 
     }
 
+    // 🌟 [ระบบค้นหา/แทนคำกลับมาแล้วครับ]
     private void findAndHighlight() {
         String query = etFind.getText().toString();
         String content = codeEditor.getText().toString();
@@ -717,6 +804,8 @@ public class MainActivity extends AppCompatActivity {
         if (index != -1) {
             soraSelectLinear(index, index + query.length());
             lastSearchIndex = index + query.length();
+        } else {
+            showToast("Not found");
         }
     }
 
@@ -744,17 +833,23 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) { e.printStackTrace(); }
     }
 
+    // 🌟 [ระบบแทนที่คำกลับมาแล้วครับ]
     private void replaceText() {
         String target = etFind.getText().toString();
         String replacement = etReplace.getText().toString();
         if (target.isEmpty()) return;
         String content = codeEditor.getText().toString();
         codeEditor.setText(content.replaceFirst(java.util.regex.Pattern.quote(target), replacement));
+        showToast("Replaced");
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_toolbar, menu);
+        MenuItem previewItem = menu.findItem(R.id.action_preview);
+        if (previewItem != null) {
+            previewItem.setTitle(isPreviewMode ? "ดูโค้ด (Code)" : "ดูตัวอย่าง (Preview)");
+        }
         return true;
     }
 
@@ -763,6 +858,17 @@ public class MainActivity extends AppCompatActivity {
         int id = item.getItemId();
         if (id == R.id.action_build) { startCloudBuildPipeline(); return true; }
         if (id == R.id.action_preview) { toggleXmlPreview(); return true; }
+        
+        // 🌟 [ระบบเปิดหน้าต่างตั้งค่า AI Settings กลับมาประจำการแล้วครับน้า!]
+        if (id == R.id.action_ai_settings) {
+            startActivity(new Intent(this, AiSettingsActivity.class));
+            return true;
+        }
+        
+        if (id == R.id.action_search) {
+            searchBar.setVisibility(searchBar.getVisibility() == View.GONE ? View.VISIBLE : View.GONE);
+            return true;
+        }
         return super.onOptionsItemSelected(item);
     }
 
@@ -813,6 +919,15 @@ public class MainActivity extends AppCompatActivity {
                 }
             } catch (Exception e) { e.printStackTrace(); }
         });
+    }
+
+    private static class MenuOption {
+        String title;
+        int iconRes;
+        MenuOption(String title, int iconRes) {
+            this.title = title;
+            this.iconRes = iconRes;
+        }
     }
 
     @Override
