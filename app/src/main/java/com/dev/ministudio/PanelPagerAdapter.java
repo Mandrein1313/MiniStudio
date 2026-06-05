@@ -82,6 +82,11 @@ public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.Vi
         return webAiOutput; 
     }
     
+    // 🌟 ฟังก์ชันสำรองดักไว้เพื่อป้องกันชิ้นส่วนอื่นใน MainActivity บิลด์พัง (ฟ้อง Cannot find symbol)
+    public android.widget.TextView getTvAiOutput() {
+        return null;
+    }
+    
     public EditText getEtAiInput() { 
         return etAiInput; 
     }

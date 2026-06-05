@@ -77,7 +77,7 @@ public class MainActivity extends AppCompatActivity {
     private PanelPagerAdapter dialogPanelAdapter;
     
     private TextView tvConsole;
-    private TextView tvAiOutput;
+    // หมายเหตุ: สลับไปใช้ WebView ผ่านดักประวัติ chatHistory แทนการใช้ tvAiOutput ดั้งเดิม
         
     // Controllers & Models
     private ProjectModel currentProject;
@@ -223,15 +223,19 @@ public class MainActivity extends AppCompatActivity {
         View btnToggleExpand = fullPanelDialog.findViewById(R.id.btnToggleExpand);
         if (btnToggleExpand != null) btnToggleExpand.setVisibility(View.GONE);
 
+        // 🛠️ แก้ไขจุดที่ 1 ที่บิลด์พัง: ปรับฟังก์ชันล้างหน้าจอให้ผูกค่าผ่าน WebView และล้างประวัติแชทจริง
         fullPanelDialog.findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
             if (dialogPanelAdapter != null) {
                 TextView consoleView = dialogPanelAdapter.getTvConsole();
-                TextView aiView = dialogPanelAdapter.getTvAiOutput();
+                android.webkit.WebView webView = dialogPanelAdapter.getWebAiOutput();
+                
                 if (consoleView != null) consoleView.setText("");
-                if (aiView != null) aiView.setText("");
+                if (webView != null) {
+                    chatHistory = ""; // เคลียร์ประวัติความทรงจำแชท
+                    webView.loadDataWithBaseURL(null, "<html><body style='background-color:#1E1E1E;'></body></html>", "text/html", "utf-8", null);
+                }
             }
             if (tvConsole != null) tvConsole.setText("");
-            if (tvAiOutput != null) tvAiOutput.setText("");
         });
 
         dialogPanelAdapter = new PanelPagerAdapter(this);
@@ -245,7 +249,6 @@ public class MainActivity extends AppCompatActivity {
         dialogViewPager.post(() -> {
             if (dialogPanelAdapter != null) {
                 tvConsole = dialogPanelAdapter.getTvConsole();
-                tvAiOutput = dialogPanelAdapter.getTvAiOutput();
                 dialogViewPager.setCurrentItem(initialTabPosition, false);
             }
         });
@@ -312,7 +315,7 @@ public class MainActivity extends AppCompatActivity {
                             chatHistory += "\n\n🤖 **AI:** " + formattedResult.toString();
                             
                             if (currentWeb != null) {
-                                // แปลง Markdown ทั้งหมดเป็น HTML (ตรงนี้กล่องโค้ดจะถูกสร้างพร้อมปุ่ม Copy โดยอัตโนมัติ)
+                                //  แปลง Markdown ทั้งหมดเป็น HTML (ตรงนี้กล่องโค้ดจะถูกสร้างพร้อมปุ่ม Copy โดยอัตโนมัติ)
                                 String htmlResult = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
                                 currentWeb.loadDataWithBaseURL(null, htmlResult, "text/html", "utf-8", null);
                             }
@@ -501,7 +504,7 @@ public class MainActivity extends AppCompatActivity {
 
             String githubToken = savedToken; 
             String projectName = currentProject.getProjectName();
-            String repoUrl = "https://github.com/" + username + "/" + projectName + ".git";
+            String repoUrl = "[https://github.com/](https://github.com/)" + username + "/" + projectName + ".git";
             String packageName = "com.dev.ministudio"; 
 
             buildTask.startCloudBuild(githubToken, repoUrl, projectName, packageName); 
@@ -799,16 +802,16 @@ public class MainActivity extends AppCompatActivity {
             final String currentCode = codeEditor.getText().toString();
 
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                // 🌟 ปรับปรุงจุดแก้ไขที่ 2: บังคับให้งานอัปเดต UI ทั้งหมดทำงานใน Main Thread (runOnUiThread) ปลอดภัย 100%
+                // 🛠️ แก้ไขจุดที่ 2 ที่บิลด์พัง: บังคับการแสดงผลปุ่มลัดถาม AI ให้ยิงโครงสร้างผ่าน WebView แทน TextView
                 aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
                     @Override
                     public void onStart() {
                         runOnUiThread(() -> {
                             try {
-                                if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput(); 
-                                if (tvAiOutput != null) {
-                                    tvAiOutput.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ด...");
-                                    autoScrollTabContainer(tvAiOutput);
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                if (currentWeb != null) {
+                                    String tempHtml = AiHtmlFormatter.convertMarkdownToHtml("🤖 *MiniStudio AI กำลังวิเคราะห์โค้ด...*");
+                                    currentWeb.loadDataWithBaseURL(null, tempHtml, "text/html", "utf-8", null);
                                 }
                             } catch (Exception e) { e.printStackTrace(); }
                         });
@@ -818,10 +821,12 @@ public class MainActivity extends AppCompatActivity {
                     public void onSuccess(final android.text.SpannableString formattedResult) {
                         runOnUiThread(() -> {
                             try {
-                                if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
-                                if (tvAiOutput != null) {
-                                    tvAiOutput.setText(formattedResult); 
-                                    autoScrollTabContainer(tvAiOutput); 
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                // บันทึกผลวิเคราะห์โค้ดลงในประวัติการคุย
+                                chatHistory += "\n\n🤖 **ผลวิเคราะห์โค้ด (" + fileName + "):**\n" + formattedResult.toString();
+                                if (currentWeb != null) {
+                                    String htmlResult = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                                    currentWeb.loadDataWithBaseURL(null, htmlResult, "text/html", "utf-8", null);
                                 }
                             } catch (Exception e) { e.printStackTrace(); }
                         });
@@ -831,10 +836,11 @@ public class MainActivity extends AppCompatActivity {
                     public void onError(final String errorMessage) {
                         runOnUiThread(() -> {
                             try {
-                                if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
-                                if (tvAiOutput != null) {
-                                    tvAiOutput.setText("❌ AI เกิดข้อผิดพลาด: " + errorMessage);
-                                    autoScrollTabContainer(tvAiOutput);
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                chatHistory += "\n\n❌ **AI เกิดข้อผิดพลาดในการวิเคราะห์:** " + errorMessage;
+                                if (currentWeb != null) {
+                                    String htmlError = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                                    currentWeb.loadDataWithBaseURL(null, htmlError, "text/html", "utf-8", null);
                                 }
                             } catch (Exception e) { e.printStackTrace(); }
                         });
