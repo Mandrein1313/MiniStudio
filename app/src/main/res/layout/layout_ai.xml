@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#1E1E1E">
+    android:background="#1E1E1E"
+    android:orientation="vertical">
 
     <ScrollView
         android:id="@+id/aiResponseScroll"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_above="@id/aiInputArea"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:clipToPadding="false"
         android:fillViewport="true"
         android:paddingBottom="16dp">
@@ -28,7 +29,6 @@
         android:id="@+id/aiInputArea"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
         android:background="#252526"
         android:orientation="horizontal"
         android:padding="8dp"
@@ -54,10 +54,10 @@
             android:layout_height="40dp"
             android:layout_marginLeft="8dp"
             android:padding="8dp"
-            android:src="@drawable/abc_ic_menu_share_mtrl_alpha"
+            android:src="@drawable/send"
             android:tint="#FFFFFF"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:contentDescription="ส่งคำถาม" />
     </LinearLayout>
 
-</RelativeLayout>
+</LinearLayout>
