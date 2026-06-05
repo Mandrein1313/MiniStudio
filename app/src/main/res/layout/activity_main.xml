@@ -216,32 +216,7 @@
             android:background="#2D1F1F"
             android:visibility="gone" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:background="#252526"
-            android:padding="6dp"
-            android:gravity="center_vertical">
-            <EditText
-                android:id="@+id/etAiInput"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="พิมพ์ถามระบบ AI Build Doctor..."
-                android:textColor="#FFFFFF"
-                android:textColorHint="#8C8C8C"
-                android:textSize="13sp" />
-            <Button
-                android:id="@+id/btnSendToAi"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="ส่ง"
-                android:textSize="12sp"
-                android:backgroundTint="#BB86FC"
-                android:textColor="#1E1E1E" />
         </LinearLayout>
-    </LinearLayout>
 
     <com.google.android.material.navigation.NavigationView
         android:layout_width="280dp"

@@ -134,7 +134,7 @@ public class MainActivity extends AppCompatActivity {
         tvSaveStatus = findViewById(R.id.tvSaveStatus);
         tvFilePath = findViewById(R.id.tvFilePath); 
         
-        // 🌟 1. ผูก ID ระบบสลับหน้าจอตามแบบใหม่
+        // 🌟 ผูก ID ระบบสลับหน้าจอตามแบบใหม่
         tabLayout = findViewById(R.id.tabLayout);
         viewPager = findViewById(R.id.viewPager);
         
@@ -146,7 +146,7 @@ public class MainActivity extends AppCompatActivity {
         consolePanel = findViewById(R.id.consolePanel);
         consoleScrollView = findViewById(R.id.consoleScrollView);
 
-        // 🌟 2. เปลี่ยนปุ่มล้างข้อมูล ให้ล้างทั้งสองแท็บไปเลยครับน้า
+        // 🌟 เปลี่ยนปุ่มล้างข้อมูล ให้ล้างทั้งสองแท็บไปเลยครับน้า
         findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
             if (tvConsole != null) tvConsole.setText("");
             if (tvAiOutput != null) tvAiOutput.setText("");
@@ -201,59 +201,7 @@ public class MainActivity extends AppCompatActivity {
 
         previewContainer = findViewById(R.id.previewContainer);
 
-        // --- 🌟 3. ปรับแต่งระบบส่งคำถามและแสดงผลลงแถบ AI แถบแยกใหม่โดยเฉพาะ ---
-        android.widget.Button btnSendToAi = findViewById(R.id.btnSendToAi);
-        android.widget.EditText etAiInput = findViewById(R.id.etAiInput);
-        
-        if (btnSendToAi != null && etAiInput != null) {
-            btnSendToAi.setOnClickListener(v -> {
-                String userQuestion = etAiInput.getText().toString();
-                if (userQuestion.isEmpty()) {
-                    if (tvAiOutput != null) {
-                        tvAiOutput.append("\n⚠️ กรุณาพิมพ์คำถามก่อนครับ");
-                        viewPager.setCurrentItem(1, true); // สลับไปแท็บ AI เพื่อโชว์คำเตือน
-                    }
-                    return;
-                }
-                
-                // สลับหน้าจอรูดไปแท็บ AI ทันทีที่กดส่งคำถามครับน้า 🌟
-                viewPager.setCurrentItem(1, true);
-                
-                if (tvAiOutput != null) {
-                    tvAiOutput.append("\n\n👤 คุณ: " + userQuestion);
-                }
-                
-                String fullPrompt = chatHistory + "\nผู้ใช้ถาม: " + userQuestion;
-                
-                aiLayoutAnalyzer.askAi(fullPrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
-                    @Override
-                    public void onStart() {
-                        if (tvAiOutput != null) {
-                            tvAiOutput.append("\n🤖 AI กำลังคิด...");
-                        }
-                    }
-                    
-                    @Override
-                    public void onSuccess(android.text.SpannableString formattedResult) {
-                        if (tvAiOutput != null) {
-                            tvAiOutput.append("\n🤖 AI: ");
-                            tvAiOutput.append(formattedResult);
-                        }
-                        
-                        chatHistory += "\nผู้ใช้: " + userQuestion + "\nAI: " + formattedResult.toString();
-                    }
-                    
-                    @Override
-                    public void onError(String errorMessage) {
-                        if (tvAiOutput != null) {
-                            tvAiOutput.append("\n❌ AI ตอบไม่ได้: " + errorMessage);
-                        }
-                    }
-                });
-                
-                etAiInput.setText(""); // ล้างช่องพิมพ์
-            });
-        }
+        // ❌ [ลบคำสั่งเก่าออกแล้ว] ช่องพิมพ์และปุ่มส่งถูกย้ายเข้าไปอยู่ใน layout_ai และจัดการผ่าน Adapter แล้วครับน้า
     }
 
     private void setupLogic() {
@@ -295,7 +243,7 @@ public class MainActivity extends AppCompatActivity {
             initializeFileTree();
         }
 
-        // 🌟 วางโค้ดระบบแท็บ Console & AI ต่อท้ายตรงนี้ได้เลยครับน้า 🎯 แก้ไขคลาสเรียกใช้ให้ตรงกับ Adapter
+        // วางโค้ดระบบแท็บ Console & AI ต่อท้ายตรงนี้
         panelAdapter = new PanelPagerAdapter(this);
         viewPager.setAdapter(panelAdapter);
 
@@ -313,6 +261,62 @@ public class MainActivity extends AppCompatActivity {
             tvConsole = panelAdapter.getTvConsole();
             tvAiOutput = panelAdapter.getTvAiOutput();
         });
+    }
+
+    // 🌟 ฟังก์ชันศูนย์กลางจัดการการส่งคำถามที่ถูกเรียกจากปุ่มในหน้าแท็บ AI
+    public void handleAiQuery() {
+        if (panelAdapter == null) return;
+
+        android.widget.EditText etAiInput = panelAdapter.getEtAiInput();
+        tvAiOutput = panelAdapter.getTvAiOutput(); // อัปเดตพิกัดตัวแปรให้ตรงเวอร์ชันปัจจุบัน
+
+        if (etAiInput == null) return;
+
+        String userQuestion = etAiInput.getText().toString().trim();
+        if (userQuestion.isEmpty()) {
+            if (tvAiOutput != null) {
+                tvAiOutput.append("\n⚠️ กรุณาพิมพ์คำถามก่อนครับ");
+                viewPager.setCurrentItem(1, true); // สลับไปแท็บ AI เพื่อโชว์คำเตือน
+            }
+            return;
+        }
+        
+        // สลับหน้าจอรูดไปแท็บ AI ทันทีที่กดส่งคำถามครับน้า 🌟
+        viewPager.setCurrentItem(1, true);
+        
+        if (tvAiOutput != null) {
+            tvAiOutput.append("\n\n👤 คุณ: " + userQuestion);
+        }
+        
+        String fullPrompt = chatHistory + "\nผู้ใช้ถาม: " + userQuestion;
+        
+        aiLayoutAnalyzer.askAi(fullPrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
+            @Override
+            public void onStart() {
+                if (tvAiOutput != null) {
+                    tvAiOutput.append("\n🤖 AI กำลังคิด...");
+                }
+            }
+            
+            @Override
+            public void onSuccess(android.text.SpannableString formattedResult) {
+                if (tvAiOutput != null) {
+                    tvAiOutput.append("\n🤖 AI: ");
+                    tvAiOutput.append(formattedResult);
+                }
+                
+                chatHistory += "\nผู้ใช้: " + userQuestion + "\nAI: " + formattedResult.toString();
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                if (tvAiOutput != null) {
+                    tvAiOutput.append("\n❌ AI ตอบไม่ได้: " + errorMessage);
+                }
+            }
+        });
+        
+        etAiInput.setText(""); // ล้างช่องพิมพ์ในหน้าแท็บ AI
     }
 
 
@@ -367,7 +371,6 @@ public class MainActivity extends AppCompatActivity {
 
         saveFile(); 
         
-        // 🌟 แก้ไขจุดที่ 2: เปลี่ยนมาเคลียร์ข้อความในหน้าต่างแท็บ Console ตัวใหม่แทนตัวแปรเก่าครับ
         if (tvConsole != null) {
             tvConsole.setText(""); 
         }
@@ -448,9 +451,8 @@ public class MainActivity extends AppCompatActivity {
                         runOnUiThread(() -> { if (rvErrorPanel != null) rvErrorPanel.setVisibility(View.GONE); });
                     } else {
                         showToast("กระบวนการทำงานล้มเหลว");
-                        appendLog("\n##[error] การทำงานหยุดชะงักเนื่องจากการปิดตัวของระบบบิวด์อย่างกะทันหัน", TerminalColor.ERROR_RED);
+                        appendLog("\n##[error] การทำงานหยุดช้าลงเนื่องจากการปิดตัวของระบบบิวด์อย่างกะทันหัน", TerminalColor.ERROR_RED);
                         
-                        // 🌟 แก้ไขจุดที่ 3: เปลี่ยนมาพ่นสรุปวิเคราะห์ข้อผิดพลาดลงหน้าต่าง tvConsole ตัวใหม่แทนตัวแปรเก่าครับ
                         if (analyzer != null) {
                             analyzer.printSummary(new BuildSummaryAnalyzer.LogOutputListener() {
                                 @Override
@@ -734,7 +736,7 @@ public class MainActivity extends AppCompatActivity {
                 consolePanel.setVisibility(View.VISIBLE);
             }
             
-            // 🌟 ปรับปรุงการต่อสาย Log ตอนคอมไพล์ให้พ่นเข้า tvConsole ของระบบแท็บตัวใหม่แทนตัวแปรเดิมครับ
+            // ปรับปรุงการต่อสาย Log ตอนคอมไพล์ให้พ่นเข้า tvConsole ของระบบแท็บตัวใหม่แทนตัวแปรเดิมครับ
             if (tvConsole != null) {
                 tvConsole.setTextColor(color);
                 tvConsole.append(text + "\n");
@@ -820,7 +822,7 @@ public class MainActivity extends AppCompatActivity {
             shortcutBar.addView(btn);
         }
 
-        // 🤖 [จุดปรับปรุงลอจิกเรียกใช้คลาสแยกและลด Error 400]
+        // 🤖 [ปุ่มลัด ถาม AI บน Shortcut bar]
         TextView btnAskAI = new TextView(this);
         btnAskAI.setText("🤖 ถาม AI");
         btnAskAI.setTextSize(14);
@@ -845,7 +847,7 @@ public class MainActivity extends AppCompatActivity {
 
             if (consolePanel != null) consolePanel.setVisibility(View.VISIBLE);
             
-            // 🌟 แก้ไขจุดที่ 1: กดถาม AI ปุ๊บ สั่งให้ ViewPager เด้งรูดไปหน้าแท็บ AI ทันทีครับน้า
+            // กดถาม AI ปุ๊บ สั่งให้ ViewPager เด้งรูดไปหน้าแท็บ AI ทันทีครับน้า
             if (viewPager != null) {
                 viewPager.setCurrentItem(1, true);
             }
@@ -857,6 +859,7 @@ public class MainActivity extends AppCompatActivity {
             aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
                 @Override
                 public void onStart() {
+                    tvAiOutput = panelAdapter.getTvAiOutput(); // ดึง View ปัจจุบันจาก Adapter
                     if (tvAiOutput != null) {
                         tvAiOutput.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ด...");
                     }
@@ -864,8 +867,9 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onSuccess(android.text.SpannableString formattedResult) {
+                    tvAiOutput = panelAdapter.getTvAiOutput();
                     if (tvAiOutput != null) {
-                        tvAiOutput.setText(formattedResult); // แสดงผลความสวยงามแบบมีสีสันในแท็บ AI 🎨
+                        tvAiOutput.setText(formattedResult); // แสดงผลแบบมีสีสันในแท็บ AI 🎨
                     }
                     if (consoleScrollView != null) {
                         consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
@@ -874,6 +878,7 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onError(String errorMessage) {
+                    tvAiOutput = panelAdapter.getTvAiOutput();
                     if (tvAiOutput != null) {
                         tvAiOutput.setText("❌ AI เกิดข้อผิดพลาดชั่วคราว: " + errorMessage);
                     }
