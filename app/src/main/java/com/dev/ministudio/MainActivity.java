@@ -200,12 +200,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
         previewContainer = findViewById(R.id.previewContainer);
-
-        // ❌ [ลบคำสั่งเก่าออกแล้ว] ช่องพิมพ์และปุ่มส่งถูกย้ายเข้าไปอยู่ใน layout_ai และจัดการผ่าน Adapter แล้วครับน้า
     }
 
     private void setupLogic() {
-        // 🤖 เริ่มการทำงานของคลาสแยกจัดการ AI ตัวใหม่
         aiLayoutAnalyzer = new com.dev.ministudio.AiLayoutAnalyzer(this);
         dialogManager = new ProjectDialogManager(this, parentNode -> {
             triggerTreeRefresh(parentNode);
@@ -243,11 +240,9 @@ public class MainActivity extends AppCompatActivity {
             initializeFileTree();
         }
 
-        // วางโค้ดระบบแท็บ Console & AI ต่อท้ายตรงนี้
         panelAdapter = new PanelPagerAdapter(this);
         viewPager.setAdapter(panelAdapter);
 
-        // สั่งเชื่อมความสัมพันธ์ระหว่างแท็บเมนูด้านบนกับหน้าแสดงผล ViewPager
         new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
             if (position == 0) {
                 tab.setText("Console");
@@ -256,19 +251,17 @@ public class MainActivity extends AppCompatActivity {
             }
         }).attach();
 
-        // ดักฟังก์ชันเพื่อป้อนตัวแปรให้ตรงจุดเมื่อวิวพร้อมแสดงผล
         viewPager.post(() -> {
             tvConsole = panelAdapter.getTvConsole();
             tvAiOutput = panelAdapter.getTvAiOutput();
         });
     }
 
-    // 🌟 ฟังก์ชันศูนย์กลางจัดการการส่งคำถามที่ถูกเรียกจากปุ่มในหน้าแท็บ AI
     public void handleAiQuery() {
         if (panelAdapter == null) return;
 
         android.widget.EditText etAiInput = panelAdapter.getEtAiInput();
-        tvAiOutput = panelAdapter.getTvAiOutput(); // อัปเดตพิกัดตัวแปรให้ตรงเวอร์ชันปัจจุบัน
+        tvAiOutput = panelAdapter.getTvAiOutput(); 
 
         if (etAiInput == null) return;
 
@@ -276,12 +269,11 @@ public class MainActivity extends AppCompatActivity {
         if (userQuestion.isEmpty()) {
             if (tvAiOutput != null) {
                 tvAiOutput.append("\n⚠️ กรุณาพิมพ์คำถามก่อนครับ");
-                viewPager.setCurrentItem(1, true); // สลับไปแท็บ AI เพื่อโชว์คำเตือน
+                viewPager.setCurrentItem(1, true); 
             }
             return;
         }
         
-        // สลับหน้าจอรูดไปแท็บ AI ทันทีที่กดส่งคำถามครับน้า 🌟
         viewPager.setCurrentItem(1, true);
         
         if (tvAiOutput != null) {
@@ -303,6 +295,9 @@ public class MainActivity extends AppCompatActivity {
                 if (tvAiOutput != null) {
                     tvAiOutput.append("\n🤖 AI: ");
                     tvAiOutput.append(formattedResult);
+                    
+                    // 🛠️ เลื่อนหน้าจอใน ScrollView ของแท็บ AI ลงล่างสุดอัตโนมัติ
+                    autoScrollTabContainer(tvAiOutput);
                 }
                 
                 chatHistory += "\nผู้ใช้: " + userQuestion + "\nAI: " + formattedResult.toString();
@@ -316,7 +311,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         
-        etAiInput.setText(""); // ล้างช่องพิมพ์ในหน้าแท็บ AI
+        etAiInput.setText(""); 
     }
 
 
@@ -371,6 +366,11 @@ public class MainActivity extends AppCompatActivity {
 
         saveFile(); 
         
+        // 🛠️ สั่งเคลียร์ความสะอาดหน้าจอ และโฟกัสกลับมาที่แท็บ Console (แท็บ 0) ทันทีที่กด Build
+        if (viewPager != null) {
+            viewPager.setCurrentItem(0, true);
+        }
+        tvConsole = panelAdapter.getTvConsole();
         if (tvConsole != null) {
             tvConsole.setText(""); 
         }
@@ -471,7 +471,6 @@ public class MainActivity extends AppCompatActivity {
             }
         );
 
-        
         String githubToken = savedToken; 
         String projectName = currentProject.getProjectName();
         String repoUrl = "https://github.com/" + username + "/" + projectName + ".git";
@@ -736,13 +735,10 @@ public class MainActivity extends AppCompatActivity {
                 consolePanel.setVisibility(View.VISIBLE);
             }
             
-            // ปรับปรุงการต่อสาย Log ตอนคอมไพล์ให้พ่นเข้า tvConsole ของระบบแท็บตัวใหม่แทนตัวแปรเดิมครับ
+            // 🛠️ แก้ไข: อัปเดตพิกัดชี้ตรงเป้าหมาย ดึงวิวปัจจุบันมาพ่นข้อความสีลงหน้าแท็บ Console ตัวใหม่
+            tvConsole = panelAdapter.getTvConsole();
             if (tvConsole != null) {
-                tvConsole.setTextColor(color);
-                tvConsole.append(text + "\n");
-            }
-            if (consoleScrollView != null) {
-                consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
+                appendColoredText(tvConsole, text + "\n", color);
             }
         });
     }
@@ -847,7 +843,6 @@ public class MainActivity extends AppCompatActivity {
 
             if (consolePanel != null) consolePanel.setVisibility(View.VISIBLE);
             
-            // กดถาม AI ปุ๊บ สั่งให้ ViewPager เด้งรูดไปหน้าแท็บ AI ทันทีครับน้า
             if (viewPager != null) {
                 viewPager.setCurrentItem(1, true);
             }
@@ -859,7 +854,7 @@ public class MainActivity extends AppCompatActivity {
             aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
                 @Override
                 public void onStart() {
-                    tvAiOutput = panelAdapter.getTvAiOutput(); // ดึง View ปัจจุบันจาก Adapter
+                    tvAiOutput = panelAdapter.getTvAiOutput(); 
                     if (tvAiOutput != null) {
                         tvAiOutput.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ด...");
                     }
@@ -869,10 +864,8 @@ public class MainActivity extends AppCompatActivity {
                 public void onSuccess(android.text.SpannableString formattedResult) {
                     tvAiOutput = panelAdapter.getTvAiOutput();
                     if (tvAiOutput != null) {
-                        tvAiOutput.setText(formattedResult); // แสดงผลแบบมีสีสันในแท็บ AI 🎨
-                    }
-                    if (consoleScrollView != null) {
-                        consoleScrollView.post(() -> consoleScrollView.fullScroll(View.FOCUS_DOWN));
+                        tvAiOutput.setText(formattedResult); 
+                        autoScrollTabContainer(tvAiOutput); // ดันสกอร์บาร์ลงล่างสุดในหน้ากระดาน AI 🎨
                     }
                 }
 
@@ -1174,8 +1167,23 @@ public class MainActivity extends AppCompatActivity {
         
         tv.append(spannable);
         
-        if (consoleScrollView != null) {
-            consoleScrollView.post(() -> consoleScrollView.fullScroll(android.view.View.FOCUS_DOWN));
+        // 🛠️ แก้ไข: เปลี่ยนการดักสกอร์อัตโนมัติให้วิ่งไปหา ScrollView ต้นทางของหน้าแท็บนั้นๆ เพื่อให้เลื่อนจอลงล่างสุดได้จริงครับน้า
+        autoScrollTabContainer(tv);
+    }
+
+    // 🛠️ ฟังก์ชันเสริมสำหรับบังคับ ScrollView ของแต่ละแท็บใน ViewPager2 ให้รูดลงล่างสุดอัตโนมัติเมื่อมีข้อมูลใหม่เข้ามาครับน้า
+    private void autoScrollTabContainer(View innerTextView) {
+        if (innerTextView == null) return;
+        try {
+            if (innerTextView.getParent() instanceof ScrollView) {
+                final ScrollView tabScroll = (ScrollView) innerTextView.getParent();
+                tabScroll.post(() -> tabScroll.fullScroll(android.view.View.FOCUS_DOWN));
+            } else if (innerTextView.getParent() != null && innerTextView.getParent().getParent() instanceof ScrollView) {
+                final ScrollView tabScroll = (ScrollView) innerTextView.getParent().getParent();
+                tabScroll.post(() -> tabScroll.fullScroll(android.view.View.FOCUS_DOWN));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
