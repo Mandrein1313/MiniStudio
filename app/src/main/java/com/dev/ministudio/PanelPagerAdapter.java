@@ -12,10 +12,9 @@ public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.Vi
 
     private final MainActivity activity;
     
-    // 🌟 เปลี่ยนมาเก็บวิวของแต่ละหน้าแยกกันอย่างชัดเจน ป้องกันปัญหาค่าหลุดหรือแชร์พิกัดผิดพลาด
-    private TextView tvConsole;
-    private TextView tvAiOutput;
-    private EditText etAiInput;
+    // 🌟 ย้ายวิวจริงไปเก็บไว้ในระดับผูกมัด ViewHolder ของแต่ละหน้าแทน เพื่อกันค่าหลุดตอนสลับหน้าจอหรือกดขยาย
+    private ViewHolder consoleHolder;
+    private ViewHolder aiHolder;
 
     public PanelPagerAdapter(MainActivity activity) {
         this.activity = activity;
@@ -26,10 +25,8 @@ public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.Vi
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view;
         if (viewType == 0) {
-            // สร้างหน้าต่างแสดงล็อกข้อความคอนโซล
             view = LayoutInflater.from(parent.getContext()).inflate(R.layout.layout_console, parent, false);
         } else {
-            // สร้างหน้าต่างของระบบแชท AI
             view = LayoutInflater.from(parent.getContext()).inflate(R.layout.layout_ai, parent, false);
         }
         return new ViewHolder(view, viewType);
@@ -38,16 +35,13 @@ public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.Vi
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         if (position == 0) {
-            this.tvConsole = holder.itemView.findViewById(R.id.tvConsole);
+            this.consoleHolder = holder;
         } else {
-            this.tvAiOutput = holder.itemView.findViewById(R.id.tvAiOutput);
-            this.etAiInput = holder.itemView.findViewById(R.id.etAiInput);
+            this.aiHolder = holder;
             
-            // 🛠️ แก้ไข: ผูก ID ให้ตรงกับไฟล์ layout_ai.xml (จาก btnSendToAi เปลี่ยนเป็น btnSendAi)
-            android.view.View btnSend = holder.itemView.findViewById(R.id.btnSendAi);
-            if (btnSend != null) {
-                btnSend.setOnClickListener(v -> {
-                    // เรียกฟังก์ชันแกนหลักใน MainActivity เพื่อประมวลผลคำถามถาม AI
+            // 🛠️ ผูกเหตุการณ์กดปุ่มส่งหา AI จากวิวจริงใน Holder ปัจจุบัน
+            if (holder.btnSendAi != null) {
+                holder.btnSendAi.setOnClickListener(v -> {
                     activity.handleAiQuery();
                 });
             }
@@ -56,7 +50,7 @@ public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.Vi
 
     @Override
     public int getItemCount() {
-        return 2; // แบ่งหน้าออกเป็น 2 แท็บคงที่ (Console และ AI)
+        return 2; 
     }
 
     @Override
@@ -64,22 +58,35 @@ public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.Vi
         return position;
     }
 
-    // --- ส่วนส่งวิวกลับไปให้ MainActivity.java ดึงค่าไปใช้งานประมวลผล ---
+    // --- ส่วนส่งวิวกลับไปให้ MainActivity.java ดึงค่าไปใช้งานอย่างปลอดภัย พิกัดไม่เพี้ยน ---
     public TextView getTvConsole() {
-        return tvConsole;
+        return (consoleHolder != null) ? consoleHolder.tvConsole : null;
     }
 
     public TextView getTvAiOutput() {
-        return tvAiOutput;
+        return (aiHolder != null) ? aiHolder.tvAiOutput : null;
     }
 
     public EditText getEtAiInput() {
-        return etAiInput;
+        return (aiHolder != null) ? aiHolder.etAiInput : null;
     }
 
+    // 🌟 ปรับปรุงกล่องเก็บวิวย่อย (ViewHolder) ให้ทำหน้าที่หาพิกัดและเฝ้าวิวไว้ให้มั่นคง
     static class ViewHolder extends RecyclerView.ViewHolder {
+        TextView tvConsole;
+        TextView tvAiOutput;
+        EditText etAiInput;
+        View btnSendAi;
+
         public ViewHolder(@NonNull View itemView, int viewType) {
             super(itemView);
+            if (viewType == 0) {
+                tvConsole = itemView.findViewById(R.id.tvConsole);
+            } else {
+                tvAiOutput = itemView.findViewById(R.id.tvAiOutput);
+                etAiInput = itemView.findViewById(R.id.etAiInput);
+                btnSendAi = itemView.findViewById(R.id.btnSendAi);
+            }
         }
     }
 }
