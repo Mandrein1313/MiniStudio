@@ -147,15 +147,14 @@ public class MainActivity extends AppCompatActivity {
         consoleScrollView = findViewById(R.id.consoleScrollView);
 
         // 🌟 เปลี่ยนปุ่มล้างข้อมูล ให้ล้างทั้งสองแท็บไปเลยครับน้า
- 
-findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
-    if (panelAdapter != null) {
-        tvConsole = panelAdapter.getTvConsole();
-        tvAiOutput = panelAdapter.getTvAiOutput();
-    }
-    if (tvConsole != null) tvConsole.setText("");
-    if (tvAiOutput != null) tvAiOutput.setText("");
-});
+        findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
+            if (panelAdapter != null) {
+                tvConsole = panelAdapter.getTvConsole();
+                tvAiOutput = panelAdapter.getTvAiOutput();
+            }
+            if (tvConsole != null) tvConsole.setText("");
+            if (tvAiOutput != null) tvAiOutput.setText("");
+        });
         
         findViewById(R.id.btnCloseConsole).setOnClickListener(v -> consolePanel.setVisibility(View.GONE));
 
@@ -179,6 +178,14 @@ findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
                     isConsoleMaximized = false;
                 }
                 consolePanel.setLayoutParams(params);
+                
+                // 🌟 เมื่อหน้าจอขยายหรือหดเสร็จ ให้สั่งรูดประวัติหน้าต่างลงล่างสุดใน 200ms เพื่อคำนวณขนาดความกว้างหน้าจอใหม่ ไม่ให้ขอบจมดินครับ
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    if (panelAdapter != null) {
+                        autoScrollTabContainer(panelAdapter.getTvConsole());
+                        autoScrollTabContainer(panelAdapter.getTvAiOutput());
+                    }
+                }, 200);
             });
         }
 
@@ -248,6 +255,9 @@ findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
         panelAdapter = new PanelPagerAdapter(this);
         viewPager.setAdapter(panelAdapter);
 
+        // 🛠️ บังคับปิดระบบเลื่อนด้วยการปัดนิ้วบนตัววิวคอนโซล เพื่อให้เลื่อนอ่าน TextView โค้ดยาวๆ ได้แบบ 100%
+        viewPager.setUserInputEnabled(false);
+
         new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
             if (position == 0) {
                 tab.setText("Console");
@@ -257,8 +267,10 @@ findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
         }).attach();
 
         viewPager.post(() -> {
-            tvConsole = panelAdapter.getTvConsole();
-            tvAiOutput = panelAdapter.getTvAiOutput();
+            if (panelAdapter != null) {
+                tvConsole = panelAdapter.getTvConsole();
+                tvAiOutput = panelAdapter.getTvAiOutput();
+            }
         });
     }
 
@@ -283,6 +295,7 @@ findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
         
         if (tvAiOutput != null) {
             tvAiOutput.append("\n\n👤 คุณ: " + userQuestion);
+            autoScrollTabContainer(tvAiOutput);
         }
         
         String fullPrompt = chatHistory + "\nผู้ใช้ถาม: " + userQuestion;
@@ -290,18 +303,19 @@ findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
         aiLayoutAnalyzer.askAi(fullPrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
             @Override
             public void onStart() {
+                tvAiOutput = panelAdapter.getTvAiOutput();
                 if (tvAiOutput != null) {
                     tvAiOutput.append("\n🤖 AI กำลังคิด...");
+                    autoScrollTabContainer(tvAiOutput);
                 }
             }
             
             @Override
             public void onSuccess(android.text.SpannableString formattedResult) {
+                tvAiOutput = panelAdapter.getTvAiOutput();
                 if (tvAiOutput != null) {
                     tvAiOutput.append("\n🤖 AI: ");
                     tvAiOutput.append(formattedResult);
-                    
-                    // 🛠️ เลื่อนหน้าจอใน ScrollView ของแท็บ AI ลงล่างสุดอัตโนมัติ
                     autoScrollTabContainer(tvAiOutput);
                 }
                 
@@ -310,13 +324,14 @@ findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
             
             @Override
             public void onError(String errorMessage) {
+                tvAiOutput = panelAdapter.getTvAiOutput();
                 if (tvAiOutput != null) {
                     tvAiOutput.append("\n❌ AI ตอบไม่ได้: " + errorMessage);
+                    autoScrollTabContainer(tvAiOutput);
                 }
             }
         });
         
-        // 🛠️ ตรวจสอบความปลอดภัยก่อนสั่งล้างกล่องพิมพ์ เพื่อกันระบบพังตอนอินเทอร์เน็ตหลุดหรือมีดีเลย์
         if (etAiInput != null) {
             etAiInput.setText(""); 
         }
@@ -373,11 +388,14 @@ findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
 
         saveFile(); 
         
-        // 🛠️ สั่งเคลียร์ความสะอาดหน้าจอ และโฟกัสกลับมาที่แท็บ Console (แท็บ 0) ทันทีที่กด Build
         if (viewPager != null) {
             viewPager.setCurrentItem(0, true);
         }
-        tvConsole = panelAdapter.getTvConsole();
+        
+        // 🌟 ดึงข้อมูลวิวล่าสุดแบบ Real-time ทันทีที่มีการกดคลิกปุ่มบิลด์คลาวด์
+        if (panelAdapter != null) {
+            tvConsole = panelAdapter.getTvConsole();
+        }
         if (tvConsole != null) {
             tvConsole.setText(""); 
         }
@@ -464,6 +482,7 @@ findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
                             analyzer.printSummary(new BuildSummaryAnalyzer.LogOutputListener() {
                                 @Override
                                 public void onAppendLog(String text, int color) {
+                                    if (panelAdapter != null) tvConsole = panelAdapter.getTvConsole();
                                     appendColoredText(tvConsole, text, color);
                                 }
                             });
@@ -742,8 +761,10 @@ findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
                 consolePanel.setVisibility(View.VISIBLE);
             }
             
-            // 🛠️ แก้ไข: อัปเดตพิกัดชี้ตรงเป้าหมาย ดึงวิวปัจจุบันมาพ่นข้อความสีลงหน้าแท็บ Console ตัวใหม่
-            tvConsole = panelAdapter.getTvConsole();
+            // 🌟 ป้องกันพิกัดวิวเพี้ยนด้วยการดักจับค่าแบบสดใหม่จาก Adapter ปัจจุบันเสมอก่อนเติมข้อความสี
+            if (panelAdapter != null) {
+                tvConsole = panelAdapter.getTvConsole();
+            }
             if (tvConsole != null) {
                 appendColoredText(tvConsole, text + "\n", color);
             }
@@ -861,26 +882,28 @@ findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
             aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
                 @Override
                 public void onStart() {
-                    tvAiOutput = panelAdapter.getTvAiOutput(); 
+                    if (panelAdapter != null) tvAiOutput = panelAdapter.getTvAiOutput(); 
                     if (tvAiOutput != null) {
                         tvAiOutput.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ด...");
+                        autoScrollTabContainer(tvAiOutput);
                     }
                 }
 
                 @Override
                 public void onSuccess(android.text.SpannableString formattedResult) {
-                    tvAiOutput = panelAdapter.getTvAiOutput();
+                    if (panelAdapter != null) tvAiOutput = panelAdapter.getTvAiOutput();
                     if (tvAiOutput != null) {
                         tvAiOutput.setText(formattedResult); 
-                        autoScrollTabContainer(tvAiOutput); // ดันสกอร์บาร์ลงล่างสุดในหน้ากระดาน AI 🎨
+                        autoScrollTabContainer(tvAiOutput); 
                     }
                 }
 
                 @Override
                 public void onError(String errorMessage) {
-                    tvAiOutput = panelAdapter.getTvAiOutput();
+                    if (panelAdapter != null) tvAiOutput = panelAdapter.getTvAiOutput();
                     if (tvAiOutput != null) {
                         tvAiOutput.setText("❌ AI เกิดข้อผิดพลาดชั่วคราว: " + errorMessage);
+                        autoScrollTabContainer(tvAiOutput);
                     }
                 }
             });
@@ -1174,21 +1197,30 @@ findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
         
         tv.append(spannable);
         
-        // 🛠️ แก้ไข: เปลี่ยนการดักสกอร์อัตโนมัติให้วิ่งไปหา ScrollView ต้นทางของหน้าแท็บนั้นๆ เพื่อให้เลื่อนจอลงล่างสุดได้จริงครับน้า
+        // 🛠️ คอยส่งสัญญาณสั่งให้เลื่อนลงล่างสุดอย่างถูกต้องเสมอ
         autoScrollTabContainer(tv);
     }
 
-    // 🛠️ ฟังก์ชันเสริมสำหรับบังคับ ScrollView ของแต่ละแท็บใน ViewPager2 ให้รูดลงล่างสุดอัตโนมัติเมื่อมีข้อมูลใหม่เข้ามาครับน้า
+    // 🌟 🛠️ ปรับปรุงฟังก์ชันรูดอัตโนมัติใหม่แบบเจาะลึกทะลุกรอย View Holder การันตีความแม่นยำ 100% ไม่จมดินแน่นอนครับน้า
     private void autoScrollTabContainer(View innerTextView) {
         if (innerTextView == null) return;
         try {
-            if (innerTextView.getParent() instanceof ScrollView) {
-                final ScrollView tabScroll = (ScrollView) innerTextView.getParent();
-                tabScroll.post(() -> tabScroll.fullScroll(android.view.View.FOCUS_DOWN));
-            } else if (innerTextView.getParent() != null && innerTextView.getParent().getParent() instanceof ScrollView) {
-                final ScrollView tabScroll = (ScrollView) innerTextView.getParent().getParent();
-                tabScroll.post(() -> tabScroll.fullScroll(android.view.View.FOCUS_DOWN));
-            }
+            innerTextView.post(() -> {
+                try {
+                    // เดินทางหาตำแหน่ง ScrollView ย่อยที่โอบอุ้มข้อความตัวนี้อยู่จริงๆ ในเลย์เอาต์ XML แท็บนั้นๆ
+                    android.view.ViewParent currentParent = innerTextView.getParent();
+                    while (currentParent != null) {
+                        if (currentParent instanceof ScrollView) {
+                            final ScrollView realScrollView = (ScrollView) currentParent;
+                            realScrollView.fullScroll(android.view.View.FOCUS_DOWN);
+                            break;
+                        }
+                        currentParent = currentParent.getParent();
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
         } catch (Exception e) {
             e.printStackTrace();
         }
