@@ -147,10 +147,15 @@ public class MainActivity extends AppCompatActivity {
         consoleScrollView = findViewById(R.id.consoleScrollView);
 
         // 🌟 เปลี่ยนปุ่มล้างข้อมูล ให้ล้างทั้งสองแท็บไปเลยครับน้า
-        findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
-            if (tvConsole != null) tvConsole.setText("");
-            if (tvAiOutput != null) tvAiOutput.setText("");
-        });
+ 
+findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
+    if (panelAdapter != null) {
+        tvConsole = panelAdapter.getTvConsole();
+        tvAiOutput = panelAdapter.getTvAiOutput();
+    }
+    if (tvConsole != null) tvConsole.setText("");
+    if (tvAiOutput != null) tvAiOutput.setText("");
+});
         
         findViewById(R.id.btnCloseConsole).setOnClickListener(v -> consolePanel.setVisibility(View.GONE));
 

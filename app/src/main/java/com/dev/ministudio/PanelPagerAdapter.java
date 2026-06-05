@@ -11,6 +11,8 @@ import androidx.recyclerview.widget.RecyclerView;
 public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.ViewHolder> {
 
     private final MainActivity activity;
+    
+    // 🌟 เปลี่ยนมาเก็บวิวของแต่ละหน้าแยกกันอย่างชัดเจน ป้องกันปัญหาค่าหลุดหรือแชร์พิกัดผิดพลาด
     private TextView tvConsole;
     private TextView tvAiOutput;
     private EditText etAiInput;
@@ -22,13 +24,12 @@ public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.Vi
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        // viewType 0 = หน้า Console, viewType 1 = หน้า AI ถามตอบ
         View view;
         if (viewType == 0) {
-            // สร้างหน้าต่างดำๆ แสดงล็อกข้อความคอนโซล
+            // สร้างหน้าต่างแสดงล็อกข้อความคอนโซล
             view = LayoutInflater.from(parent.getContext()).inflate(R.layout.layout_console, parent, false);
         } else {
-            // สร้างหน้าต่างของระบบแชท AI (ที่มีกล่องแชทประวัติประดับอยู่ข้างใน)
+            // สร้างหน้าต่างของระบบแชท AI
             view = LayoutInflater.from(parent.getContext()).inflate(R.layout.layout_ai, parent, false);
         }
         return new ViewHolder(view, viewType);
@@ -42,17 +43,20 @@ public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.Vi
             this.tvAiOutput = holder.itemView.findViewById(R.id.tvAiOutput);
             this.etAiInput = holder.itemView.findViewById(R.id.etAiInput);
             
-            // 🌟 ดักเหตุการณ์ปุ่มส่งเงิน/ถาม AI ภายในแท็บย่อยให้วิ่งไปสั่งงานฟังก์ชันแกนหลักใน MainActivity
-            android.view.View btnSend = holder.itemView.findViewById(R.id.btnSendToAi);
+            // 🛠️ แก้ไข: ผูก ID ให้ตรงกับไฟล์ layout_ai.xml (จาก btnSendToAi เปลี่ยนเป็น btnSendAi)
+            android.view.View btnSend = holder.itemView.findViewById(R.id.btnSendAi);
             if (btnSend != null) {
-                btnSend.setOnClickListener(v -> activity.handleAiQuery());
+                btnSend.setOnClickListener(v -> {
+                    // เรียกฟังก์ชันแกนหลักใน MainActivity เพื่อประมวลผลคำถามถาม AI
+                    activity.handleAiQuery();
+                });
             }
         }
     }
 
     @Override
     public int getItemCount() {
-        return 2; // ยืนยันระบบแบ่งหน้าออกเป็น 2 แท็บคงที่
+        return 2; // แบ่งหน้าออกเป็น 2 แท็บคงที่ (Console และ AI)
     }
 
     @Override
@@ -60,7 +64,7 @@ public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.Vi
         return position;
     }
 
-    // --- ส่วนรับส่งพิกัดวิวัตถุกลับไปให้ MainActivity.java ดึงค่าไปประมวลผล ---
+    // --- ส่วนส่งวิวกลับไปให้ MainActivity.java ดึงค่าไปใช้งานประมวลผล ---
     public TextView getTvConsole() {
         return tvConsole;
     }
