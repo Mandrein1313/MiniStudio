@@ -5,65 +5,162 @@
     android:id="@+id/drawer_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#121212"
-    android:fitsSystemWindows="true">
+    android:background="#1E1E1E">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:fitsSystemWindows="true">
+        android:orientation="vertical">
 
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="?attr/actionBarSize"
             android:background="#1E1E1E"
-            app:title="Projects"
-            app:titleTextColor="#BB86FC"
-            app:contentInsetStartWithNavigation="0dp" />
+            app:titleTextColor="#FFFFFF"
+            app:popupTheme="@style/ThemeOverlay.AppCompat.Dark" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:background="#252526"
+            android:padding="6dp">
+            <TextView
+                android:id="@+id/tvFilePath"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="No file open"
+                android:textColor="#8C8C8C"
+                android:textSize="12sp"
+                android:maxLines="1"
+                android:ellipsize="end" />
+            <TextView
+                android:id="@+id/tvSaveStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Saved"
+                android:textColor="#4CAF50"
+                android:textSize="12sp"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/tabRecyclerView"
             android:layout_width="match_parent"
-            android:layout_height="32dp"
-            android:background="#212121" />
+            android:layout_height="40dp"
+            android:background="#252526"
+            android:scrollbars="none" />
+
+        <LinearLayout
+            android:id="@+id/searchBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#2D2D2D"
+            android:padding="8dp"
+            android:visibility="gone">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <EditText
+                    android:id="@+id/etFind"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="ค้นหาคำ..."
+                    android:textColor="#FFFFFF"
+                    android:textColorHint="#707070"
+                    android:textSize="14sp" />
+                <Button
+                    android:id="@+id/btnNext"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ถัดไป"
+                    android:textSize="12sp" />
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="4dp">
+                <EditText
+                    android:id="@+id/etReplace"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="แทนที่ด้วย..."
+                    android:textColor="#FFFFFF"
+                    android:textColorHint="#707070"
+                    android:textSize="14sp" />
+                <Button
+                    android:id="@+id/btnReplace"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="แทนที่"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
 
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1">
-
             <io.github.rosemoe.sora.widget.CodeEditor
                 android:id="@+id/codeEditor"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
+            <FrameLayout
+                android:id="@+id/previewContainer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#1E1E1E"
+                android:visibility="gone" />
         </FrameLayout>
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#202020"
+            android:scrollbars="none">
+            <LinearLayout
+                android:id="@+id/shortcutBar"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:orientation="horizontal"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:gravity="center_vertical" />
+        </HorizontalScrollView>
 
         <LinearLayout
             android:id="@+id/consolePanel"
             android:layout_width="match_parent"
-            android:layout_height="180dp"
+            android:layout_height="160dp"
             android:orientation="vertical"
-            android:background="#141414"
-            android:visibility="gone"
-            android:elevation="4dp">
+            android:background="#1E1E1E"
+            android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="36dp"
+                android:layout_height="35dp"
                 android:orientation="horizontal"
-                android:background="#1A1A1A"
+                android:background="#2D2D2D"
                 android:gravity="center_vertical"
-                android:paddingHorizontal="8dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Console Output"
-                    android:textColor="#BB86FC"
-                    android:textStyle="bold"
-                    android:textSize="12sp" />
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
+                
+                <com.google.android.material.tabs.TabLayout
+                    android:id="@+id/tabLayout"
+                    android:layout_width="160dp"
+                    android:layout_height="match_parent"
+                    android:background="#2D2D2D"
+                    app:tabTextColor="#8C8C8C"
+                    app:tabSelectedTextColor="#FFFFFF"
+                    app:tabIndicatorColor="#BB86FC"
+                    app:tabMode="fixed" />
 
                 <View
                     android:layout_width="0dp"
@@ -72,76 +169,104 @@
 
                 <ImageButton
                     android:id="@+id/btnConsoleRun"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:layout_marginEnd="8dp"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
                     android:src="@android:drawable/ic_media_play"
-                    android:tint="#4CAF50"
-                    android:background="?android:attr/selectableItemBackgroundBorderless" />
-
+                    app:tint="#4CAF50" />
+                <ImageButton
+                    android:id="@+id/btnClearConsole"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    app:tint="#FFFFFF" />
+                <ImageButton
+                    android:id="@+id/btnToggleExpand"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_compass"
+                    app:tint="#FFB74D" />
                 <ImageButton
                     android:id="@+id/btnCloseConsole"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:src="@android:drawable/ic_menu_close_clear_cancel"
-                    android:tint="#FF5252"
-                    android:background="?android:attr/selectableItemBackgroundBorderless" />
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_delete"
+                    app:tint="#FF5252" />
             </LinearLayout>
 
             <ScrollView
+                android:id="@+id/consoleScrollView"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:padding="8dp">
-                <TextView
-                    android:id="@+id/tvConsole"
+                android:fillViewport="true">
+                <androidx.viewpager2.widget.ViewPager2
+                    android:id="@+id/viewPager"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColor="#FFFFFF"
-                    android:textSize="12sp"
-                    android:typeface="monospace" />
+                    android:layout_height="match_parent" />
             </ScrollView>
         </LinearLayout>
 
-        <HorizontalScrollView
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvErrorPanel"
             android:layout_width="match_parent"
-            android:layout_height="46dp"
-            android:background="#1E1E1E"
-            android:scrollbars="none">
-            <LinearLayout
-                android:id="@+id/shortcutBar"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingHorizontal="4dp" />
-        </HorizontalScrollView>
+            android:layout_height="wrap_content"
+            android:background="#2D1F1F"
+            android:visibility="gone" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:padding="8dp"
-            android:background="#1E1E1E"
+            android:background="#252526"
+            android:padding="6dp"
             android:gravity="center_vertical">
-
-            <Button
-                android:id="@+id/btnOpenAiDoctor"
-                android:layout_width="match_parent"
-                android:layout_height="42dp"
-                android:text="🤖 เรียก AI Build Doctor ตรวจสอบโค้ด"
+            <EditText
+                android:id="@+id/etAiInput"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="พิมพ์ถามระบบ AI Build Doctor..."
                 android:textColor="#FFFFFF"
-                android:textStyle="bold"
-                android:backgroundTint="#BB86FC" />
+                android:textColorHint="#8C8C8C"
+                android:textSize="13sp" />
+            <Button
+                android:id="@+id/btnSendToAi"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="ส่ง"
+                android:textSize="12sp"
+                android:backgroundTint="#BB86FC"
+                android:textColor="#1E1E1E" />
         </LinearLayout>
-
     </LinearLayout>
 
     <com.google.android.material.navigation.NavigationView
-        android:id="@+id/file_nav_view"
         android:layout_width="280dp"
         android:layout_height="match_parent"
         android:layout_gravity="start"
-        android:background="#1A1A1A">
-        </com.google.android.material.navigation.NavigationView>
+        android:background="#252526">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="8dp">
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="โครงสร้างโปรเจกต์"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:padding="8dp" />
+            <ListView
+                android:id="@+id/treeView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:divider="@null" />
+        </LinearLayout>
+    </com.google.android.material.navigation.NavigationView>
 
 </androidx.drawerlayout.widget.DrawerLayout>
