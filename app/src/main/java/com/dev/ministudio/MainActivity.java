@@ -77,7 +77,6 @@ public class MainActivity extends AppCompatActivity {
     private PanelPagerAdapter dialogPanelAdapter;
     
     private TextView tvConsole;
-    // หมายเหตุ: สลับไปใช้ WebView ผ่านดักประวัติ chatHistory แทนการใช้ tvAiOutput ดั้งเดิม
         
     // Controllers & Models
     private ProjectModel currentProject;
@@ -89,12 +88,10 @@ public class MainActivity extends AppCompatActivity {
     
     private float currentCodeFontSize = 14.0f; 
 
-    private List<FileNode> masterFileList = new ArrayList<>();
-    private FileTreeAdapter fileTreeAdapter;
+    // 🛠️ แยกออกไปจัดการที่ระบบภายนอกคลาสหลัก
+    private ProjectTreeManager projectTreeManager;
 
     private BuildEnvironmentManager buildEnvManager;
-    private File folderForImport = null;
-    private int lastClickedPosition = -1; 
     private static final int PICK_FILE_REQUEST_CODE = 2026; 
     
     private ProjectDialogManager dialogManager;
@@ -189,7 +186,10 @@ public class MainActivity extends AppCompatActivity {
             getSupportActionBar().setTitle(currentProject.getProjectName());
             
             setupTabLogic();
-            initializeFileTree();
+            
+            // 🛠️ เรียกทำงานผ่านโครงสร้างผู้จัดการต้นไม้ตัวใหม่ที่แยกออกไป
+            projectTreeManager = new ProjectTreeManager(this, treeView);
+            projectTreeManager.initializeFileTree();
         }
     }
 
@@ -200,18 +200,15 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // 🛠️ แก้ไขจุดที่ 1: เปลี่ยนธีมไม่ให้บังคับ Fullscreen เพื่อดึง Status Bar กลับคืนมา
         fullPanelDialog = new android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar);
         fullPanelDialog.setContentView(R.layout.dialog_full_console_panel);
         fullPanelDialog.setCancelable(true);
 
-        // 🛠️ แก้ไขจุดที่ 2: ตั้งค่าให้หน้าต่าง Dialog ขยายแผ่เต็มหน้าจอพอดี โดยไม่ทับ Status Bar
         if (fullPanelDialog.getWindow() != null) {
             fullPanelDialog.getWindow().setLayout(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT
             );
-            // ย้อมสีสเตตัสบาร์ในหน้านี้ให้เป็นสีเทาเข้ม #1E1E1E สวยงามเข้ากับตัวแอปครับ
             fullPanelDialog.getWindow().setStatusBarColor(android.graphics.Color.parseColor("#1E1E1E"));
         }
 
@@ -223,7 +220,6 @@ public class MainActivity extends AppCompatActivity {
         View btnToggleExpand = fullPanelDialog.findViewById(R.id.btnToggleExpand);
         if (btnToggleExpand != null) btnToggleExpand.setVisibility(View.GONE);
 
-        // 🛠️ แก้ไขจุดที่ 1 ที่บิลด์พัง: ปรับฟังก์ชันล้างหน้าจอให้ผูกค่าผ่าน WebView และล้างประวัติแชทจริง
         fullPanelDialog.findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
             if (dialogPanelAdapter != null) {
                 TextView consoleView = dialogPanelAdapter.getTvConsole();
@@ -231,7 +227,7 @@ public class MainActivity extends AppCompatActivity {
                 
                 if (consoleView != null) consoleView.setText("");
                 if (webView != null) {
-                    chatHistory = ""; // เคลียร์ประวัติความทรงจำแชท
+                    chatHistory = ""; 
                     webView.loadDataWithBaseURL(null, "<html><body style='background-color:#1E1E1E;'></body></html>", "text/html", "utf-8", null);
                 }
             }
@@ -256,7 +252,6 @@ public class MainActivity extends AppCompatActivity {
         fullPanelDialog.show();
     }
 
-
     public void handleAiQuery() {
         if (fullPanelDialog == null || !fullPanelDialog.isShowing()) {
             showFullPanelDialog(1);
@@ -266,14 +261,12 @@ public class MainActivity extends AppCompatActivity {
             if (dialogPanelAdapter == null) return;
 
             android.widget.EditText etAiInput = dialogPanelAdapter.getEtAiInput();
-            // 🌟 เปลี่ยนจุดดึงข้อมูลจาก TextView มาเป็น WebView ตัวใหม่
             android.webkit.WebView webAiOutput = dialogPanelAdapter.getWebAiOutput();
 
             if (etAiInput == null || webAiOutput == null) return;
 
             String userQuestion = etAiInput.getText().toString().trim();
             if (userQuestion.isEmpty()) {
-                // กรณีไม่ได้พิมพ์คำถาม ให้สะสมคำเตือนแล้วอัปเดตหน้าเว็บ
                 chatHistory += "\n\n⚠️ *กรุณาพิมพ์คำถามก่อนครับ*";
                 String html = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
                 webAiOutput.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
@@ -282,12 +275,10 @@ public class MainActivity extends AppCompatActivity {
 
             dialogViewPager.setCurrentItem(1, true);
 
-            // 🌟 1. บันทึกคำถามของผู้ใช้ลงในประวัติแชท แล้วสั่งแสดงผลบน WebView ทันที
             chatHistory += "\n\n👤 **คุณ:** " + userQuestion;
             String htmlUser = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
             webAiOutput.loadDataWithBaseURL(null, htmlUser, "text/html", "utf-8", null);
 
-            // เตรียม Prompt โดยรวมประวัติทั้งหมดส่งไปให้ AI รู้เรื่องด้วย
             String fullPrompt = chatHistory + "\nผู้ใช้ถาม: " + userQuestion;
 
             aiLayoutAnalyzer.askAi(fullPrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
@@ -297,7 +288,6 @@ public class MainActivity extends AppCompatActivity {
                         try {
                             android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
                             if (currentWeb != null) {
-                                // 🌟 2. แสดงสถานะกำลังคิดชั่วคราว โดยไม่พ่นถาวรลงในประวัติหลัก
                                 String tempHtml = AiHtmlFormatter.convertMarkdownToHtml(chatHistory + "\n\n🤖 *AI กำลังคิด...*");
                                 currentWeb.loadDataWithBaseURL(null, tempHtml, "text/html", "utf-8", null);
                             }
@@ -310,12 +300,9 @@ public class MainActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         try {
                             android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
-                            
-                            // 🌟 3. ได้รับคำตอบสำเร็จ บันทึกคำตอบจริง (ซึ่งอาจจะมีบล็อกโค้ด ```java) ลงประวัติหลัก
                             chatHistory += "\n\n🤖 **AI:** " + formattedResult.toString();
                             
                             if (currentWeb != null) {
-                                //  แปลง Markdown ทั้งหมดเป็น HTML (ตรงนี้กล่องโค้ดจะถูกสร้างพร้อมปุ่ม Copy โดยอัตโนมัติ)
                                 String htmlResult = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
                                 currentWeb.loadDataWithBaseURL(null, htmlResult, "text/html", "utf-8", null);
                             }
@@ -328,8 +315,6 @@ public class MainActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         try {
                             android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
-                            
-                            // 🌟 4. กรณีเกิดข้อผิดพลาด บันทึกแจ้งเตือนลงประวัติ
                             chatHistory += "\n\n❌ **AI เกิดข้อผิดพลาด:** " + errorMessage;
                             
                             if (currentWeb != null) {
@@ -344,7 +329,6 @@ public class MainActivity extends AppCompatActivity {
             etAiInput.setText("");
         }, 300);
     }
-
 
     private void toggleXmlPreview() {
         if (codeEditor == null || previewContainer == null) {
@@ -504,7 +488,7 @@ public class MainActivity extends AppCompatActivity {
 
             String githubToken = savedToken; 
             String projectName = currentProject.getProjectName();
-            String repoUrl = "[https://github.com/](https://github.com/)" + username + "/" + projectName + ".git";
+            String repoUrl = "https://github.com/" + username + "/" + projectName + ".git";
             String packageName = "com.dev.ministudio"; 
 
             buildTask.startCloudBuild(githubToken, repoUrl, projectName, packageName); 
@@ -552,179 +536,23 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void initializeFileTree() {
-        if (currentProject == null) return;
-
-        File projectRoot = new File(currentProject.getRootPath());
-        masterFileList = FileSystemManager.loadRootDirectory(projectRoot);
-
-        fileTreeAdapter = new FileTreeAdapter(this, masterFileList);
-        treeView.setAdapter(fileTreeAdapter);
-
-        treeView.setOnItemClickListener((parent, view, position, id) -> {
-            FileNode selectedNode = masterFileList.get(position);
-
-            if (selectedNode.isDirectory) {
-                if (!selectedNode.isExpanded) {
-                    selectedNode.isExpanded = true;
-                    List<FileNode> children = FileSystemManager.loadChildren(selectedNode.file, selectedNode.depth);
-                    masterFileList.addAll(position + 1, children);
-                } else {
-                    selectedNode.isExpanded = false;
-                    int nextPosition = position + 1;
-                    while (nextPosition < masterFileList.size() && masterFileList.get(nextPosition).depth > selectedNode.depth) {
-                        masterFileList.remove(nextPosition);
-                    }
-                }
-                fileTreeAdapter.notifyDataSetChanged();
-                
-            } else {
-                String fileName = selectedNode.file.getName().toLowerCase();
-                if (fileName.endsWith(".png") || fileName.endsWith(".jpg") || fileName.endsWith(".jpeg") || fileName.endsWith(".webp")) {
-                    dialogManager.showImageViewerDialog(selectedNode.file);
-                } else {
-                    fileTreeAdapter.setSelectedPosition(position);
-                    currentProject.setCurrentOpenFile(selectedNode.file);
-                    openFile(selectedNode.file);
-                    drawerLayout.closeDrawers();
-                }
-            }
-        });
-
-        treeView.setOnItemLongClickListener((parent, view, position, id) -> {
-            FileNode selectedNode = masterFileList.get(position);
-            File currentFile = selectedNode.file;
-            lastClickedPosition = position;
-
-            com.google.android.material.bottomsheet.BottomSheetDialog bottomSheetDialog = 
-                new com.google.android.material.bottomsheet.BottomSheetDialog(this);
-            
-            View dialogView = getLayoutInflater().inflate(R.layout.dialog_bottom_file_menu, null);
-            bottomSheetDialog.setContentView(dialogView);
-
-            TextView tvHeader = dialogView.findViewById(R.id.tvDialogHeader);
-            LinearLayout menuContainer = dialogView.findViewById(R.id.menuContainer);
-
-            tvHeader.setText(selectedNode.isDirectory ? "จัดการโฟลเดอร์: " + currentFile.getName() : "จัดการไฟล์: " + currentFile.getName());
-
-            List<MenuOption> options = new ArrayList<>();
-            options.add(new MenuOption("สร้างไฟล์ใหม่", android.R.drawable.ic_menu_add));
-            options.add(new MenuOption("สร้างโฟลเดอร์ใหม่", android.R.drawable.ic_menu_preferences)); 
-            options.add(new MenuOption("เปลี่ยนชื่อ", android.R.drawable.ic_menu_edit));
-            options.add(new MenuOption("ลบ", android.R.drawable.ic_menu_delete));
-            
-            if (selectedNode.isDirectory) {
-                options.add(new MenuOption("นำเข้าไฟล์ (Import)", android.R.drawable.ic_menu_share));
-            }
-
-            for (MenuOption option : options) {
-                View itemView = getLayoutInflater().inflate(R.layout.dialog_menu_item, null);
-                ImageView imgIcon = itemView.findViewById(R.id.menuIcon);
-                TextView tvTitle = itemView.findViewById(R.id.menuTitle);
-
-                tvTitle.setText(option.title);
-                imgIcon.setImageResource(option.iconRes);
-
-                itemView.setOnClickListener(v -> {
-                    bottomSheetDialog.dismiss(); 
-                    if (option.title.equals("สร้างไฟล์ใหม่")) {
-                        dialogManager.showCreateFileDialog(selectedNode.isDirectory ? currentFile : currentFile.getParentFile(), selectedNode.isDirectory ? selectedNode : findParentNode(selectedNode));
-                    } else if (option.title.equals("สร้างโฟลเดอร์ใหม่")) {
-                        dialogManager.showCreateFolderDialog(selectedNode.isDirectory ? currentFile : currentFile.getParentFile(), selectedNode.isDirectory ? selectedNode : findParentNode(selectedNode));
-                    } else if (option.title.equals("เปลี่ยนชื่อ")) {
-                        dialogManager.showRenameDialog(currentFile, selectedNode);
-                    } else if (option.title.equals("ลบ")) {
-                        dialogManager.showDeleteConfirmationDialog(currentFile.getName(), () -> {
-                            boolean success = FileSystemManager.deleteFileOrFolder(currentFile);
-                            if (success) {
-                                showToast("ลบสำเร็จแล้ว");
-                                masterFileList.remove(position);
-                                if (fileTreeAdapter != null) {
-                                    fileTreeAdapter.setSelectedPosition(-1);
-                                    fileTreeAdapter.notifyDataSetChanged();
-                                }
-                            } else {
-                                showToast("ลบไม่สำเร็จ");
-                            }
-                        });
-                    } else if (option.title.equals("นำเข้าไฟล์ (Import)")) {
-                        folderForImport = currentFile; 
-                        openFilePicker(); 
-                    }
-                });
-                menuContainer.addView(itemView);
-            }
-            bottomSheetDialog.show();
-            return true;
-        });
-    }
-
-    private FileNode findParentNode(FileNode childNode) {
-        if (childNode == null || lastClickedPosition == -1) return null;
-        for (int i = lastClickedPosition; i >= 0; i--) {
-            FileNode potentialParent = masterFileList.get(i);
-            if (potentialParent.isDirectory && potentialParent.depth < childNode.depth) {
-                return potentialParent; 
-            }
-        }
-        return null;
-    }
-
-    private void openFilePicker() {
+    // 🛠️ เมทอดเก่าชุดใหญ่ถูกย้ายออกจากไฟล์นี้แล้ว โดยส่งผ่านตัวกระจายคำสั่งแทน
+    public void openFilePicker() {
         android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_GET_CONTENT);
         intent.setType("*/*"); 
         intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
         startActivityForResult(android.content.Intent.createChooser(intent, "เลือกไฟล์ที่จะนำเข้า"), PICK_FILE_REQUEST_CODE);
     }
 
-    private void openFile(File file) {
-        if (file == null || !file.exists()) return;
-
-        try {
-            autoSaveHandler.removeCallbacks(saveRunnable);
-
-            if (currentProject != null) {
-                if (!currentProject.getOpenedFiles().contains(file)) {
-                    currentProject.getOpenedFiles().add(file);
-                }
-                currentProject.setCurrentOpenFile(file);
-            }
-
-            FileInputStream fis = new FileInputStream(file);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(fis, "UTF-8"));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line).append("\n");
-            }
-            reader.close();
-            
-            final String fileContent = sb.toString();
-
-            runOnUiThread(() -> {
-                if (codeEditor != null) {
-                    codeEditor.setText(fileContent);
-                    codeEditor.setEditorLanguage(new JavaLanguage());
-                }
-                
-                updateFilePathStatus(file);
-                if (tabAdapter != null) tabAdapter.notifyDataSetChanged();
-            });
-
-        } catch (Exception e) {
-            e.printStackTrace();
+    public void openFile(File file) {
+        if (projectTreeManager != null) {
+            projectTreeManager.openFile(file);
         }
     }
 
-    private void saveFile() {
-        if (currentProject == null || currentProject.getCurrentOpenFile() == null) return;
-        File fileToSave = currentProject.getCurrentOpenFile();
-        try {
-            FileOutputStream fos = new FileOutputStream(fileToSave);
-            fos.write(codeEditor.getText().toString().getBytes("UTF-8"));
-            fos.close();
-        } catch (Exception e) { 
-            e.printStackTrace(); 
+    public void saveFile() {
+        if (projectTreeManager != null) {
+            projectTreeManager.saveFile();
         }
     }
 
@@ -778,7 +606,6 @@ public class MainActivity extends AppCompatActivity {
             shortcutBar.addView(btn);
         }
 
-        // 🤖 ปุ่มลัดถาม AI บน Shortcut bar 
         TextView btnAskAI = new TextView(this);
         btnAskAI.setText("🤖 ถาม AI");
         btnAskAI.setTextSize(14);
@@ -802,7 +629,6 @@ public class MainActivity extends AppCompatActivity {
             final String currentCode = codeEditor.getText().toString();
 
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                // 🛠️ แก้ไขจุดที่ 2 ที่บิลด์พัง: บังคับการแสดงผลปุ่มลัดถาม AI ให้ยิงโครงสร้างผ่าน WebView แทน TextView
                 aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
                     @Override
                     public void onStart() {
@@ -822,7 +648,6 @@ public class MainActivity extends AppCompatActivity {
                         runOnUiThread(() -> {
                             try {
                                 android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
-                                // บันทึกผลวิเคราะห์โค้ดลงในประวัติการคุย
                                 chatHistory += "\n\n🤖 **ผลวิเคราะห์โค้ด (" + fileName + "):**\n" + formattedResult.toString();
                                 if (currentWeb != null) {
                                     String htmlResult = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
@@ -846,7 +671,7 @@ public class MainActivity extends AppCompatActivity {
                         });
                     }
                 });
-            }, 500); // 🚀 เพิ่มเวลาดีเลย์เป็น 500ms เพื่อความแน่นอนในการสร้างคอมโพเนนต์หน้าจอ
+            }, 500); 
         });
 
         shortcutBar.addView(btnAskAI); 
@@ -929,13 +754,8 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    private void triggerTreeRefresh(FileNode parentNode) { refreshFileTree(); }
-    private void refreshFileTree() {
-        if (currentProject != null) {
-            File projectRoot = new File(currentProject.getRootPath());
-            masterFileList.clear(); masterFileList.addAll(FileSystemManager.loadRootDirectory(projectRoot));
-            if (fileTreeAdapter != null) fileTreeAdapter.notifyDataSetChanged();
-        }
+    private void triggerTreeRefresh(FileNode parentNode) { 
+        if (projectTreeManager != null) projectTreeManager.refreshFileTree(); 
     }
 
     private void setupTabLogic() {
@@ -946,11 +766,11 @@ public class MainActivity extends AppCompatActivity {
         tabRecyclerView.setAdapter(tabAdapter);
     }
 
-    private void updateFilePathStatus(File file) {
+    public void updateFilePathStatus(File file) {
         if (tvFilePath != null && file != null) tvFilePath.setText(file.getName());
     }
 
-    private void showToast(final String message) {
+    public void showToast(final String message) {
         runOnUiThread(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show());
     }
     
@@ -978,10 +798,20 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private static class MenuOption {
-        String title;
-        int iconRes;
-        MenuOption(String title, int iconRes) {
+    // 🌟 ระบบเปิดช่องทางการเชื่อมโยงข้อมูล (Getters สำหรับเรียกจากภายนอก)
+    public ProjectModel getCurrentProject() { return currentProject; }
+    public ProjectDialogManager getDialogManager() { return dialogManager; }
+    public DrawerLayout getDrawerLayout() { return drawerLayout; }
+    public CodeEditor getCodeEditor() { return codeEditor; }
+    public TabAdapter getTabAdapter() { return tabAdapter; }
+    public Handler getAutoSaveHandler() { return autoSaveHandler; }
+    public Runnable getSaveRunnable() { return saveRunnable; }
+    public PanelPagerAdapter getDialogPanelAdapter() { return dialogPanelAdapter; }
+
+    public static class MenuOption {
+        public String title;
+        public int iconRes;
+        public MenuOption(String title, int iconRes) {
             this.title = title;
             this.iconRes = iconRes;
         }
