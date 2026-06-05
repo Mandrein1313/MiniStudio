@@ -197,16 +197,10 @@
                     app:tint="#FF5252" />
             </LinearLayout>
 
-            <ScrollView
-                android:id="@+id/consoleScrollView"
+            <androidx.viewpager2.widget.ViewPager2
+                android:id="@+id/viewPager"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:fillViewport="true">
-                <androidx.viewpager2.widget.ViewPager2
-                    android:id="@+id/viewPager"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent" />
-            </ScrollView>
+                android:layout_height="match_parent" />
         </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
@@ -216,7 +210,7 @@
             android:background="#2D1F1F"
             android:visibility="gone" />
 
-        </LinearLayout>
+    </LinearLayout>
 
     <com.google.android.material.navigation.NavigationView
         android:layout_width="280dp"
