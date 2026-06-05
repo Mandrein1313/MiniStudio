@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1E1E1E"
+    android:paddingBottom="60dp"
+    android:clipToPadding="false"
+    android:fillViewport="true">
+
+    <TextView
+        android:id="@+id/tvConsole"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="8dp"
+        android:text="> Ready to build..."
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:fontFamily="monospace" />
+</ScrollView>

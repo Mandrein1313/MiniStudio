@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1E1E1E">
+
+    <ScrollView
+        android:id="@+id/aiResponseScroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/aiInputArea"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:paddingBottom="16dp">
+
+        <TextView
+            android:id="@+id/tvAiOutput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="12dp"
+            android:text="🤖 ระบบ AI Build Doctor พร้อมช่วยเหลือครับน้า..."
+            android:textColor="#E0E0E0"
+            android:textSize="13sp"
+            android:fontFamily="monospace" />
+    </ScrollView>
+
+    <LinearLayout
+        android:id="@+id/aiInputArea"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:background="#252526"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:gravity="center_vertical">
+
+        <EditText
+            android:id="@+id/etAiInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="#1E1E1E"
+            android:hint="พิมพ์คำถามหรือปรึกษา AI ที่นี่..."
+            android:textColorHint="#757575"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:padding="10dp"
+            android:inputType="textLongMessage"
+            android:maxLines="3" />
+
+        <ImageView
+            android:id="@+id/btnSendAi"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginLeft="8dp"
+            android:padding="8dp"
+            android:src="@drawable/abc_ic_menu_share_mtrl_alpha"
+            android:tint="#FFFFFF"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="ส่งคำถาม" />
+    </LinearLayout>
+
+</RelativeLayout>
