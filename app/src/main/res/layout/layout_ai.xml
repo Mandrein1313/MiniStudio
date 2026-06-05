@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#1E1E1E"
@@ -12,7 +13,7 @@
         android:layout_weight="1"
         android:clipToPadding="false"
         android:fillViewport="true"
-        android:paddingBottom="16dp">
+        android:paddingBottom="8dp">
 
         <TextView
             android:id="@+id/tvAiOutput"
@@ -29,35 +30,52 @@
         android:id="@+id/aiInputArea"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#252526"
+        android:background="#1E1E1E"
         android:orientation="horizontal"
-        android:padding="8dp"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="16dp"
         android:gravity="center_vertical">
 
-        <EditText
-            android:id="@+id/etAiInput"
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:background="#1E1E1E"
-            android:hint="พิมพ์คำถามหรือปรึกษา AI ที่นี่..."
-            android:textColorHint="#757575"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp"
-            android:padding="10dp"
-            android:inputType="textLongMessage"
-            android:maxLines="3" />
+            android:background="@drawable/bg_ai_input"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="4dp">
 
-        <ImageView
-            android:id="@+id/btnSendAi"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginLeft="8dp"
-            android:padding="8dp"
-            android:src="@drawable/send"
-            android:tint="#FFFFFF"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:contentDescription="ส่งคำถาม" />
+            <EditText
+                android:id="@+id/etAiInput"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@null"
+                android:hint="พิมพ์คำถามหรือปรึกษา AI ที่นี่..."
+                android:textColorHint="#555555"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:paddingLeft="12dp"
+                android:paddingRight="8dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:inputType="textLongMessage"
+                android:maxLines="3" />
+
+            <ImageView
+                android:id="@+id/btnSendAi"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginRight="4dp"
+                android:padding="8dp"
+                android:src="@android:drawable/ic_menu_send"
+                android:tint="#8C8C8C"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="ส่งคำถาม" />
+        </LinearLayout>
+        
     </LinearLayout>
 
 </LinearLayout>
