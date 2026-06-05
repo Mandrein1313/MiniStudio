@@ -263,25 +263,28 @@ public class MainActivity extends AppCompatActivity {
             if (dialogPanelAdapter == null) return;
 
             android.widget.EditText etAiInput = dialogPanelAdapter.getEtAiInput();
-            tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+            // 🌟 เปลี่ยนจุดดึงข้อมูลจาก TextView มาเป็น WebView ตัวใหม่
+            android.webkit.WebView webAiOutput = dialogPanelAdapter.getWebAiOutput();
 
-            if (etAiInput == null) return;
+            if (etAiInput == null || webAiOutput == null) return;
 
             String userQuestion = etAiInput.getText().toString().trim();
             if (userQuestion.isEmpty()) {
-                if (tvAiOutput != null) {
-                    tvAiOutput.append("\n⚠️ กรุณาพิมพ์คำถามก่อนครับ");
-                }
+                // กรณีไม่ได้พิมพ์คำถาม ให้สะสมคำเตือนแล้วอัปเดตหน้าเว็บ
+                chatHistory += "\n\n⚠️ *กรุณาพิมพ์คำถามก่อนครับ*";
+                String html = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                webAiOutput.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
                 return;
             }
 
             dialogViewPager.setCurrentItem(1, true);
 
-            if (tvAiOutput != null) {
-                tvAiOutput.append("\n\n👤 คุณ: " + userQuestion);
-                autoScrollTabContainer(tvAiOutput);
-            }
+            // 🌟 1. บันทึกคำถามของผู้ใช้ลงในประวัติแชท แล้วสั่งแสดงผลบน WebView ทันที
+            chatHistory += "\n\n👤 **คุณ:** " + userQuestion;
+            String htmlUser = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+            webAiOutput.loadDataWithBaseURL(null, htmlUser, "text/html", "utf-8", null);
 
+            // เตรียม Prompt โดยรวมประวัติทั้งหมดส่งไปให้ AI รู้เรื่องด้วย
             String fullPrompt = chatHistory + "\nผู้ใช้ถาม: " + userQuestion;
 
             aiLayoutAnalyzer.askAi(fullPrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
@@ -289,10 +292,11 @@ public class MainActivity extends AppCompatActivity {
                 public void onStart() {
                     runOnUiThread(() -> {
                         try {
-                            if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
-                            if (tvAiOutput != null) {
-                                tvAiOutput.append("\n🤖 AI กำลังคิด...");
-                                autoScrollTabContainer(tvAiOutput);
+                            android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                            if (currentWeb != null) {
+                                // 🌟 2. แสดงสถานะกำลังคิดชั่วคราว โดยไม่พ่นถาวรลงในประวัติหลัก
+                                String tempHtml = AiHtmlFormatter.convertMarkdownToHtml(chatHistory + "\n\n🤖 *AI กำลังคิด...*");
+                                currentWeb.loadDataWithBaseURL(null, tempHtml, "text/html", "utf-8", null);
                             }
                         } catch (Exception e) { e.printStackTrace(); }
                     });
@@ -302,13 +306,16 @@ public class MainActivity extends AppCompatActivity {
                 public void onSuccess(android.text.SpannableString formattedResult) {
                     runOnUiThread(() -> {
                         try {
-                            if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
-                            if (tvAiOutput != null) {
-                                tvAiOutput.append("\n🤖 AI: ");
-                                tvAiOutput.append(formattedResult);
-                                autoScrollTabContainer(tvAiOutput);
+                            android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                            
+                            // 🌟 3. ได้รับคำตอบสำเร็จ บันทึกคำตอบจริง (ซึ่งอาจจะมีบล็อกโค้ด ```java) ลงประวัติหลัก
+                            chatHistory += "\n\n🤖 **AI:** " + formattedResult.toString();
+                            
+                            if (currentWeb != null) {
+                                // แปลง Markdown ทั้งหมดเป็น HTML (ตรงนี้กล่องโค้ดจะถูกสร้างพร้อมปุ่ม Copy โดยอัตโนมัติ)
+                                String htmlResult = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                                currentWeb.loadDataWithBaseURL(null, htmlResult, "text/html", "utf-8", null);
                             }
-                            chatHistory += "\nผู้ใช้: " + userQuestion + "\nAI: " + formattedResult.toString();
                         } catch (Exception e) { e.printStackTrace(); }
                     });
                 }
@@ -317,10 +324,14 @@ public class MainActivity extends AppCompatActivity {
                 public void onError(String errorMessage) {
                     runOnUiThread(() -> {
                         try {
-                            if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
-                            if (tvAiOutput != null) {
-                                tvAiOutput.append("\n❌ AI ตอบไม่ได้: " + errorMessage);
-                                autoScrollTabContainer(tvAiOutput);
+                            android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                            
+                            // 🌟 4. กรณีเกิดข้อผิดพลาด บันทึกแจ้งเตือนลงประวัติ
+                            chatHistory += "\n\n❌ **AI เกิดข้อผิดพลาด:** " + errorMessage;
+                            
+                            if (currentWeb != null) {
+                                String htmlError = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                                currentWeb.loadDataWithBaseURL(null, htmlError, "text/html", "utf-8", null);
                             }
                         } catch (Exception e) { e.printStackTrace(); }
                     });
@@ -330,6 +341,7 @@ public class MainActivity extends AppCompatActivity {
             etAiInput.setText("");
         }, 300);
     }
+
 
     private void toggleXmlPreview() {
         if (codeEditor == null || previewContainer == null) {

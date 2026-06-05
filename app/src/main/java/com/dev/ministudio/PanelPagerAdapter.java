@@ -4,19 +4,17 @@ import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.WebView;
 import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.TextView;
-
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.ViewHolder> {
 
     private final Context context;
-
-    private TextView tvConsole;
-    private TextView tvAiOutput;
+    private View tvConsoleView; 
+    private WebView webAiOutput; // 🌟 เปลี่ยนเป็น WebView
     private EditText etAiInput;
     private ImageView btnSendAi;
 
@@ -27,47 +25,38 @@ public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.Vi
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-
         View view;
-
         if (viewType == 0) {
-            view = LayoutInflater.from(context)
-                    .inflate(R.layout.layout_console, parent, false);
+            view = LayoutInflater.from(context).inflate(R.layout.layout_console, parent, false);
         } else {
-            view = LayoutInflater.from(context)
-                    .inflate(R.layout.layout_ai, parent, false);
+            view = LayoutInflater.from(context).inflate(R.layout.layout_ai, parent, false);
         }
-
         return new ViewHolder(view, viewType);
     }
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-
         if (getItemViewType(position) == 0) {
-
-            tvConsole = holder.itemView.findViewById(R.id.tvConsole);
-
+            tvConsoleView = holder.itemView.findViewById(R.id.tvConsole);
         } else {
-
-            tvAiOutput = holder.itemView.findViewById(R.id.tvAiOutput);
+            webAiOutput = holder.itemView.findViewById(R.id.webAiOutput); // 🌟 ผูกไอดีตัวใหม่
             etAiInput = holder.itemView.findViewById(R.id.etAiInput);
-
-            // layout_ai.xml ใช้ ImageView
             btnSendAi = holder.itemView.findViewById(R.id.btnSendAi);
+            
+            // เปิดใช้งานการรันสคริปต์ JavaScript บน WebView เพื่อให้ปุ่มคัดลอกทำงานได้
+            if (webAiOutput != null) {
+                webAiOutput.getSettings().setJavaScriptEnabled(true);
+                webAiOutput.setBackgroundColor(android.graphics.Color.parseColor("#1E1E1E"));
+            }
 
             if (btnSendAi != null) {
-
                 btnSendAi.setOnClickListener(v -> {
-
                     if (context instanceof MainActivity) {
-
                         try {
                             ((MainActivity) context).handleAiQuery();
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
-
                     }
                 });
             }
@@ -84,20 +73,20 @@ public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.Vi
         return position;
     }
 
-    public TextView getTvConsole() {
-        return tvConsole;
+    public android.widget.TextView getTvConsole() { 
+        return (android.widget.TextView) tvConsoleView; 
+    }
+    
+    // 🌟 ส่งค่ากลับไปเป็น WebView ให้ MainActivity นำไปสั่งโหลดหน้าเว็บ
+    public WebView getWebAiOutput() { 
+        return webAiOutput; 
+    }
+    
+    public EditText getEtAiInput() { 
+        return etAiInput; 
     }
 
-    public TextView getTvAiOutput() {
-        return tvAiOutput;
-    }
-
-    public EditText getEtAiInput() {
-        return etAiInput;
-    }
-
-    public static class ViewHolder extends RecyclerView.ViewHolder {
-
+    static class ViewHolder extends RecyclerView.ViewHolder {
         public ViewHolder(@NonNull View itemView, int viewType) {
             super(itemView);
         }
