@@ -70,10 +70,14 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView tabRecyclerView;
     private TabAdapter tabAdapter;
 
-    // Views สำหรับระบบ Bottom Console Panel
-    private LinearLayout consolePanel;
-    private ScrollView consoleScrollView;
-    private boolean isConsoleMaximized = false; 
+    // 🌟 ระบบ Dialog เต็มหน้าจอชุดใหม่ (มาแทนแผงด้านล่างเดิม)
+    private android.app.Dialog fullPanelDialog;
+    private TabLayout dialogTabLayout;
+    private ViewPager2 dialogViewPager;
+    private PanelPagerAdapter dialogPanelAdapter;
+    
+    private TextView tvConsole;
+    private TextView tvAiOutput;
         
     // Controllers & Models
     private ProjectModel currentProject;
@@ -95,24 +99,15 @@ public class MainActivity extends AppCompatActivity {
     
     private ProjectDialogManager dialogManager;
     
-    // 🤖 สลับมาเรียกใช้ตัวจัดการวิเคราะห์เลย์เอาต์ระดับสูงเพื่อความเสถียรและแก้ Code 400
+    // 🤖 ตัวจัดการวิเคราะห์เลย์เอาต์ระดับสูงเพื่อความเสถียร
     private com.dev.ministudio.AiLayoutAnalyzer aiLayoutAnalyzer; 
     
     private RecyclerView rvErrorPanel;
     
-    // 🌟 ระบบ XML Preview กล่องและตัวแปรควบคุมสถานะ
+    // 🌟 ระบบ XML Preview
     private FrameLayout previewContainer;
     private boolean isPreviewMode = false; 
     private String chatHistory = "";
-    
-    private TabLayout tabLayout;
-    private ViewPager2 viewPager;
-    private PanelPagerAdapter panelAdapter;
-
-    // คีย์เวิร์ดตัวควบคุมสลับหน้าจอตามดีไซน์ใหม่
-    private TextView tvConsole;
-    private TextView tvAiOutput;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -131,67 +126,12 @@ public class MainActivity extends AppCompatActivity {
         etReplace = findViewById(R.id.etReplace);
         searchBar = findViewById(R.id.searchBar);
         codeEditor = findViewById(R.id.codeEditor); 
-        tvSaveStatus = findViewById(R.id.tvSaveStatus);
         tvFilePath = findViewById(R.id.tvFilePath); 
-        
-        // 🌟 ผูก ID ระบบสลับหน้าจอตามแบบใหม่
-        tabLayout = findViewById(R.id.tabLayout);
-        viewPager = findViewById(R.id.viewPager);
+        tvSaveStatus = findViewById(R.id.tvSaveStatus);
         
         treeView = findViewById(R.id.treeView); 
         tabRecyclerView = findViewById(R.id.tabRecyclerView);
-        
         tabRecyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
-        
-        consolePanel = findViewById(R.id.consolePanel);
-        consoleScrollView = findViewById(R.id.consoleScrollView);
-
-        // 🌟 เปลี่ยนปุ่มล้างข้อมูล ให้ล้างทั้งสองแท็บไปเลยครับน้า
-        findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
-            if (panelAdapter != null) {
-                tvConsole = panelAdapter.getTvConsole();
-                tvAiOutput = panelAdapter.getTvAiOutput();
-            }
-            if (tvConsole != null) tvConsole.setText("");
-            if (tvAiOutput != null) tvAiOutput.setText("");
-        });
-        
-        findViewById(R.id.btnCloseConsole).setOnClickListener(v -> consolePanel.setVisibility(View.GONE));
-
-        android.widget.ImageButton btnToggleExpand = findViewById(R.id.btnToggleExpand);
-        if (btnToggleExpand != null) {
-            btnToggleExpand.setOnClickListener(v -> {
-                LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) consolePanel.getLayoutParams();
-                
-                if (!isConsoleMaximized) {
-                    params.height = LinearLayout.LayoutParams.MATCH_PARENT;
-                    btnToggleExpand.setImageResource(android.R.drawable.ic_menu_delete); 
-                    btnToggleExpand.setColorFilter(Color.parseColor("#FF5252")); 
-                    isConsoleMaximized = true;
-                } else {
-                    int heightInDp = (int) TypedValue.applyDimension(
-                        TypedValue.COMPLEX_UNIT_DIP, 160, getResources().getDisplayMetrics()
-                    );
-                    params.height = heightInDp;
-                    btnToggleExpand.setImageResource(android.R.drawable.ic_menu_compass); 
-                    btnToggleExpand.setColorFilter(Color.parseColor("#FFB74D")); 
-                    isConsoleMaximized = false;
-                }
-                consolePanel.setLayoutParams(params);
-                
-                // 🌟 เมื่อหน้าจอขยายหรือหดเสร็จ ให้สั่งรูดประวัติหน้าต่างลงล่างสุดใน 200ms เพื่อคำนวณขนาดความกว้างหน้าจอใหม่ ไม่ให้ขอบจมดินครับ
-                new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    if (panelAdapter != null) {
-                        autoScrollTabContainer(panelAdapter.getTvConsole());
-                        autoScrollTabContainer(panelAdapter.getTvAiOutput());
-                    }
-                }, 200);
-            });
-        }
-
-        findViewById(R.id.btnConsoleRun).setOnClickListener(v -> {
-            startCloudBuildPipeline();
-        });
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -251,90 +191,117 @@ public class MainActivity extends AppCompatActivity {
             setupTabLogic();
             initializeFileTree();
         }
+    }
 
-        panelAdapter = new PanelPagerAdapter(this);
-        viewPager.setAdapter(panelAdapter);
+    // 🌟 ฟังก์ชันเสกหน้าต่าง Dialog เต็มหน้าจอ (Full-screen Panel)
+    private void showFullPanelDialog(int initialTabPosition) {
+        if (fullPanelDialog != null && fullPanelDialog.isShowing()) {
+            dialogViewPager.setCurrentItem(initialTabPosition, true);
+            return;
+        }
 
-        // 🛠️ บังคับปิดระบบเลื่อนด้วยการปัดนิ้วบนตัววิวคอนโซล เพื่อให้เลื่อนอ่าน TextView โค้ดยาวๆ ได้แบบ 100%
-        viewPager.setUserInputEnabled(false);
+        fullPanelDialog = new android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        fullPanelDialog.setContentView(R.layout.dialog_full_console_panel); // 🛠️ ใช้ Layout เดิมสร้างใหม่เป็นแบบคลุมจอ
+        fullPanelDialog.setCancelable(true);
 
-        new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
-            if (position == 0) {
-                tab.setText("Console");
-            } else {
-                tab.setText("AI");
-            }
+        dialogTabLayout = fullPanelDialog.findViewById(R.id.tabLayout);
+        dialogViewPager = fullPanelDialog.findViewById(R.id.viewPager);
+        
+        // ผูกปุ่มภายใน Dialog 
+        fullPanelDialog.findViewById(R.id.btnCloseConsole).setOnClickListener(v -> fullPanelDialog.dismiss());
+        
+        // ซ่อนปุ่มย่อขยายดั้งเดิมเนื่องจากเราเต็มจอ 100% แล้ว
+        View btnToggleExpand = fullPanelDialog.findViewById(R.id.btnToggleExpand);
+        if (btnToggleExpand != null) btnToggleExpand.setVisibility(View.GONE);
+
+        fullPanelDialog.findViewById(R.id.btnClearConsole).setOnClickListener(v -> {
+            if (tvConsole != null) tvConsole.setText("");
+            if (tvAiOutput != null) tvAiOutput.setText("");
+        });
+
+        dialogPanelAdapter = new PanelPagerAdapter(this);
+        dialogViewPager.setAdapter(dialogPanelAdapter);
+        dialogViewPager.setUserInputEnabled(false); // ล็อกการปัดนิ้วเพื่อให้อ่านโค้ดถนัด
+
+        new TabLayoutMediator(dialogTabLayout, dialogViewPager, (tab, position) -> {
+            tab.setText(position == 0 ? "Console" : "AI");
         }).attach();
 
-        viewPager.post(() -> {
-            if (panelAdapter != null) {
-                tvConsole = panelAdapter.getTvConsole();
-                tvAiOutput = panelAdapter.getTvAiOutput();
+        // บังคับให้วิวเจาะจงโหลดโครงสร้างย่อยทันที
+        dialogViewPager.post(() -> {
+            if (dialogPanelAdapter != null) {
+                tvConsole = dialogPanelAdapter.getTvConsole();
+                tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+                dialogViewPager.setCurrentItem(initialTabPosition, false);
             }
         });
+
+        fullPanelDialog.show();
     }
 
     public void handleAiQuery() {
-        if (panelAdapter == null) return;
+        if (fullPanelDialog == null || !fullPanelDialog.isShowing()) {
+            showFullPanelDialog(1);
+        }
 
-        android.widget.EditText etAiInput = panelAdapter.getEtAiInput();
-        tvAiOutput = panelAdapter.getTvAiOutput(); 
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            if (dialogPanelAdapter == null) return;
 
-        if (etAiInput == null) return;
+            android.widget.EditText etAiInput = dialogPanelAdapter.getEtAiInput();
+            tvAiOutput = dialogPanelAdapter.getTvAiOutput();
 
-        String userQuestion = etAiInput.getText().toString().trim();
-        if (userQuestion.isEmpty()) {
+            if (etAiInput == null) return;
+
+            String userQuestion = etAiInput.getText().toString().trim();
+            if (userQuestion.isEmpty()) {
+                if (tvAiOutput != null) {
+                    tvAiOutput.append("\n⚠️ กรุณาพิมพ์คำถามก่อนครับ");
+                }
+                return;
+            }
+
+            dialogViewPager.setCurrentItem(1, true);
+
             if (tvAiOutput != null) {
-                tvAiOutput.append("\n⚠️ กรุณาพิมพ์คำถามก่อนครับ");
-                viewPager.setCurrentItem(1, true); 
+                tvAiOutput.append("\n\n👤 คุณ: " + userQuestion);
+                autoScrollTabContainer(tvAiOutput);
             }
-            return;
-        }
-        
-        viewPager.setCurrentItem(1, true);
-        
-        if (tvAiOutput != null) {
-            tvAiOutput.append("\n\n👤 คุณ: " + userQuestion);
-            autoScrollTabContainer(tvAiOutput);
-        }
-        
-        String fullPrompt = chatHistory + "\nผู้ใช้ถาม: " + userQuestion;
-        
-        aiLayoutAnalyzer.askAi(fullPrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
-            @Override
-            public void onStart() {
-                tvAiOutput = panelAdapter.getTvAiOutput();
-                if (tvAiOutput != null) {
-                    tvAiOutput.append("\n🤖 AI กำลังคิด...");
-                    autoScrollTabContainer(tvAiOutput);
+
+            String fullPrompt = chatHistory + "\nผู้ใช้ถาม: " + userQuestion;
+
+            aiLayoutAnalyzer.askAi(fullPrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
+                @Override
+                public void onStart() {
+                    tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+                    if (tvAiOutput != null) {
+                        tvAiOutput.append("\n🤖 AI กำลังคิด...");
+                        autoScrollTabContainer(tvAiOutput);
+                    }
                 }
-            }
-            
-            @Override
-            public void onSuccess(android.text.SpannableString formattedResult) {
-                tvAiOutput = panelAdapter.getTvAiOutput();
-                if (tvAiOutput != null) {
-                    tvAiOutput.append("\n🤖 AI: ");
-                    tvAiOutput.append(formattedResult);
-                    autoScrollTabContainer(tvAiOutput);
+
+                @Override
+                public void onSuccess(android.text.SpannableString formattedResult) {
+                    tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+                    if (tvAiOutput != null) {
+                        tvAiOutput.append("\n🤖 AI: ");
+                        tvAiOutput.append(formattedResult);
+                        autoScrollTabContainer(tvAiOutput);
+                    }
+                    chatHistory += "\nผู้ใช้: " + userQuestion + "\nAI: " + formattedResult.toString();
                 }
-                
-                chatHistory += "\nผู้ใช้: " + userQuestion + "\nAI: " + formattedResult.toString();
-            }
-            
-            @Override
-            public void onError(String errorMessage) {
-                tvAiOutput = panelAdapter.getTvAiOutput();
-                if (tvAiOutput != null) {
-                    tvAiOutput.append("\n❌ AI ตอบไม่ได้: " + errorMessage);
-                    autoScrollTabContainer(tvAiOutput);
+
+                @Override
+                public void onError(String errorMessage) {
+                    tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+                    if (tvAiOutput != null) {
+                        tvAiOutput.append("\n❌ AI ตอบไม่ได้: " + errorMessage);
+                        autoScrollTabContainer(tvAiOutput);
+                    }
                 }
-            }
-        });
-        
-        if (etAiInput != null) {
-            etAiInput.setText(""); 
-        }
+            });
+
+            etAiInput.setText("");
+        }, 300);
     }
 
     private void toggleXmlPreview() {
@@ -388,122 +355,122 @@ public class MainActivity extends AppCompatActivity {
 
         saveFile(); 
         
-        if (viewPager != null) {
-            viewPager.setCurrentItem(0, true);
-        }
-        
-        // 🌟 ดึงข้อมูลวิวล่าสุดแบบ Real-time ทันทีที่มีการกดคลิกปุ่มบิลด์คลาวด์
-        if (panelAdapter != null) {
-            tvConsole = panelAdapter.getTvConsole();
-        }
-        if (tvConsole != null) {
-            tvConsole.setText(""); 
-        }
+        // 🌟 เปิดหน้าต่าง Dialog แบบเต็มจอขึ้นมาแสดงทันทีที่กดรันบิวด์
+        showFullPanelDialog(0);
 
         final BuildSummaryAnalyzer analyzer = new BuildSummaryAnalyzer();
         analyzer.clearErrors(); 
         
         final boolean[] isPipelineStopped = {false};
 
-        appendLog("##[group]เริ่มขั้นตอนการตั้งค่า & ตรวจสอบโปรเจกต์เบื้องต้น", TerminalColor.LOG_GRAY); 
-        appendLog("🔔 [กำลังจัดเตรียมสภาพแวดล้อม...] เริ่มทำงานระบบ Workflow สำเร็จ", TerminalColor.LOG_WHITE);
-        appendLog("📂 ที่อยู่โปรเจกต์ (Root Path): " + currentProject.getRootPath(), TerminalColor.BORDER_BLUE); 
-        appendLog("##[endgroup]", TerminalColor.LOG_GRAY);
-
-        BuildTaskManager buildTask = new BuildTaskManager(
-            MainActivity.this, 
-            currentProject.getRootPath(),
-            new BuildTaskManager.BuildListener() {
-                
-                @Override 
-                public void onLogAppend(final String text, final int color) { 
-                    if (isPipelineStopped[0]) return;
-
-                    String lowerText = text != null ? text.toLowerCase() : "";
-                    boolean isErrorLine = lowerText.contains("error:") || lowerText.contains("failed:") || color == Color.RED;
-
-                    boolean hasFailed = analyzer.analyzeLine(text, color, new BuildSummaryAnalyzer.LogOutputListener() {
-                        @Override
-                        public void onAppendLog(String logText, int logColor) {
-                            appendLog(logText, logColor); 
-                        }
-                    });
-
-                    if (hasFailed) {
-                        isPipelineStopped[0] = true;
-                        showToast("💥 บิวด์ล้มเหลว! (Exit Code 1)");
-                        return;
-                    }
-
-                    if (text != null && (text.startsWith("📍") || text.startsWith("💬"))) {
-                        return;
-                    }
-
-                    if (color == Color.GREEN || lowerText.contains("success")) {
-                        appendLog(text, TerminalColor.SUGGEST_GREEN); 
-                    } else if (color == Color.YELLOW) {
-                        appendLog(text, TerminalColor.TARGET_YELLOW); 
-                    } else if (color == Color.CYAN) {
-                        appendLog(text, TerminalColor.LOG_CYAN); 
-                    } else if (isErrorLine) {
-                        appendLog(text, TerminalColor.DETAIL_RED); 
-                    } else {
-                        appendLog(text, TerminalColor.TEXT_WHITE); 
-                    }
-                }
-                
-
-                @Override 
-                public void onBuildStarted() { 
-                    showToast("กำลังเริ่มระบบ Cloud Workflow... 🐙"); 
-                    appendLog("\n##[group]🚀 เรียกทำงานคำสั่ง: compileJava", TerminalColor.LOG_GRAY);
-                    appendLog("🔄 กำลังเชื่อมต่อไปยังเซิร์ฟเวอร์คอมไพล์บนคลาวด์...", TerminalColor.LOG_WHITE);
-                }
-
-                @Override
-                public void onBuildFinished(boolean success, String apkPath) {
-                    if (isPipelineStopped[0]) return;
-
-                    appendLog("##[endgroup]", TerminalColor.LOG_GRAY);
-
-                    if (success) {
-                        showToast("บิวด์แอปสำเร็จ! 🎉");
-                        appendLog("\n##[group]🎉 งานหลังบิวด์: จัดเก็บไฟล์ระบบแอปพลิเคชัน", TerminalColor.SUGGEST_GREEN);
-                        appendLog("✅ สำเร็จ: กระบวนการทำงานทั้งหมดเสร็จสิ้นโดยไม่มีข้อผิดพลาด", TerminalColor.SUGGEST_GREEN);
-                        appendLog("📦 ไฟล์แอปที่ได้ (APK): " + (apkPath != null ? apkPath : "outputs/apk/debug/app-debug.apk"), TerminalColor.LOG_CYAN);
-                        appendLog("##[endgroup]", TerminalColor.SUGGEST_GREEN);
-                        
-                        runOnUiThread(() -> { if (rvErrorPanel != null) rvErrorPanel.setVisibility(View.GONE); });
-                    } else {
-                        showToast("กระบวนการทำงานล้มเหลว");
-                        appendLog("\n##[error] การทำงานหยุดช้าลงเนื่องจากการปิดตัวของระบบบิวด์อย่างกะทันหัน", TerminalColor.ERROR_RED);
-                        
-                        if (analyzer != null) {
-                            analyzer.printSummary(new BuildSummaryAnalyzer.LogOutputListener() {
-                                @Override
-                                public void onAppendLog(String text, int color) {
-                                    if (panelAdapter != null) tvConsole = panelAdapter.getTvConsole();
-                                    appendColoredText(tvConsole, text, color);
-                                }
-                            });
-                        }
-                        
-                        final ParsedError err = analyzer.getLastError();
-                        if (err != null) {
-                            runOnUiThread(() -> executeJumpToError(err));
-                        }
-                    }
-                }
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            if (dialogPanelAdapter != null) {
+                tvConsole = dialogPanelAdapter.getTvConsole();
             }
-        );
+            if (tvConsole != null) tvConsole.setText("");
 
-        String githubToken = savedToken; 
-        String projectName = currentProject.getProjectName();
-        String repoUrl = "https://github.com/" + username + "/" + projectName + ".git";
-        String packageName = "com.dev.ministudio"; 
+            appendLog("##[group]เริ่มขั้นตอนการตั้งค่า & ตรวจสอบโปรเจกต์เบื้องต้น", TerminalColor.LOG_GRAY); 
+            appendLog("🔔 [กำลังจัดเตรียมสภาพแวดล้อม...] เริ่มทำงานระบบ Workflow สำเร็จ", TerminalColor.LOG_WHITE);
+            appendLog("📂 ที่อยู่โปรเจกต์ (Root Path): " + currentProject.getRootPath(), TerminalColor.BORDER_BLUE); 
+            appendLog("##[endgroup]", TerminalColor.LOG_GRAY);
 
-        buildTask.startCloudBuild(githubToken, repoUrl, projectName, packageName); 
-        buildTask.setAnalyzer(analyzer); 
+            BuildTaskManager buildTask = new BuildTaskManager(
+                MainActivity.this, 
+                currentProject.getRootPath(),
+                new BuildTaskManager.BuildListener() {
+                    
+                    @Override 
+                    public void onLogAppend(final String text, final int color) { 
+                        if (isPipelineStopped[0]) return;
+
+                        String lowerText = text != null ? text.toLowerCase() : "";
+                        boolean isErrorLine = lowerText.contains("error:") || lowerText.contains("failed:") || color == Color.RED;
+
+                        boolean hasFailed = analyzer.analyzeLine(text, color, new BuildSummaryAnalyzer.LogOutputListener() {
+                            @Override
+                            public void onAppendLog(String logText, int logColor) {
+                                appendLog(logText, logColor); 
+                            }
+                        });
+
+                        if (hasFailed) {
+                            isPipelineStopped[0] = true;
+                            showToast("💥 บิวด์ล้มเหลว! (Exit Code 1)");
+                            return;
+                        }
+
+                        if (text != null && (text.startsWith("📍") || text.startsWith("💬"))) {
+                            return;
+                        }
+
+                        if (color == Color.GREEN || lowerText.contains("success")) {
+                            appendLog(text, TerminalColor.SUGGEST_GREEN); 
+                        } else if (color == Color.YELLOW) {
+                            appendLog(text, TerminalColor.TARGET_YELLOW); 
+                        } else if (color == Color.CYAN) {
+                            appendLog(text, TerminalColor.LOG_CYAN); 
+                        } else if (isErrorLine) {
+                            appendLog(text, TerminalColor.DETAIL_RED); 
+                        } else {
+                            appendLog(text, TerminalColor.TEXT_WHITE); 
+                        }
+                    }
+
+                    @Override 
+                    public void onBuildStarted() { 
+                        showToast("กำลังเริ่มระบบ Cloud Workflow... 🐙"); 
+                        appendLog("\n##[group]🚀 เรียกทำงานคำสั่ง: compileJava", TerminalColor.LOG_GRAY);
+                        appendLog("🔄 กำลังเชื่อมต่อไปยังเซิร์ฟเวอร์คอมไพล์บนคลาวด์...", TerminalColor.LOG_WHITE);
+                    }
+
+                    @Override
+                    public void onBuildFinished(boolean success, String apkPath) {
+                        if (isPipelineStopped[0]) return;
+
+                        appendLog("##[endgroup]", TerminalColor.LOG_GRAY);
+
+                        if (success) {
+                            showToast("บิวด์แอปสำเร็จ! 🎉");
+                            appendLog("\n##[group]🎉 งานหลังบิวด์: จัดเก็บไฟล์ระบบแอปพลิเคชัน", TerminalColor.SUGGEST_GREEN);
+                            appendLog("✅ สำเร็จ: กระบวนการทำงานทั้งหมดเสร็จสิ้นโดยไม่มีข้อผิดพลาด", TerminalColor.SUGGEST_GREEN);
+                            appendLog("📦 ไฟล์แอปที่ได้ (APK): " + (apkPath != null ? apkPath : "outputs/apk/debug/app-debug.apk"), TerminalColor.LOG_CYAN);
+                            appendLog("##[endgroup]", TerminalColor.SUGGEST_GREEN);
+                            
+                            runOnUiThread(() -> { if (rvErrorPanel != null) rvErrorPanel.setVisibility(View.GONE); });
+                        } else {
+                            showToast("กระบวนการทำงานล้มเหลว");
+                            appendLog("\n##[error] การทำงานหยุดช้าลงเนื่องจากการปิดตัวของระบบบิวด์อย่างกะทันหัน", TerminalColor.ERROR_RED);
+                            
+                            if (analyzer != null) {
+                                analyzer.printSummary(new BuildSummaryAnalyzer.LogOutputListener() {
+                                    @Override
+                                    public void onAppendLog(String text, int color) {
+                                        if (dialogPanelAdapter != null) tvConsole = dialogPanelAdapter.getTvConsole();
+                                        appendColoredText(tvConsole, text, color);
+                                    }
+                                });
+                            }
+                            
+                            final ParsedError err = analyzer.getLastError();
+                            if (err != null) {
+                                runOnUiThread(() -> {
+                                    if (fullPanelDialog != null) fullPanelDialog.dismiss(); // ปิดหน้าต่างเพื่อให้วาร์ปกลับไปหน้าโค้ดเอดิเตอร์หลัก
+                                    executeJumpToError(err);
+                                });
+                            }
+                        }
+                    }
+                }
+            );
+
+            String githubToken = savedToken; 
+            String projectName = currentProject.getProjectName();
+            String repoUrl = "https://github.com/" + username + "/" + projectName + ".git";
+            String packageName = "com.dev.ministudio"; 
+
+            buildTask.startCloudBuild(githubToken, repoUrl, projectName, packageName); 
+            buildTask.setAnalyzer(analyzer);
+        }, 300);
     }
 
     private void executeJumpToError(final ParsedError errorItem) {
@@ -514,8 +481,6 @@ public class MainActivity extends AppCompatActivity {
             if (!targetFile.isAbsolute()) {
                 targetFile = new java.io.File(currentProject.getRootPath(), errorItem.file);
             }
-
-            appendLog("📂 กำลังตรวจสอบพิกัดไฟล์ในเครื่อง: " + targetFile.getAbsolutePath(), TerminalColor.LOG_GRAY);
 
             if (targetFile.exists()) {
                 openFile(targetFile); 
@@ -529,7 +494,6 @@ public class MainActivity extends AppCompatActivity {
                             if (codeEditor.getSearcher() != null) {
                                 codeEditor.getSearcher().stopSearch();
                             }
-                            
                             codeEditor.jumpToLine(zeroBasedLine);            
                             codeEditor.setSelection(zeroBasedLine, targetColumn);
                             codeEditor.setSelectionRegion(zeroBasedLine, targetColumn, zeroBasedLine, targetColumn + 4);
@@ -537,17 +501,12 @@ public class MainActivity extends AppCompatActivity {
                             if (rvErrorPanel != null) {
                                 rvErrorPanel.setVisibility(View.VISIBLE);
                             }
-                            
                             showToast("🚨 วาร์ปล็อกเป้าหมายพังในบรรทัดที่ " + errorItem.line + " สำเร็จครับ!");
                         } catch (Exception layoutEx) {
                             layoutEx.printStackTrace();
-                            codeEditor.jumpToLine(zeroBasedLine);
                         }
                     }, 200); 
                 }
-            } else {
-                showToast("❌ ไม่พบตำแหน่งไฟล์นี้บนหน่วยความจำในเครื่องท่าน");
-                appendLog("⚠️ ระบบไม่สามารถวาร์ปได้เนื่องจากหาพาธนี้ไม่พบในเครื่อง: " + targetFile.getAbsolutePath(), TerminalColor.ERROR_RED);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -581,107 +540,12 @@ public class MainActivity extends AppCompatActivity {
                 fileTreeAdapter.notifyDataSetChanged();
                 
             } else {
-                String fileName = selectedNode.file.getName().toLowerCase();
-
-                if (fileName.endsWith(".png") || fileName.endsWith(".jpg") || fileName.endsWith(".jpeg") || fileName.endsWith(".webp")) {
-                    dialogManager.showImageViewerDialog(selectedNode.file);
-                } else {
-                    fileTreeAdapter.setSelectedPosition(position);
-                    currentProject.setCurrentOpenFile(selectedNode.file);
-                    openFile(selectedNode.file);
-                    
-                    updateFilePathStatus(selectedNode.file);
-                    
-                    if (tabAdapter != null) {
-                        tabAdapter.notifyDataSetChanged();
-                        int pos = currentProject.getCurrentFileIndex();
-                        if (pos != -1) {
-                            tabRecyclerView.smoothScrollToPosition(pos);
-                        }
-                    }
-                    drawerLayout.closeDrawers();
-                }
+                fileTreeAdapter.setSelectedPosition(position);
+                currentProject.setCurrentOpenFile(selectedNode.file);
+                openFile(selectedNode.file);
+                drawerLayout.closeDrawers();
             }
         });
-
-        treeView.setOnItemLongClickListener((parent, view, position, id) -> {
-            FileNode selectedNode = masterFileList.get(position);
-            File currentFile = selectedNode.file;
-            lastClickedPosition = position;
-
-            com.google.android.material.bottomsheet.BottomSheetDialog bottomSheetDialog = 
-                new com.google.android.material.bottomsheet.BottomSheetDialog(this);
-            
-            View dialogView = getLayoutInflater().inflate(R.layout.dialog_bottom_file_menu, null);
-            bottomSheetDialog.setContentView(dialogView);
-
-            TextView tvHeader = dialogView.findViewById(R.id.tvDialogHeader);
-            LinearLayout menuContainer = dialogView.findViewById(R.id.menuContainer);
-
-            tvHeader.setText(selectedNode.isDirectory ? "จัดการโฟลเดอร์: " + currentFile.getName() : "จัดการไฟล์: " + currentFile.getName());
-
-            List<MenuOption> options = new ArrayList<>();
-            options.add(new MenuOption("สร้างไฟล์ใหม่", android.R.drawable.ic_menu_add));
-            options.add(new MenuOption("สร้างโฟลเดอร์ใหม่", android.R.drawable.ic_menu_preferences)); 
-            options.add(new MenuOption("เปลี่ยนชื่อ", android.R.drawable.ic_menu_edit));
-            options.add(new MenuOption("ลบ", android.R.drawable.ic_menu_delete));
-            
-            if (selectedNode.isDirectory) {
-                options.add(new MenuOption("นำเข้าไฟล์ (Import)", android.R.drawable.ic_menu_share));
-            }
-
-            for (MenuOption option : options) {
-                View itemView = getLayoutInflater().inflate(R.layout.dialog_menu_item, null);
-                ImageView imgIcon = itemView.findViewById(R.id.menuIcon);
-                TextView tvTitle = itemView.findViewById(R.id.menuTitle);
-
-                tvTitle.setText(option.title);
-                imgIcon.setImageResource(option.iconRes);
-
-                itemView.setOnClickListener(v -> {
-                    bottomSheetDialog.dismiss(); 
-                    
-                    if (option.title.equals("สร้างไฟล์ใหม่")) {
-                        dialogManager.showCreateFileDialog(selectedNode.isDirectory ? currentFile : currentFile.getParentFile(), selectedNode.isDirectory ? selectedNode : findParentNode(selectedNode));
-                    } else if (option.title.equals("สร้างโฟลเดอร์ใหม่")) {
-                        dialogManager.showCreateFolderDialog(selectedNode.isDirectory ? currentFile : currentFile.getParentFile(), selectedNode.isDirectory ? selectedNode : findParentNode(selectedNode));
-                    } else if (option.title.equals("เปลี่ยนชื่อ")) {
-                        dialogManager.showRenameDialog(currentFile, selectedNode);
-                    } else if (option.title.equals("ลบ")) {
-                        dialogManager.showDeleteConfirmationDialog(currentFile.getName(), () -> {
-                            boolean success = FileSystemManager.deleteFileOrFolder(currentFile);
-                            if (success) {
-                                showToast("ลบสำเร็จแล้ว");
-                                masterFileList.remove(position);
-                                if (fileTreeAdapter != null) {
-                                    fileTreeAdapter.setSelectedPosition(-1);
-                                    fileTreeAdapter.notifyDataSetChanged();
-                                }
-                            } else {
-                                showToast("ลบไม่สำเร็จ");
-                            }
-                        });
-                    } else if (option.title.equals("นำเข้าไฟล์ (Import)")) {
-                        folderForImport = currentFile; 
-                        openFilePicker(); 
-                    }
-                });
-                menuContainer.addView(itemView);
-            }
-            bottomSheetDialog.show();
-            return true;
-        });
-    }
-
-    private FileNode findParentNode(FileNode childNode) {
-        if (childNode == null || lastClickedPosition == -1) return null;
-        for (int i = lastClickedPosition; i >= 0; i--) {
-            FileNode potentialParent = masterFileList.get(i);
-            if (potentialParent.isDirectory && potentialParent.depth < childNode.depth) {
-                return potentialParent; 
-            }
-        }
-        return null;
     }
 
     private void openFile(File file) {
@@ -711,40 +575,20 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 if (codeEditor != null) {
                     codeEditor.setText(fileContent);
-                    if (file.getName().endsWith(".xml")) {
-                        // การรองรับในอนาคต
-                    } else {
-                        codeEditor.setEditorLanguage(new JavaLanguage());
-                    }
+                    codeEditor.setEditorLanguage(new JavaLanguage());
                 }
                 
                 updateFilePathStatus(file);
-                
-                if (tabAdapter != null) {
-                    tabAdapter.notifyDataSetChanged();
-                    int pos = currentProject.getCurrentFileIndex();
-                    if (pos != -1 && tabRecyclerView != null) {
-                        tabRecyclerView.smoothScrollToPosition(pos);
-                    }
-                }
-                
-                if (isPreviewMode && previewContainer != null) {
-                    previewContainer.setVisibility(View.GONE);
-                    if (codeEditor != null) codeEditor.setVisibility(View.VISIBLE);
-                    isPreviewMode = false;
-                    invalidateOptionsMenu();
-                }
+                if (tabAdapter != null) tabAdapter.notifyDataSetChanged();
             });
 
         } catch (Exception e) {
             e.printStackTrace();
-            showToast("❌ เกิดข้อผิดพลาดในการโหลดไฟล์: " + e.getMessage());
         }
     }
 
     private void saveFile() {
         if (currentProject == null || currentProject.getCurrentOpenFile() == null) return;
-        
         File fileToSave = currentProject.getCurrentOpenFile();
         try {
             FileOutputStream fos = new FileOutputStream(fileToSave);
@@ -757,13 +601,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void appendLog(final String text, final int color) {
         runOnUiThread(() -> {
-            if (consolePanel != null && consolePanel.getVisibility() == View.GONE) {
-                consolePanel.setVisibility(View.VISIBLE);
-            }
-            
-            // 🌟 ป้องกันพิกัดวิวเพี้ยนด้วยการดักจับค่าแบบสดใหม่จาก Adapter ปัจจุบันเสมอก่อนเติมข้อความสี
-            if (panelAdapter != null) {
-                tvConsole = panelAdapter.getTvConsole();
+            if (dialogPanelAdapter != null) {
+                tvConsole = dialogPanelAdapter.getTvConsole();
             }
             if (tvConsole != null) {
                 appendColoredText(tvConsole, text + "\n", color);
@@ -774,153 +613,97 @@ public class MainActivity extends AppCompatActivity {
     private void setupShortcutBar() { 
         LinearLayout shortcutBar = findViewById(R.id.shortcutBar); 
         if (shortcutBar == null) return;
-
         shortcutBar.removeAllViews();
 
         String[] shortcuts = {
-            "↩", "↪", "{", "}", "[", "]", "(", ")", "<", ">", 
-            ";", ",", ".", "=", "+", "-", "*", "/", 
-            "_", "\"", "'", ":", "?", "!", "|", "&"
+            "↩", "↪", "{", "}", "[", "]", "(", ")", "<", ">", ";"
         };
 
         float density = getResources().getDisplayMetrics().density;
-        int paddingHorizontal = (int) (10 * density); 
-
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            (int) (36 * density) 
+            LinearLayout.LayoutParams.WRAP_CONTENT, (int) (36 * density)
         );
         params.setMargins((int)(3 * density), (int)(2 * density), (int)(3 * density), (int)(2 * density));
-        params.gravity = Gravity.CENTER_VERTICAL;
 
         for (final String shortcut : shortcuts) {
             TextView btn = new TextView(this);
             btn.setText(shortcut);
             btn.setTextSize(15); 
             btn.setGravity(Gravity.CENTER);
-            btn.setPadding(paddingHorizontal, 0, paddingHorizontal, 0);
-            btn.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-            
-            if (shortcut.equals("↩") || shortcut.equals("↪")) {
-                btn.setTextColor(Color.parseColor("#FFFFFF")); 
-            } else {
-                btn.setTextColor(Color.parseColor("#B0B3B8")); 
-            }
+            btn.setPadding((int)(10 * density), 0, (int)(10 * density), 0);
+            btn.setTextColor(Color.parseColor("#B0B3B8")); 
 
             GradientDrawable shape = new GradientDrawable();
-            shape.setShape(GradientDrawable.RECTANGLE);
             shape.setCornerRadius(6 * density); 
             shape.setColor(Color.parseColor("#2D2D2D")); 
-
-            int[][] states = new int[][] { new int[] {} };
-            int[] colors = new int[] { Color.parseColor("#444444") };
-            ColorStateList colorStateList = new ColorStateList(states, colors);
-            RippleDrawable rippleDrawable = new RippleDrawable(colorStateList, shape, null);
-            btn.setBackground(rippleDrawable);
-
-            params.gravity = Gravity.CENTER_VERTICAL;
+            btn.setBackground(shape);
             btn.setLayoutParams(params);
-            btn.setClickable(true);
-            btn.setFocusable(true);
 
             btn.setOnClickListener(v -> {
-                if (codeEditor == null) return;
-
-                if (shortcut.equals("↩")) {
-                    if (codeEditor.canUndo()) {
-                        codeEditor.undo();
-                    }
-                } else if (shortcut.equals("↪")) {
-                    if (codeEditor.canRedo()) {
-                        codeEditor.redo();
-                    }
-                } else {
-                    if (codeEditor.getCursor() != null) {
-                        int line = codeEditor.getCursor().getLeftLine();
-                        int column = codeEditor.getCursor().getLeftColumn();
-                        codeEditor.getText().insert(line, column, shortcut);
-                    }
+                if (codeEditor.getCursor() != null) {
+                    int line = codeEditor.getCursor().getLeftLine();
+                    int column = codeEditor.getCursor().getLeftColumn();
+                    codeEditor.getText().insert(line, column, shortcut);
                 }
             });
-
             shortcutBar.addView(btn);
         }
 
-        // 🤖 [ปุ่มลัด ถาม AI บน Shortcut bar]
+        // 🤖 ปุ่มลัดถาม AI บน Shortcut bar (เปลี่ยนมาเปิดครอบจอ)
         TextView btnAskAI = new TextView(this);
         btnAskAI.setText("🤖 ถาม AI");
         btnAskAI.setTextSize(14);
         btnAskAI.setGravity(Gravity.CENTER);
-        btnAskAI.setPadding(paddingHorizontal, 0, paddingHorizontal, 0);
-        btnAskAI.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        btnAskAI.setPadding((int)(10 * density), 0, (int)(10 * density), 0);
         btnAskAI.setTextColor(Color.parseColor("#BB86FC")); 
 
         GradientDrawable aiShape = new GradientDrawable();
-        aiShape.setShape(GradientDrawable.RECTANGLE);
         aiShape.setCornerRadius(6 * density);
         aiShape.setColor(Color.parseColor("#251F35")); 
-        
-        RippleDrawable aiRipple = new RippleDrawable(ColorStateList.valueOf(Color.parseColor("#443366")), aiShape, null);
-        btnAskAI.setBackground(aiRipple);
+        btnAskAI.setBackground(aiShape);
         btnAskAI.setLayoutParams(params);
-        btnAskAI.setClickable(true);
-        btnAskAI.setFocusable(true);
 
         btnAskAI.setOnClickListener(v -> {
             if (codeEditor == null || currentProject == null) return;
 
-            if (consolePanel != null) consolePanel.setVisibility(View.VISIBLE);
-            
-            if (viewPager != null) {
-                viewPager.setCurrentItem(1, true);
-            }
-            
+            showFullPanelDialog(1); // เปิด Dialog คลุมจอแล้วสลับไปที่แท็บ AI (Index 1) Immediately
+
             java.io.File currentFile = currentProject.getCurrentOpenFile();
             String fileName = (currentFile != null) ? currentFile.getName() : "UnknownFile.java";
             String currentCode = codeEditor.getText().toString();
 
-            aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
-                @Override
-                public void onStart() {
-                    if (panelAdapter != null) tvAiOutput = panelAdapter.getTvAiOutput(); 
-                    if (tvAiOutput != null) {
-                        tvAiOutput.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ด...");
-                        autoScrollTabContainer(tvAiOutput);
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
+                    @Override
+                    public void onStart() {
+                        if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput(); 
+                        if (tvAiOutput != null) {
+                            tvAiOutput.setText("🤖 MiniStudio AI กำลังวิเคราะห์โค้ด...");
+                            autoScrollTabContainer(tvAiOutput);
+                        }
                     }
-                }
 
-                @Override
-                public void onSuccess(android.text.SpannableString formattedResult) {
-                    if (panelAdapter != null) tvAiOutput = panelAdapter.getTvAiOutput();
-                    if (tvAiOutput != null) {
-                        tvAiOutput.setText(formattedResult); 
-                        autoScrollTabContainer(tvAiOutput); 
+                    @Override
+                    public void onSuccess(android.text.SpannableString formattedResult) {
+                        if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+                        if (tvAiOutput != null) {
+                            tvAiOutput.setText(formattedResult); 
+                            autoScrollTabContainer(tvAiOutput); 
+                        }
                     }
-                }
 
-                @Override
-                public void onError(String errorMessage) {
-                    if (panelAdapter != null) tvAiOutput = panelAdapter.getTvAiOutput();
-                    if (tvAiOutput != null) {
-                        tvAiOutput.setText("❌ AI เกิดข้อผิดพลาดชั่วคราว: " + errorMessage);
-                        autoScrollTabContainer(tvAiOutput);
+                    @Override
+                    public void onError(String errorMessage) {
+                        if (dialogPanelAdapter != null) tvAiOutput = dialogPanelAdapter.getTvAiOutput();
+                        if (tvAiOutput != null) {
+                            tvAiOutput.setText("❌ AI เกิดข้อผิดพลาด: " + errorMessage);
+                        }
                     }
-                }
-            });
+                });
+            }, 300);
         });
 
         shortcutBar.addView(btnAskAI); 
-    }
-    
-    private void applyEditorFontSize(float sizeSp) {
-        if (codeEditor != null) {
-            codeEditor.setTextSize(sizeSp);
-            showToast("Font size: " + (int)sizeSp + "sp");
-        }
-    }
-
-    private int dpToPx(int dp) {
-        return (int) (dp * getResources().getDisplayMetrics().density);
     }
 
     private void findAndHighlight() {
@@ -929,41 +712,29 @@ public class MainActivity extends AppCompatActivity {
         if (query.isEmpty()) return;
 
         int index = content.indexOf(query, lastSearchIndex);
-        if (index == -1) {
-            index = content.indexOf(query, 0);
-            lastSearchIndex = 0;
-        }
+        if (index == -1) { index = content.indexOf(query, 0); lastSearchIndex = 0; }
 
         if (index != -1) {
             soraSelectLinear(index, index + query.length());
             lastSearchIndex = index + query.length();
-        } else {
-            showToast("Not found");
         }
     }
 
     private void soraSelectLinear(int startIdx, int endIdx) {
         try {
             String text = codeEditor.getText().toString();
-            int startLine = 0, startCol = 0;
-            int endLine = 0, endCol = 0;
-            int currentIdx = 0;
+            int startLine = 0, startCol = 0, endLine = 0, endCol = 0, currentIdx = 0;
             String[] lines = text.split("\n", -1);
-            
             for (int i = 0; i < lines.length; i++) {
                 int lineLen = lines[i].length() + 1; 
                 if (currentIdx + lineLen > startIdx && startLine == 0 && startCol == 0) {
-                    startLine = i;
-                    startCol = startIdx - currentIdx;
+                    startLine = i; startCol = startIdx - currentIdx;
                 }
                 if (currentIdx + lineLen > endIdx) {
-                    endLine = i;
-                    endCol = endIdx - currentIdx;
-                    break;
+                    endLine = i; endCol = endIdx - currentIdx; break;
                 }
                 currentIdx += lineLen;
             }
-            
             final int sL = startLine; final int sC = startCol;
             final int eL = endLine; final int eC = endCol;
             runOnUiThread(() -> {
@@ -977,260 +748,76 @@ public class MainActivity extends AppCompatActivity {
         String target = etFind.getText().toString();
         String replacement = etReplace.getText().toString();
         if (target.isEmpty()) return;
-
         String content = codeEditor.getText().toString();
-        String newContent = content.replaceFirst(java.util.regex.Pattern.quote(target), replacement);
-
-        codeEditor.setText(newContent);
-        showToast("Replaced");
+        codeEditor.setText(content.replaceFirst(java.util.regex.Pattern.quote(target), replacement));
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_toolbar, menu);
-        MenuItem previewItem = menu.findItem(R.id.action_preview);
-        if (previewItem != null) {
-            previewItem.setTitle(isPreviewMode ? "ดูโค้ด (Code)" : "ดูตัวอย่าง (Preview)");
-        }
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
-        
-        if (id == R.id.action_build) {
-            startCloudBuildPipeline();
-            return true;
-        }
-
-        if (id == R.id.action_preview) {
-            toggleXmlPreview();
-            return true;
-        }
-        
-        if(id == R.id.action_ai_settings){
-            startActivity(
-                new Intent(
-                    this,
-                    AiSettingsActivity.class 
-                )
-            );
-            return true;
-        }
-
-        if (id == R.id.action_undo) { if (codeEditor.canUndo()) codeEditor.undo(); return true; } 
-        if (id == R.id.action_redo) { if (codeEditor.canRedo()) codeEditor.redo(); return true; }
-        if (id == R.id.action_search) {
-            searchBar.setVisibility(searchBar.getVisibility() == View.GONE ? View.VISIBLE : View.GONE);
-            return true;
-        }
+        if (id == R.id.action_build) { startCloudBuildPipeline(); return true; }
+        if (id == R.id.action_preview) { toggleXmlPreview(); return true; }
         return super.onOptionsItemSelected(item);
     }
 
-    private void triggerTreeRefresh(FileNode parentNode) {
-        if (parentNode != null) {
-            int parentPos = masterFileList.indexOf(parentNode);
-            if (parentPos != -1) {
-                refreshSubFolder(parentPos, parentNode);
-                return;
-            }
-        }
-        refreshFileTree();
-    }
-
-    private void openFilePicker() {
-        android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_GET_CONTENT);
-        intent.setType("*/*"); 
-        intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
-        startActivityForResult(android.content.Intent.createChooser(intent, "เลือกไฟล์ที่จะนำเข้า"), PICK_FILE_REQUEST_CODE);
-    }
-
-    private void refreshSubFolder(int position, FileNode parentNode) {
-        if (parentNode == null) return;
-        int nextPosition = position + 1;
-        while (nextPosition < masterFileList.size() && masterFileList.get(nextPosition).depth > parentNode.depth) {
-            masterFileList.remove(nextPosition);
-        }
-        List<FileNode> children = FileSystemManager.loadChildren(parentNode.file, parentNode.depth);
-        masterFileList.addAll(position + 1, children);
-        parentNode.isExpanded = true;
-        
-        if (fileTreeAdapter != null) {
-            fileTreeAdapter.notifyDataSetChanged();
-        }
-    }
-
+    private void triggerTreeRefresh(FileNode parentNode) { refreshFileTree(); }
     private void refreshFileTree() {
         if (currentProject != null) {
             File projectRoot = new File(currentProject.getRootPath());
-            masterFileList.clear();
-            masterFileList.addAll(FileSystemManager.loadRootDirectory(projectRoot));
-            if (fileTreeAdapter != null) {
-                fileTreeAdapter.setSelectedPosition(-1); 
-                fileTreeAdapter.notifyDataSetChanged();
-            }
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == PICK_FILE_REQUEST_CODE && resultCode == RESULT_OK && data != null && data.getData() != null) {
-            android.net.Uri fileUri = data.getData();
-            try {
-                String displayName = "imported_file_" + System.currentTimeMillis();
-                android.database.Cursor cursor = getContentResolver().query(fileUri, null, null, null, null);
-                if (cursor != null && cursor.moveToFirst()) {
-                    int nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
-                    if (nameIndex != -1) displayName = cursor.getString(nameIndex);
-                    cursor.close();
-                }
-
-                File tempFile = new File(getCacheDir(), displayName);
-                java.io.InputStream inputStream = getContentResolver().openInputStream(fileUri);
-                java.io.FileOutputStream outputStream = new java.io.FileOutputStream(tempFile);
-                byte[] buffer = new byte[1024];
-                int bytesRead;
-                while ((bytesRead = inputStream.read(buffer)) != -1) {
-                    outputStream.write(buffer, 0, bytesRead);
-                }
-                outputStream.close();
-                inputStream.close();
-
-                if (folderForImport != null) {
-                    FileSystemManager.importFileToFolder(tempFile, folderForImport);
-                    showToast("นำเข้าไฟล์ " + displayName + " เรียบร้อย!");
-                    
-                    if (lastClickedPosition != -1 && lastClickedPosition < masterFileList.size()) {
-                        FileNode parentNode = masterFileList.get(lastClickedPosition);
-                        triggerTreeRefresh(parentNode);
-                    } else {
-                        refreshFileTree();
-                    }
-                }
-                tempFile.delete(); 
-            } catch (Exception e) {
-                e.printStackTrace();
-                showToast("นำเข้าไฟล์ล้มเหลว: " + e.getMessage());
-            }
+            masterFileList.clear(); masterFileList.addAll(FileSystemManager.loadRootDirectory(projectRoot));
+            if (fileTreeAdapter != null) fileTreeAdapter.notifyDataSetChanged();
         }
     }
 
     private void setupTabLogic() {
-        if (currentProject == null) return;
-        
         tabAdapter = new TabAdapter(currentProject, new TabAdapter.OnTabInterface() {
-            @Override
-            public void onTabClick(File file) {
-                currentProject.setCurrentOpenFile(file);
-                openFile(file);
-                updateFilePathStatus(file);
-                tabAdapter.notifyDataSetChanged();
-            }
-
-            @Override
-            public void onTabClose(File file, int position) {
-                currentProject.getOpenedFiles().remove(file);
-                tabAdapter.notifyItemRemoved(position);
-                tabAdapter.notifyItemRangeChanged(position, currentProject.getOpenedFiles().size());
-
-                if (file.equals(currentProject.getCurrentOpenFile())) {
-                    if (!currentProject.getOpenedFiles().isEmpty()) {
-                        File nextFile = currentProject.getOpenedFiles().get(0);
-                        currentProject.setCurrentOpenFile(nextFile);
-                        openFile(nextFile);
-                        updateFilePathStatus(nextFile);
-                    } else {
-                        currentProject.setCurrentOpenFile(null);
-                        runOnUiThread(() -> codeEditor.setText(""));
-                    }
-                    tabAdapter.notifyDataSetChanged();
-                }
-            }
+            @Override public void onTabClick(File file) { openFile(file); }
+            @Override public void onTabClose(File file, int position) {}
         });
         tabRecyclerView.setAdapter(tabAdapter);
-        updateFilePathStatus(currentProject.getCurrentOpenFile());
     }
 
     private void updateFilePathStatus(File file) {
-        if (tvFilePath == null) return;
-        
-        if (file == null || currentProject == null) {
-            tvFilePath.setText("No file open");
-            return;
-        }
-
-        String fullPath = file.getAbsolutePath();
-        String projectRoot = currentProject.getRootPath(); 
-
-        if (fullPath.startsWith(projectRoot)) {
-            String relativePath = fullPath.substring(projectRoot.length());
-            if (relativePath.startsWith("/")) {
-                relativePath = relativePath.substring(1);
-            }
-            tvFilePath.setText(relativePath);
-        } else {
-            tvFilePath.setText(file.getName());
-        }
+        if (tvFilePath != null && file != null) tvFilePath.setText(file.getName());
     }
 
     private void showToast(final String message) {
         runOnUiThread(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show());
     }
-
-    private static class MenuOption {
-        String title;
-        int iconRes;
-        MenuOption(String title, int iconRes) {
-            this.title = title;
-            this.iconRes = iconRes;
-        }
-    }
     
     private void appendColoredText(TextView tv, String text, int color) {
         if (tv == null) return;
         android.text.SpannableString spannable = new android.text.SpannableString(text);
-        spannable.setSpan(new android.text.style.ForegroundColorSpan(color), 
-                          0, text.length(), 
-                          android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-        
+        spannable.setSpan(new android.text.style.ForegroundColorSpan(color), 0, text.length(), android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         tv.append(spannable);
-        
-        // 🛠️ คอยส่งสัญญาณสั่งให้เลื่อนลงล่างสุดอย่างถูกต้องเสมอ
         autoScrollTabContainer(tv);
     }
 
-    // 🌟 🛠️ ปรับปรุงฟังก์ชันรูดอัตโนมัติใหม่แบบเจาะลึกทะลุกรอย View Holder การันตีความแม่นยำ 100% ไม่จมดินแน่นอนครับน้า
     private void autoScrollTabContainer(View innerTextView) {
         if (innerTextView == null) return;
-        try {
-            innerTextView.post(() -> {
-                try {
-                    // เดินทางหาตำแหน่ง ScrollView ย่อยที่โอบอุ้มข้อความตัวนี้อยู่จริงๆ ในเลย์เอาต์ XML แท็บนั้นๆ
-                    android.view.ViewParent currentParent = innerTextView.getParent();
-                    while (currentParent != null) {
-                        if (currentParent instanceof ScrollView) {
-                            final ScrollView realScrollView = (ScrollView) currentParent;
-                            realScrollView.fullScroll(android.view.View.FOCUS_DOWN);
-                            break;
-                        }
-                        currentParent = currentParent.getParent();
+        innerTextView.post(() -> {
+            try {
+                android.view.ViewParent currentParent = innerTextView.getParent();
+                while (currentParent != null) {
+                    if (currentParent instanceof ScrollView) {
+                        ((ScrollView) currentParent).fullScroll(android.view.View.FOCUS_DOWN);
+                        break;
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
+                    currentParent = currentParent.getParent();
                 }
-            });
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            } catch (Exception e) { e.printStackTrace(); }
+        });
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (aiLayoutAnalyzer != null) {
-            aiLayoutAnalyzer.shutdown();
-        }
+        if (aiLayoutAnalyzer != null) aiLayoutAnalyzer.shutdown();
     }
 }
