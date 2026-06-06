@@ -271,6 +271,12 @@ public class MainActivity extends AppCompatActivity {
 
             if (etAiInput == null || webAiOutput == null) return;
 
+            // 🌟 ➕ แทรกชุดคำสั่งเชื่อมสะพาน JavaScript ตรงตำแหน่งนี้เลยครับน้า!
+            webAiOutput.getSettings().setJavaScriptEnabled(true);
+            webAiOutput.removeJavascriptInterface("AndroidBridge");
+            webAiOutput.addJavascriptInterface(new WebAppInterface(this), "AndroidBridge");
+
+
             String userQuestion = etAiInput.getText().toString().trim();
             if (userQuestion.isEmpty()) {
                 chatHistory += "\n\n⚠️ *กรุณาพิมพ์คำถามก่อนครับ*";
@@ -294,6 +300,10 @@ public class MainActivity extends AppCompatActivity {
                         try {
                             android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
                             if (currentWeb != null) {
+                                // 🌟 ➕ (แถมเผื่อไว้) ตรงนี้ก็สั่งให้ฝั่ง WebView ที่สร้างใหม่รู้จักสะพานเชื่อมด้วยครับน้า
+                                currentWeb.getSettings().setJavaScriptEnabled(true);
+                                currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                
                                 String tempHtml = AiHtmlFormatter.convertMarkdownToHtml(chatHistory + "\n\n🤖 *AI กำลังคิด...*");
                                 currentWeb.loadDataWithBaseURL(null, tempHtml, "text/html", "utf-8", null);
                             }
@@ -309,6 +319,10 @@ public class MainActivity extends AppCompatActivity {
                             chatHistory += "\n\n🤖 **AI:** " + formattedResult.toString();
                             
                             if (currentWeb != null) {
+                                // 🌟 ➕ (แถมเผื่อไว้) ผูกสะพานก่อนพ่นข้อมูลรอบสุดท้ายเพื่อความชัวร์ครับ
+                                currentWeb.getSettings().setJavaScriptEnabled(true);
+                                currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                
                                 String htmlResult = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
                                 currentWeb.loadDataWithBaseURL(null, htmlResult, "text/html", "utf-8", null);
                             }
@@ -855,6 +869,32 @@ public void setEditorActiveState(boolean isFileActive) {
     });
 }
 
+    // 🤖 สะพานเชื่อมคำสั่งจากปุ่มใน WebView เข้ามาทำงานที่ CodeEditor บน Android
+    public class WebAppInterface {
+        Context mContext;
+
+        WebAppInterface(Context c) {
+            mContext = c;
+        }
+
+        @android.webkit.JavascriptInterface
+        public void insertCodeIntoEditor(final String codeFromAi) {
+            runOnUiThread(() -> {
+                if (codeEditor != null) {
+                    // ทำการแทนที่โค้ดในหน้าจอ Editor ด้วยโค้ดใหม่จาก AI ทันที
+                    codeEditor.setText(codeFromAi);
+                    
+                    // ปิดหน้าต่าง Dialog คอนโซล/AI เพื่อให้ผู้ใช้เห็นหน้าจอโค้ดที่เปลี่ยนไป
+                    if (fullPanelDialog != null && fullPanelDialog.isShowing()) {
+                        fullPanelDialog.dismiss();
+                    }
+                    
+                    showToast("✨ อัปเดตโค้ดลงใน Editor เรียบร้อยแล้วครับน้า!");
+                }
+            });
+        }
+    }
+    
     @Override
     protected void onDestroy() {
         super.onDestroy();
