@@ -155,13 +155,54 @@ public class ProjectTreeManager {
         return null;
     }
 
+    // 🌟 เมทอดปรับปรุงใหม่: จดจำและฟื้นฟูการกางโฟลเดอร์ย่อยก่อนการรีเฟรชต้นไม้ไฟล์ครับน้า
     public void refreshFileTree() {
         ProjectModel currentProject = activity.getCurrentProject();
-        if (currentProject != null) {
-            File projectRoot = new File(currentProject.getRootPath());
-            masterFileList.clear(); 
-            masterFileList.addAll(FileSystemManager.loadRootDirectory(projectRoot));
-            if (fileTreeAdapter != null) fileTreeAdapter.notifyDataSetChanged();
+        if (currentProject == null) return;
+
+        File projectRoot = new File(currentProject.getRootPath());
+
+        // 1. เก็บรักษาที่อยู่โฟลเดอร์ที่เคยถูกกดเปิดค้างไว้
+        List<String> expandedPaths = new ArrayList<>();
+        if (masterFileList != null) {
+            for (FileNode node : masterFileList) {
+                if (node.isDirectory && node.isExpanded && node.file != null) {
+                    expandedPaths.add(node.file.getAbsolutePath());
+                }
+            }
+        }
+
+        // 2. ดึงเฉพาะโครงสร้าง Root โฟลเดอร์หลักขึ้นมาใหม่
+        List<FileNode> newRootList = FileSystemManager.loadRootDirectory(projectRoot);
+        List<FileNode> rebuiltList = new ArrayList<>();
+
+        // 3. ทยอยเอาโครงสร้างย่อยเสียบประกอบคืนตำแหน่งความลึกเดิมอัติโนมัติ
+        rebuildTreeRecursive(newRootList, expandedPaths, rebuiltList);
+
+        // 4. อัปเดตผลิใบข้อมูลบนหน้าจอ UI
+        masterFileList.clear();
+        masterFileList.addAll(rebuiltList);
+
+        if (fileTreeAdapter != null) {
+            fileTreeAdapter.notifyDataSetChanged();
+        }
+    }
+
+    // ฟังก์ชันช่วยจัดแจงและแตกหน่อโครงสร้างย่อยวนซ้ำ (Recursive Tree Rebuilder)
+    private void rebuildTreeRecursive(List<FileNode> currentNodes, List<String> expandedPaths, List<FileNode> outputList) {
+        if (currentNodes == null) return;
+
+        for (FileNode node : currentNodes) {
+            outputList.add(node);
+            
+            if (node.isDirectory && node.file != null && expandedPaths.contains(node.file.getAbsolutePath())) {
+                node.isExpanded = true;
+                // โหลดลูกหลานของโฟลเดอร์นี้ตามลำดับชั้นความลึก
+                List<FileNode> children = FileSystemManager.loadChildren(node.file, node.depth);
+                if (children != null && !children.isEmpty()) {
+                    rebuildTreeRecursive(children, expandedPaths, outputList);
+                }
+            }
         }
     }
 
@@ -217,15 +258,19 @@ public class ProjectTreeManager {
             e.printStackTrace(); 
         }
     }
+
+    // 🌟 ดึงข้อมูลตำแหน่งโฟลเดอร์นำเข้า
+    public File getFolderForImport() {
+        return folderForImport;
+    }
     
-       // 🌟 เพิ่มฟังก์ชันนี้ไว้ใน ProjectTreeManager.java สำหรับรับช่วงจัดการคัดลอกไฟล์
+    // 🌟 ระบบจัดการคัดลอกมวลบิตไฟล์หลังกด Import
     public void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
         if (resultCode != android.app.Activity.RESULT_OK || data == null) return;
         
         android.net.Uri selectedFileUri = data.getData();
         if (selectedFileUri == null) return;
 
-        // ถ้าไม่มีโฟลเดอร์กดเลือก ให้ดึงเอา Root ของโปรเจกต์ปัจจุบันเป็นหลักแทน
         ProjectModel currentProject = activity.getCurrentProject();
         java.io.File destinationFolder = folderForImport;
         if (destinationFolder == null && currentProject != null) {
@@ -239,10 +284,8 @@ public class ProjectTreeManager {
 
         final java.io.File finalDestFolder = destinationFolder;
 
-        // เปิด Thread ใหม่ประมวลผลเบื้องหลัง ป้องกันหน้าจอแอปกระตุกค้าง
         new Thread(() -> {
             try {
-                // 1. ค้นหาชื่อไฟล์จริงที่ผู้ใช้เลือกมา
                 String fileName = "imported_file";
                 android.database.Cursor cursor = activity.getContentResolver().query(selectedFileUri, null, null, null, null);
                 if (cursor != null) {
@@ -253,10 +296,8 @@ public class ProjectTreeManager {
                     cursor.close();
                 }
 
-                // 2. สร้างที่อยู่ไฟล์ปลายทาง
                 java.io.File targetFile = new java.io.File(finalDestFolder, fileName);
                 
-                // ตรวจสอบชื่อซ้ำ (ถ้าซ้ำให้เติม _1, _2 เข้าไปข้างท้ายแทนการเขียนทับ)
                 int copyCount = 1;
                 String baseName = fileName;
                 String extension = "";
@@ -270,7 +311,6 @@ public class ProjectTreeManager {
                     copyCount++;
                 }
 
-                // 3. เริ่มกระบวนการคัดลอกข้อมูลบิต (Copy Stream)
                 java.io.InputStream inputStream = activity.getContentResolver().openInputStream(selectedFileUri);
                 java.io.FileOutputStream outputStream = new java.io.FileOutputStream(targetFile);
                 
@@ -284,7 +324,6 @@ public class ProjectTreeManager {
                 }
                 outputStream.close();
 
-                // 4. แจ้งเตือนสเตตัสบน UI Main Thread และสั่งอัปเดตหน้าจอต้นไม้ไฟล์ทันที
                 final String finalFileName = targetFile.getName();
                 activity.runOnUiThread(() -> {
                     activity.showToast("✨ นำเข้าไฟล์สำเร็จ: " + finalFileName);
@@ -297,5 +336,4 @@ public class ProjectTreeManager {
             }
         }).start();
     }
-
 }
