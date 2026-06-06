@@ -98,8 +98,10 @@ public class FileTreeAdapter extends BaseAdapter {
         // ตรวจสอบความสัมพันธ์ของเส้นทาง (Path) เพื่อใช้จัดกลุ่มสีให้แม่นยำขึ้น
         String absolutePath = file.getAbsolutePath();
         boolean isInJavaPackage = absolutePath.contains("/src/main/java/") || absolutePath.endsWith("/java");
+        // เช็กว่าไฟล์หรือโฟลเดอร์นี้สิงอยู่ในอาณาเขตของ /res/ หรือไม่
+        boolean isInResourceFolder = absolutePath.contains("/src/main/res/") || absolutePath.contains("/app/src/main/res/");
 
-        // 🌟 2. ลอจิกคัดแยกประเภทไอคอนและโทนสีขั้นสูง
+        // 🌟 2. ลоจิกคัดแยกประเภทไอคอนและโทนสีขั้นสูง
         if (node.isDirectory) {
             holder.imgArrow.setVisibility(View.VISIBLE);
             if (node.isExpanded) {
@@ -116,8 +118,9 @@ public class FileTreeAdapter extends BaseAdapter {
                 holder.imgFileIcon.setColorFilter(Color.parseColor("#2196F3")); // สีฟ้าสำหรับทุกโฟลเดอร์ในสาย Java Code (com, example, mygame)
             } else if ("res".equalsIgnoreCase(name)) {
                 holder.imgFileIcon.setColorFilter(Color.parseColor("#4CAF50")); // สีเขียวเข้มสำหรับ Resource หลัก
-            } else if ("drawable".equalsIgnoreCase(name) || "layout".equalsIgnoreCase(name) || "values".equalsIgnoreCase(name)) {
-                holder.imgFileIcon.setColorFilter(Color.parseColor("#81C784")); // สีเขียวพาสเทลสำหรับโฟลเดอร์ย่อยใน res
+            } else if (isInResourceFolder) {
+                // 🟢 ปรับปรุงใหม่: ชนะทุกเงื่อนไขชื่อไฟล์ ไม่ว่าจะสร้างโฟลเดอร์ชื่ออะไรภายใต้ res (รวมถึงใน xml) จะเป็นสีเขียวพาสเทลทั้งหมดครับน้า
+                holder.imgFileIcon.setColorFilter(Color.parseColor("#81C784")); 
             } else if (name.startsWith(".")) {
                 holder.imgFileIcon.setColorFilter(Color.parseColor("#78909C")); // สีเทาสำหรับโฟลเดอร์ซ่อนระบบ (.git, .github)
             } else {
@@ -188,6 +191,9 @@ public class FileTreeAdapter extends BaseAdapter {
             if (node.isDirectory) {
                 if (isInJavaPackage) {
                     holder.tvFileName.setTextColor(Color.parseColor("#4FC3F7")); // อักษรสีฟ้าพาสเทลสำหรับแพ็กเกจโค้ด
+                } else if (isInResourceFolder || "res".equalsIgnoreCase(name)) {
+                    // 🟢 ปรับปรุงเพิ่มเติม: ทำให้ตัวอักษรของโฟลเดอร์ย่อยในระบบ res สว่างเด่นขึ้นตามสีไอคอนครับน้า
+                    holder.tvFileName.setTextColor(Color.parseColor("#A5D6A7"));
                 } else if (name.startsWith(".")) {
                     // 📁 อัปเกรดใหม่: ดักจับโฟลเดอร์ซ่อน (เช่น .github) ให้ตัวอักษรเป็นสีเทาเข้มหลบสายตาอย่างเหมาะสม
                     holder.tvFileName.setTextColor(Color.parseColor("#78909C"));

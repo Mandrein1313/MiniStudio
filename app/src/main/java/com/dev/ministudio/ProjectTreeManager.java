@@ -43,7 +43,17 @@ public class ProjectTreeManager {
         if (currentProject == null) return;
 
         File projectRoot = new File(currentProject.getRootPath());
-        masterFileList = FileSystemManager.loadRootDirectory(projectRoot);
+        
+        // 🌟 ปรับปรุง: กรองไฟล์/โฟลเดอร์ที่ขึ้นต้นด้วยจุด (.) ออกตั้งแต่หน้าแรกสุด (ซ่อน .git)
+        List<FileNode> rawRootList = FileSystemManager.loadRootDirectory(projectRoot);
+        masterFileList = new ArrayList<>();
+        if (rawRootList != null) {
+            for (FileNode node : rawRootList) {
+                if (node.file != null && !node.file.getName().startsWith(".")) {
+                    masterFileList.add(node);
+                }
+            }
+        }
 
         fileTreeAdapter = new FileTreeAdapter(activity, masterFileList);
         treeView.setAdapter(fileTreeAdapter);
@@ -54,7 +64,17 @@ public class ProjectTreeManager {
             if (selectedNode.isDirectory) {
                 if (!selectedNode.isExpanded) {
                     selectedNode.isExpanded = true;
-                    List<FileNode> children = FileSystemManager.loadChildren(selectedNode.file, selectedNode.depth);
+                    
+                    // 🌟 ปรับปรุง: กรองไฟล์ระบบซ่อนออกจากโฟลเดอร์ลูกหลานตอนที่น้ากดกางใช้งาน
+                    List<FileNode> rawChildren = FileSystemManager.loadChildren(selectedNode.file, selectedNode.depth);
+                    List<FileNode> children = new ArrayList<>();
+                    if (rawChildren != null) {
+                        for (FileNode child : rawChildren) {
+                            if (child.file != null && !child.file.getName().startsWith(".")) {
+                                children.add(child);
+                            }
+                        }
+                    }
                     masterFileList.addAll(position + 1, children);
                 } else {
                     selectedNode.isExpanded = false;
@@ -155,14 +175,14 @@ public class ProjectTreeManager {
         return null;
     }
 
-    // 🌟 เมทอดปรับปรุงใหม่: จดจำและฟื้นฟูการกางโฟลเดอร์ย่อยก่อนการรีเฟรชต้นไม้ไฟล์ครับน้า
+    // 🌟 เมทอดปรับปรุงใหม่: เพิ่มระเบียบการกรองไฟล์ซ่อนตอนกดเคลียร์รีเฟรชข้อมูล
     public void refreshFileTree() {
         ProjectModel currentProject = activity.getCurrentProject();
         if (currentProject == null) return;
 
         File projectRoot = new File(currentProject.getRootPath());
 
-        // 1. เก็บรักษาที่อยู่โฟลเดอร์ที่เคยถูกกดเปิดค้างไว้
+        // 1. เก็บรักษาที่อยู่โฟลเดอร์ทั่วไปที่เคยถูกกดเปิดค้างไว้
         List<String> expandedPaths = new ArrayList<>();
         if (masterFileList != null) {
             for (FileNode node : masterFileList) {
@@ -172,8 +192,17 @@ public class ProjectTreeManager {
             }
         }
 
-        // 2. ดึงเฉพาะโครงสร้าง Root โฟลเดอร์หลักขึ้นมาใหม่
-        List<FileNode> newRootList = FileSystemManager.loadRootDirectory(projectRoot);
+        // 2. ดึงเฉพาะโครงสร้าง Root โฟลเดอร์หลักขึ้นมาใหม่ และคัดกรองโฟลเดอร์ซ่อนออกทันที
+        List<FileNode> rawRootList = FileSystemManager.loadRootDirectory(projectRoot);
+        List<FileNode> newRootList = new ArrayList<>();
+        if (rawRootList != null) {
+            for (FileNode node : rawRootList) {
+                if (node.file != null && !node.file.getName().startsWith(".")) {
+                    newRootList.add(node);
+                }
+            }
+        }
+        
         List<FileNode> rebuiltList = new ArrayList<>();
 
         // 3. ทยอยเอาโครงสร้างย่อยเสียบประกอบคืนตำแหน่งความลึกเดิมอัติโนมัติ
@@ -188,7 +217,7 @@ public class ProjectTreeManager {
         }
     }
 
-    // ฟังก์ชันช่วยจัดแจงและแตกหน่อโครงสร้างย่อยวนซ้ำ (Recursive Tree Rebuilder)
+    // ฟังก์ชันช่วยจัดแจงและแตกหน่อโครงสร้างย่อยวนซ้ำ พร้อมระบบกรองไฟล์ระบบออก
     private void rebuildTreeRecursive(List<FileNode> currentNodes, List<String> expandedPaths, List<FileNode> outputList) {
         if (currentNodes == null) return;
 
@@ -197,9 +226,19 @@ public class ProjectTreeManager {
             
             if (node.isDirectory && node.file != null && expandedPaths.contains(node.file.getAbsolutePath())) {
                 node.isExpanded = true;
-                // โหลดลูกหลานของโฟลเดอร์นี้ตามลำดับชั้นความลึก
-                List<FileNode> children = FileSystemManager.loadChildren(node.file, node.depth);
-                if (children != null && !children.isEmpty()) {
+                
+                // โหลดลูกหลานของโฟลเดอร์นี้ตามลำดับชั้นความลึก และกรองไฟล์ซ่อนออก
+                List<FileNode> rawChildren = FileSystemManager.loadChildren(node.file, node.depth);
+                List<FileNode> children = new ArrayList<>();
+                if (rawChildren != null) {
+                    for (FileNode child : rawChildren) {
+                        if (child.file != null && !child.file.getName().startsWith(".")) {
+                            children.add(child);
+                        }
+                    }
+                }
+                
+                if (!children.isEmpty()) {
                     rebuildTreeRecursive(children, expandedPaths, outputList);
                 }
             }
@@ -259,12 +298,10 @@ public class ProjectTreeManager {
         }
     }
 
-    // 🌟 ดึงข้อมูลตำแหน่งโฟลเดอร์นำเข้า
     public File getFolderForImport() {
         return folderForImport;
     }
     
-    // 🌟 ระบบจัดการคัดลอกมวลบิตไฟล์หลังกด Import
     public void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
         if (resultCode != android.app.Activity.RESULT_OK || data == null) return;
         
