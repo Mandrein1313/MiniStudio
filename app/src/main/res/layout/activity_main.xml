@@ -108,11 +108,95 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1">
+
+            <LinearLayout
+                android:id="@+id/emptyStateView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:visibility="visible">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <View
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:background="@android:drawable/presence_online"
+                        android:backgroundTint="#CCCCCC" />
+                    <LinearLayout
+                        android:layout_width="160dp"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginStart="20dp">
+                        <View
+                            android:layout_width="70dp"
+                            android:layout_height="12dp"
+                            android:background="#CCCCCC" />
+                        <View
+                            android:layout_width="140dp"
+                            android:layout_height="12dp"
+                            android:background="#CCCCCC"
+                            android:layout_marginTop="10dp" />
+                        <View
+                            android:layout_width="45dp"
+                            android:layout_height="12dp"
+                            android:background="#CCCCCC"
+                            android:layout_marginTop="10dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="16dp">
+                    <View
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:background="@android:drawable/presence_online"
+                        android:backgroundTint="#CCCCCC" />
+                    <LinearLayout
+                        android:layout_width="160dp"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginStart="20dp">
+                        <View
+                            android:layout_width="125dp"
+                            android:layout_height="12dp"
+                            android:background="#CCCCCC" />
+                        <View
+                            android:layout_width="175dp"
+                            android:layout_height="12dp"
+                            android:background="#CCCCCC"
+                            android:layout_marginTop="10dp" />
+                        <View
+                            android:layout_width="40dp"
+                            android:layout_height="12dp"
+                            android:background="#CCCCCC"
+                            android:layout_marginTop="10dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Don't open files"
+                    android:textColor="#8C8C8C"
+                    android:textSize="18sp"
+                    android:layout_marginTop="35dp" />
+            </LinearLayout>
+
             <io.github.rosemoe.sora.widget.CodeEditor
                 android:id="@+id/codeEditor"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent" />
-            <FrameLayout
+                android:layout_height="match_parent"
+                android:visibility="gone" /> <FrameLayout
                 android:id="@+id/previewContainer"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
@@ -213,7 +297,7 @@
                     android:layout_height="wrap_content" />
             </ScrollView>
 
-            </LinearLayout>
+        </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvErrorPanel"

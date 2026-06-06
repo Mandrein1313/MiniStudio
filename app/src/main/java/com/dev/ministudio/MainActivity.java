@@ -105,6 +105,9 @@ public class MainActivity extends AppCompatActivity {
     private FrameLayout previewContainer;
     private boolean isPreviewMode = false; 
     private String chatHistory = "";
+    // Views ตัวใหม่เพิ่มเติม
+    private LinearLayout emptyStateView;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -125,6 +128,8 @@ public class MainActivity extends AppCompatActivity {
         codeEditor = findViewById(R.id.codeEditor); 
         tvFilePath = findViewById(R.id.tvFilePath); 
         tvSaveStatus = findViewById(R.id.tvSaveStatus);
+        emptyStateView = findViewById(R.id.emptyStateView);
+        
         
         treeView = findViewById(R.id.treeView); 
         tabRecyclerView = findViewById(R.id.tabRecyclerView);
@@ -190,6 +195,7 @@ public class MainActivity extends AppCompatActivity {
             // 🛠️ เรียกทำงานผ่านโครงสร้างผู้จัดการต้นไม้ตัวใหม่ที่แยกออกไป
             projectTreeManager = new ProjectTreeManager(this, treeView);
             projectTreeManager.initializeFileTree();
+            setEditorActiveState(false);
         }
     }
 
@@ -547,6 +553,7 @@ public class MainActivity extends AppCompatActivity {
     public void openFile(File file) {
         if (projectTreeManager != null) {
             projectTreeManager.openFile(file);
+            setEditorActiveState(true); 
         }
     }
 
@@ -828,6 +835,25 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+/**
+ * ฟังก์ชันสลับการแสดงผลหน้ากระดาษ: 
+ * true = มีไฟล์เปิดอยู่ (แสดง CodeEditor, ซ่อนลายน้ำ)
+ * false = หน้าจอว่างเปล่า (ซ่อน CodeEditor, แสดงสัญลักษณ์แทนแบบ AIDE)
+ */
+public void setEditorActiveState(boolean isFileActive) {
+    runOnUiThread(() -> {
+        if (emptyStateView == null || codeEditor == null) return;
+        
+        if (isFileActive) {
+            emptyStateView.setVisibility(View.GONE);
+            codeEditor.setVisibility(View.VISIBLE);
+        } else {
+            codeEditor.setVisibility(View.GONE);
+            emptyStateView.setVisibility(View.VISIBLE);
+            if (tvFilePath != null) tvFilePath.setText("No file open");
+        }
+    });
+}
 
     @Override
     protected void onDestroy() {
