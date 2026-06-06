@@ -920,6 +920,16 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // 🎯 🛠️ เติมกลับคืนให้แล้วครับน้า! คลาสตัวเลือกเมนูคลิกขวาที่ไฟล์ต้นไม้ (ProjectTreeManager) เรียกใช้
+    public static class MenuOption {
+        public String title;
+        public int iconRes;
+        public MenuOption(String title, int iconRes) {
+            this.title = title;
+            this.iconRes = iconRes;
+        }
+    }
+
     @Override
     protected void onDestroy() {
         if (aiLayoutAnalyzer != null) {
