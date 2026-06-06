@@ -816,6 +816,18 @@ public class MainActivity extends AppCompatActivity {
             this.iconRes = iconRes;
         }
     }
+    
+       // 🌟 ใส่ไว้ใน MainActivity.java เพื่อเป็นสะพานส่งข้อมูลต่อให้ ProjectTreeManager ครับน้า
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        
+        // ส่งไม้ต่อให้ตัวจัดการไฟล์ประมวลผลทันที โค้ดใน MainActivity เลยยังคงสั้นและสะอาดเหมือนเดิมครับ
+        if (requestCode == 2026 && projectTreeManager != null) {
+            projectTreeManager.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
 
     @Override
     protected void onDestroy() {

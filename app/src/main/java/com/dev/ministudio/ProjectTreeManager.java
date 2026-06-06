@@ -217,4 +217,85 @@ public class ProjectTreeManager {
             e.printStackTrace(); 
         }
     }
+    
+       // 🌟 เพิ่มฟังก์ชันนี้ไว้ใน ProjectTreeManager.java สำหรับรับช่วงจัดการคัดลอกไฟล์
+    public void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        if (resultCode != android.app.Activity.RESULT_OK || data == null) return;
+        
+        android.net.Uri selectedFileUri = data.getData();
+        if (selectedFileUri == null) return;
+
+        // ถ้าไม่มีโฟลเดอร์กดเลือก ให้ดึงเอา Root ของโปรเจกต์ปัจจุบันเป็นหลักแทน
+        ProjectModel currentProject = activity.getCurrentProject();
+        java.io.File destinationFolder = folderForImport;
+        if (destinationFolder == null && currentProject != null) {
+            destinationFolder = new java.io.File(currentProject.getRootPath());
+        }
+
+        if (destinationFolder == null) {
+            activity.showToast("❌ ไม่พบตำแหน่งที่ตั้งสำหรับนำเข้าไฟล์");
+            return;
+        }
+
+        final java.io.File finalDestFolder = destinationFolder;
+
+        // เปิด Thread ใหม่ประมวลผลเบื้องหลัง ป้องกันหน้าจอแอปกระตุกค้าง
+        new Thread(() -> {
+            try {
+                // 1. ค้นหาชื่อไฟล์จริงที่ผู้ใช้เลือกมา
+                String fileName = "imported_file";
+                android.database.Cursor cursor = activity.getContentResolver().query(selectedFileUri, null, null, null, null);
+                if (cursor != null) {
+                    int nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                    if (nameIndex != -1 && cursor.moveToFirst()) {
+                        fileName = cursor.getString(nameIndex);
+                    }
+                    cursor.close();
+                }
+
+                // 2. สร้างที่อยู่ไฟล์ปลายทาง
+                java.io.File targetFile = new java.io.File(finalDestFolder, fileName);
+                
+                // ตรวจสอบชื่อซ้ำ (ถ้าซ้ำให้เติม _1, _2 เข้าไปข้างท้ายแทนการเขียนทับ)
+                int copyCount = 1;
+                String baseName = fileName;
+                String extension = "";
+                int dotIndex = fileName.lastIndexOf('.');
+                if (dotIndex != -1) {
+                    baseName = fileName.substring(0, dotIndex);
+                    extension = fileName.substring(dotIndex);
+                }
+                while (targetFile.exists()) {
+                    targetFile = new java.io.File(finalDestFolder, baseName + "_" + copyCount + extension);
+                    copyCount++;
+                }
+
+                // 3. เริ่มกระบวนการคัดลอกข้อมูลบิต (Copy Stream)
+                java.io.InputStream inputStream = activity.getContentResolver().openInputStream(selectedFileUri);
+                java.io.FileOutputStream outputStream = new java.io.FileOutputStream(targetFile);
+                
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                if (inputStream != null) {
+                    while ((bytesRead = inputStream.read(buffer)) != -1) {
+                        outputStream.write(buffer, 0, bytesRead);
+                    }
+                    inputStream.close();
+                }
+                outputStream.close();
+
+                // 4. แจ้งเตือนสเตตัสบน UI Main Thread และสั่งอัปเดตหน้าจอต้นไม้ไฟล์ทันที
+                final String finalFileName = targetFile.getName();
+                activity.runOnUiThread(() -> {
+                    activity.showToast("✨ นำเข้าไฟล์สำเร็จ: " + finalFileName);
+                    refreshFileTree();
+                });
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                activity.runOnUiThread(() -> activity.showToast("❌ การนำเข้าไฟล์ล้มเหลว: " + e.getMessage()));
+            }
+        }).start();
+    }
+
 }
