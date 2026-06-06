@@ -31,7 +31,7 @@ public class AiHtmlFormatter {
             
             String uniqueId = "code_" + idCounter;
             
-            // 🛠️ แก้ไข: ส่งแค่ uniqueId เข้าไปในฟังก์ชันแทนการส่งข้อความโค้ดตัวเต็ม ปลอดภัยต่อโค้ดระดับ 1,000 บรรทัดแน่นอนครับ
+            // ส่งแค่ uniqueId เข้าไปในฟังก์ชันแทนการส่งข้อความโค้ดตัวเต็ม ปลอดภัยต่อโค้ดระดับ 1,000 บรรทัดแน่นอนครับ
             String blockHtml = "<div class='code-container'>" +
                     "  <div class='code-header'>" +
                     "    <span>" + (lang.isEmpty() ? "code" : lang) + "</span>" +
@@ -68,15 +68,19 @@ public class AiHtmlFormatter {
                 "</style>" +
                 "<script>" +
                 "function copyToClipboard(elementId, btn) {" +
-                "  var text = document.getElementById(elementId).innerText;" +
-                "  var elem = document.createElement('textarea');" +
-                "  document.body.appendChild(elem);" +
-                "  elem.value = text;" +
-                "  elem.select();" +
-                "  document.execCommand('copy');" +
-                "  document.body.removeChild(elem);" +
-                "  btn.innerText = 'Copied!';" +
-                "  setTimeout(function() { btn.innerText = 'Copy'; }, 2000);" +
+                "  try {" +
+                "    var text = document.getElementById(elementId).innerText;" +
+                "    // แก้ไข: ส่งข้อความโค้ดกลับไปให้คลิปบอร์ดฝั่ง Android (Java) ทำงานให้แทนการใช้สคริปต์เว็บตรงๆ" +
+                "    if (window.AndroidBridge && typeof window.AndroidBridge.copyToSystemClipboard === 'function') {" +
+                "      window.AndroidBridge.copyToSystemClipboard(text);" +
+                "      btn.innerText = 'Copied!';" +
+                "      setTimeout(function() { btn.innerText = 'Copy'; }, 2000);" +
+                "    } else {" +
+                "      alert('สะพานเชื่อมระบบคัดลอกขัดข้อง');" +
+                "    }" +
+                "  } catch(e) {" +
+                "    alert('Error: ' + e.message);" +
+                "  }" +
                 "}" +
                 "" +
                 "function insertIntoEditor(elementId) {" +

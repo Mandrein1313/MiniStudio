@@ -271,7 +271,7 @@ public class MainActivity extends AppCompatActivity {
 
             if (etAiInput == null || webAiOutput == null) return;
 
-            // 🌟 ➕ แทรกชุดคำสั่งเชื่อมสะพาน JavaScript ตรงตำแหน่งนี้เลยครับน้า!
+            // 🎯 เปิดสิทธิ์การใช้งาน JavaScript และผูกสะพานเชื่อมตัวหลัก
             webAiOutput.getSettings().setJavaScriptEnabled(true);
             webAiOutput.removeJavascriptInterface("AndroidBridge");
             webAiOutput.addJavascriptInterface(new WebAppInterface(this), "AndroidBridge");
@@ -300,8 +300,9 @@ public class MainActivity extends AppCompatActivity {
                         try {
                             android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
                             if (currentWeb != null) {
-                                // 🌟 ➕ (แถมเผื่อไว้) ตรงนี้ก็สั่งให้ฝั่ง WebView ที่สร้างใหม่รู้จักสะพานเชื่อมด้วยครับน้า
+                                // 🎯 เปิด JavaScript และผูกสะพานเชื่อมตอน AI กำลังคิด (ป้องกัน View หลุดสิทธิ์)
                                 currentWeb.getSettings().setJavaScriptEnabled(true);
+                                currentWeb.removeJavascriptInterface("AndroidBridge");
                                 currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
                                 
                                 String tempHtml = AiHtmlFormatter.convertMarkdownToHtml(chatHistory + "\n\n🤖 *AI กำลังคิด...*");
@@ -319,8 +320,9 @@ public class MainActivity extends AppCompatActivity {
                             chatHistory += "\n\n🤖 **AI:** " + formattedResult.toString();
                             
                             if (currentWeb != null) {
-                                // 🌟 ➕ (แถมเผื่อไว้) ผูกสะพานก่อนพ่นข้อมูลรอบสุดท้ายเพื่อความชัวร์ครับ
+                                // 🎯 เปิด JavaScript และผูกสะพานเชื่อมก่อนพ่นหน้าเว็บตัวจริง เพื่อรองรับโค้ด 1,000 บรรทัดแบบไม่เอ๋อครับน้า
                                 currentWeb.getSettings().setJavaScriptEnabled(true);
+                                currentWeb.removeJavascriptInterface("AndroidBridge");
                                 currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
                                 
                                 String htmlResult = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
@@ -338,6 +340,11 @@ public class MainActivity extends AppCompatActivity {
                             chatHistory += "\n\n❌ **AI เกิดข้อผิดพลาด:** " + errorMessage;
                             
                             if (currentWeb != null) {
+                                // 🎯 แถมนอกเหนือ: ผูกสะพานเชื่อมฝั่ง Error ไว้ด้วย เผื่อมีบล็อกโค้ดรายงานความผิดพลาดครับน้า
+                                currentWeb.getSettings().setJavaScriptEnabled(true);
+                                currentWeb.removeJavascriptInterface("AndroidBridge");
+                                currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+
                                 String htmlError = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
                                 currentWeb.loadDataWithBaseURL(null, htmlError, "text/html", "utf-8", null);
                             }
@@ -870,6 +877,7 @@ public void setEditorActiveState(boolean isFileActive) {
 }
 
     // 🤖 สะพานเชื่อมคำสั่งจากปุ่มใน WebView เข้ามาทำงานที่ CodeEditor บน Android
+    // 🤖 สะพานเชื่อมตัวอัปเกรด รองรับทั้ง Copy และ วางโค้ด
     public class WebAppInterface {
         Context mContext;
 
@@ -877,23 +885,34 @@ public void setEditorActiveState(boolean isFileActive) {
             mContext = c;
         }
 
+        // ปุ่ม 1: สำหรับคัดลอกโค้ดลงคลิปบอร์ด Android
+        @android.webkit.JavascriptInterface
+        public void copyToSystemClipboard(final String text) {
+            runOnUiThread(() -> {
+                android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                android.content.ClipData clip = android.content.ClipData.newPlainText("MiniStudioCode", text);
+                if (clipboard != null) {
+                    clipboard.setPrimaryClip(clip);
+                    showToast("📋 คัดลอกโค้ดลงคลิปบอร์ดแล้วครับน้า!");
+                }
+            });
+        }
+
+        // ปุ่ม 2: สำหรับเอาโค้ดไปใส่ใน Editor
         @android.webkit.JavascriptInterface
         public void insertCodeIntoEditor(final String codeFromAi) {
             runOnUiThread(() -> {
                 if (codeEditor != null) {
-                    // ทำการแทนที่โค้ดในหน้าจอ Editor ด้วยโค้ดใหม่จาก AI ทันที
                     codeEditor.setText(codeFromAi);
-                    
-                    // ปิดหน้าต่าง Dialog คอนโซล/AI เพื่อให้ผู้ใช้เห็นหน้าจอโค้ดที่เปลี่ยนไป
                     if (fullPanelDialog != null && fullPanelDialog.isShowing()) {
                         fullPanelDialog.dismiss();
                     }
-                    
                     showToast("✨ อัปเดตโค้ดลงใน Editor เรียบร้อยแล้วครับน้า!");
                 }
             });
         }
     }
+
     
     @Override
     protected void onDestroy() {

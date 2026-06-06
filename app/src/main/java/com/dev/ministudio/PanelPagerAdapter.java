@@ -47,6 +47,12 @@ public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.Vi
             if (webAiOutput != null) {
                 webAiOutput.getSettings().setJavaScriptEnabled(true);
                 webAiOutput.setBackgroundColor(android.graphics.Color.parseColor("#1E1E1E"));
+                
+                // 🛠️ ปรับปรุงเพิ่ม: ผูกสะพานเชื่อม AndroidBridge สแตนด์บายไว้ที่ตัว WebView หลักทันทีเมื่อเริ่มผูก View
+                if (context instanceof MainActivity) {
+                    webAiOutput.removeJavascriptInterface("AndroidBridge");
+                    webAiOutput.addJavascriptInterface(((MainActivity) context).new WebAppInterface(context), "AndroidBridge");
+                }
             }
 
             if (btnSendAi != null) {
