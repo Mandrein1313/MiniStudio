@@ -1,5 +1,7 @@
 package com.dev.ministudio;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -13,9 +15,11 @@ public class AiHtmlFormatter {
         // ตัวแปลงไฮไลต์หัวข้อหรือข้อความหนาเบื้องต้น
         htmlContent = htmlContent.replaceAll("\\*\\*(.*?)\\*\\*", "<strong>$1</strong>");
         
-        // ค้นหาบล็อกโค้ด ``` เพื่อสร้างกล่องที่มีปุ่มคัดลอกและปุ่มนำโค้ดไปใช้งาน
+        // ค้นหาบล็อกโค้ด ``` เพื่อเก็บแยกรูปแบบดิบไว้ชั่วคราว ป้องกันไม่ให้โดนแปลง \n เป็น <br>
         Pattern codeBlockPattern = Pattern.compile("```(\\w*)\\n(.*?)\\n```", Pattern.DOTALL);
         Matcher matcher = codeBlockPattern.matcher(htmlContent);
+        
+        List<String> codeBlocksList = new ArrayList<>();
         StringBuffer sb = new StringBuffer();
         int idCounter = 0;
         
@@ -31,7 +35,7 @@ public class AiHtmlFormatter {
             
             String uniqueId = "code_" + idCounter;
             
-            // ส่งแค่ uniqueId เข้าไปในฟังก์ชันแทนการส่งข้อความโค้ดตัวเต็ม ปลอดภัยต่อโค้ดระดับ 1,000 บรรทัดแน่นอนครับ
+            // สร้างกล่องโค้ดที่มีโครงสร้าง HTML สวยงามพร้อมปุ่มคำสั่งควบคุมระบบ
             String blockHtml = "<div class='code-container'>" +
                     "  <div class='code-header'>" +
                     "    <span>" + (lang.isEmpty() ? "code" : lang) + "</span>" +
@@ -43,14 +47,22 @@ public class AiHtmlFormatter {
                     "  <pre id='" + uniqueId + "'>" + displayCode + "</pre>" +
                     "</div>";
             
-            matcher.appendReplacement(sb, Matcher.quoteReplacement(blockHtml));
+            codeBlocksList.add(blockHtml);
+            
+            // แทนที่บล็อกโค้ดที่ดึงออกมาด้วยตัวระบุ Placeholder ชั่วคราว
+            matcher.appendReplacement(sb, Matcher.quoteReplacement(":::MINISTUDIO_CODE_BLOCK_PLACEHOLDER_" + idCounter + ":::"));
             idCounter++;
         }
         matcher.appendTail(sb);
         htmlContent = sb.toString();
         
-        // แทนที่การขึ้นบรรทัดใหม่ให้เป็น <br> ในส่วนที่เป็นข้อความธรรมดา
+        // 🛠️ ตอนนี้เราสามารถแปลงการขึ้นบรรทัดใหม่ธรรมดาเป็น <br> ได้อย่างปลอดภัย โดยไม่ไปรบกวนโครงสร้างของโค้ดจริงแล้วครับน้า
         htmlContent = htmlContent.replace("\n", "<br>");
+
+        // นำบล็อกโค้ดตัวจริงที่มีรูปแบบใหม่อันสมบูรณ์กลับมาใส่แทนที่ Placeholder ชั่วคราว
+        for (int i = 0; i < codeBlocksList.size(); i++) {
+            htmlContent = htmlContent.replace(":::MINISTUDIO_CODE_BLOCK_PLACEHOLDER_" + i + ":::", codeBlocksList.get(i));
+        }
 
         // ประกอบโครงสร้างหน้าเว็บ แม่แบบ CSS สไตล์ดาร์กสวยงามเหมือนเดิม
         return "<html><head><style>" +
@@ -70,7 +82,6 @@ public class AiHtmlFormatter {
                 "function copyToClipboard(elementId, btn) {" +
                 "  try {" +
                 "    var text = document.getElementById(elementId).innerText;" +
-                "    // แก้ไข: ส่งข้อความโค้ดกลับไปให้คลิปบอร์ดฝั่ง Android (Java) ทำงานให้แทนการใช้สคริปต์เว็บตรงๆ" +
                 "    if (window.AndroidBridge && typeof window.AndroidBridge.copyToSystemClipboard === 'function') {" +
                 "      window.AndroidBridge.copyToSystemClipboard(text);" +
                 "      btn.innerText = 'Copied!';" +
@@ -85,9 +96,7 @@ public class AiHtmlFormatter {
                 "" +
                 "function insertIntoEditor(elementId) {" +
                 "  try {" +
-                "    // ใช้วิธีดึงข้อความจาก pre โดยตรงผ่านไอดี ทำให้รอบรับข้อความยาวๆ ได้เสถียร 100% ครับน้า" +
                 "    var codeString = document.getElementById(elementId).innerText;" +
-                "    " +
                 "    if (window.AndroidBridge && typeof window.AndroidBridge.insertCodeIntoEditor === 'function') {" +
                 "      window.AndroidBridge.insertCodeIntoEditor(codeString);" +
                 "    } else {" +
