@@ -1,7 +1,6 @@
 package com.dev.ministudio;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
@@ -9,7 +8,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.text.SimpleDateFormat;
@@ -20,9 +18,6 @@ import org.eclipse.jgit.lib.StoredConfig;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.json.JSONArray;
 import org.json.JSONObject;
-
-// 🌟 1. เพิ่มการ Import คลาส GeminiAssistant เข้ามาใช้งาน
-import com.dev.ministudio.ai.GeminiAssistant;
 
 public class BuildTaskManager {
 
@@ -43,7 +38,6 @@ public class BuildTaskManager {
     private final int COLOR_ERROR = Color.parseColor("#FF8A80");
     private final int COLOR_WARNING = Color.parseColor("#FFB74D");
 
-    // 🌟 สร้างตัวแปรส่วนกลางเพื่อรองรับการส่งผ่านคลาสตัววิเคราะห์มาจากภายนอก (MainActivity)
     private BuildSummaryAnalyzer externalAnalyzer;
 
     public BuildTaskManager(Context context, String projectPath, BuildListener listener) {
@@ -53,7 +47,6 @@ public class BuildTaskManager {
         this.listener = listener;
     }
 
-    // 🌟 [เพิ่มเมทอดพิเศษ]: เพื่อใช้ผูกคลาสแกะพิกัดบั๊กให้ลิงก์ตรงกับระบบวาร์ปหน้าจอหลัก
     public void setAnalyzer(BuildSummaryAnalyzer analyzer) {
         this.externalAnalyzer = analyzer;
     }
@@ -197,79 +190,27 @@ public class BuildTaskManager {
 
                     if (logConn.getResponseCode() == 200) {
                         BufferedReader logReader = new BufferedReader(new InputStreamReader(logConn.getInputStream()));
-                        
-                        // 🌟 ดึงตัวแปรวิเคราะห์ภายนอกมาใช้งาน และใส่เป็น final เพื่อให้เรียกใช้ใน Callback ได้ปลอดภัย
                         final BuildSummaryAnalyzer analyzer = (externalAnalyzer != null) ? externalAnalyzer : new BuildSummaryAnalyzer();
                         
-                        // เริ่มแกะวิเคราะห์หาโค้ดพังด้วย Regex ชุดต่าง ๆ ดั้งเดิม
                         while ((line = logReader.readLine()) != null) {
-
-                            boolean shouldStop =
-                                    analyzer.analyzeLine(
-                                            line,
-                                            COLOR_WARNING,
-                                            (txt, col) -> sendProgress(txt, col));
-
+                            boolean shouldStop = analyzer.analyzeLine(line, COLOR_WARNING, (txt, col) -> sendProgress(txt, col));
                             if (shouldStop) {
                                 break;
                             }
                         }
-
                         logReader.close();
 
-                        String prompt = analyzer.createAiPrompt();
+                        // พ่นสรุป Log ลงหน้าจอ Console ตามปกติ
+                        analyzer.printSummary((txt, col) -> sendProgress(txt, col));
 
-                        // ถ้าไม่มี Prompt (ไม่มี Error ตัวไหนจับได้เลย) ให้ข้ามระบบ AI ไปพ่น Summary ปกติ
-                        if (prompt == null) {
-
-                            analyzer.printSummary(
-                                    (txt, col) -> sendProgress(txt, col));
-
-                            return;
-                        }
-
-                        sendProgress(
-                                "\n🤖 AI Build Doctor กำลังวิเคราะห์ปัญหา...\n",
-                                COLOR_INFO);
-
-                        // 🌟 แก้ไข: ส่งผ่านตัวแปร context เข้าสู่ Constructor เพื่อให้ระบบ AI สามารถดึง API Key จาก SharedPreferences ได้ตามแผนที่วางไว้
-                        GeminiAssistant ai =
-                                new GeminiAssistant(context);
-
-                        ai.askAI(
-                                prompt,
-                                new GeminiAssistant.AICallback() {
-
-                                    @Override
-                                    public void onSuccess(String responseText) {
-
-                                        analyzer.setAiSuggestion(
-                                                responseText);
-
-                                        analyzer.printSummary(
-                                                (txt, col) ->
-                                                        sendProgress(
-                                                                txt,
-                                                                col));
-                                    }
-
-                                    @Override
-                                    public void onError(String errorMessage) {
-
-                                        sendProgress(
-                                                "\n⚠️ AI วิเคราะห์ไม่สำเร็จ: "
-                                                        + errorMessage
-                                                        + "\n",
-                                                COLOR_WARNING);
-
-                                        analyzer.printSummary(
-                                                (txt, col) ->
-                                                        sendProgress(
-                                                                txt,
-                                                                col));
-                                    }
-                                });
-
+                        // 🌟 ไฮไลต์ระบบเชื่อมโยงอัจฉริยะ: สั่งยิงข้อมูลบั๊กเข้าท่อส่ง AI Fixer บนหน้าหลักโดยอัตโนมัติทันทีครับท่าน
+                        uiHandler.post(() -> {
+                            if (context instanceof MainActivity) {
+                                MainActivity mainActivity = (MainActivity) context;
+                                sendProgress("\n🤖 [ระบบเชื่อมโยงอัตโนมัติ]: กำลังดีดหน้าจอส่งข้อมูลพังให้ AI Fixer ซ่อมแซมซอร์สโค้ด...\n", COLOR_INFO);
+                                mainActivity.triggerAiErrorFixerPipeline();
+                            }
+                        });
                         return;
                     }
                 }
