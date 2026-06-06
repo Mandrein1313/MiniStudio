@@ -199,7 +199,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 🌟 ฟังก์ชันเปิดหน้าต่าง Dialog คอนโซลแบบเต็มหน้าจอ (เวอร์ชันแก้ไขให้เห็น Status Bar)
+    // 🌟 ฟังก์ชันเปิดหน้าต่าง Dialog คอนโซลแบบเต็มหน้าจอ (เวอร์ชันแก้ไขให้เห็น Status Bar + ดักปิดเสียง AI)
     private void showFullPanelDialog(int initialTabPosition) {
         if (fullPanelDialog != null && fullPanelDialog.isShowing()) {
             dialogViewPager.setCurrentItem(initialTabPosition, true);
@@ -255,6 +255,13 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // 🛠️ ➕ วางตรงนี้เลยครับน้า: ดักฟังคำสั่งเมื่อหน้าต่างแชทโดนปิด ไม่ว่าจะกดปุ่มกากบาทหรือกด Back บนมือถือ เสียงจะเงียบทันทีครับ
+        fullPanelDialog.setOnDismissListener(dialog -> {
+            if (aiLayoutAnalyzer != null) {
+                aiLayoutAnalyzer.stopSpeaking(); 
+            }
+        });
+
         fullPanelDialog.show();
     }
 
@@ -283,6 +290,11 @@ public class MainActivity extends AppCompatActivity {
                 String html = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
                 webAiOutput.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
                 return;
+            }
+
+            // 🛠️ ➕ เพิ่มเติมจุดนี้ครับน้า: สั่งหยุดพูดทันทีก่อนที่ AI ตัวใหม่จะประมวลผลคำถามถัดไป (ป้องกันเสียงตีกัน)
+            if (aiLayoutAnalyzer != null) {
+                aiLayoutAnalyzer.stopSpeaking();
             }
 
             dialogViewPager.setCurrentItem(1, true);
@@ -356,6 +368,7 @@ public class MainActivity extends AppCompatActivity {
             etAiInput.setText("");
         }, 300);
     }
+
 
     private void toggleXmlPreview() {
         if (codeEditor == null || previewContainer == null) {
@@ -916,7 +929,11 @@ public void setEditorActiveState(boolean isFileActive) {
     
     @Override
     protected void onDestroy() {
+        
+        if (aiLayoutAnalyzer != null) {
+            aiLayoutAnalyzer.shutdown(); // 👈 แปะเพิ่มแค่บรรทัดพวกนี้เข้าไปครับน้า
+        }
         super.onDestroy();
-        if (aiLayoutAnalyzer != null) aiLayoutAnalyzer.shutdown();
     }
 }
+

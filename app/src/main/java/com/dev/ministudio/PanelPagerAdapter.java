@@ -46,12 +46,16 @@ public class PanelPagerAdapter extends RecyclerView.Adapter<PanelPagerAdapter.Vi
             // เปิดใช้งานการรันสคริปต์ JavaScript บน WebView เพื่อให้ปุ่มคัดลอกทำงานได้
             if (webAiOutput != null) {
                 webAiOutput.getSettings().setJavaScriptEnabled(true);
+                webAiOutput.getSettings().setDomStorageEnabled(true); // ➕ แถมเปิด DomStorage เผื่อสคริปต์หน้าเว็บต้องใช้จำค่าชั่วคราวครับน้า
                 webAiOutput.setBackgroundColor(android.graphics.Color.parseColor("#1E1E1E"));
                 
-                // 🛠️ ปรับปรุงเพิ่ม: ผูกสะพานเชื่อม AndroidBridge สแตนด์บายไว้ที่ตัว WebView หลักทันทีเมื่อเริ่มผูก View
+                // 🛠️ ปรับปรุงแก้ไข: เปลี่ยนมาเรียกใช้ผ่านอินสแตนซ์ของ MainActivity โดยตรง ป้องกันปัญหาบิวด์พังในแอนดรอยด์ครับ
                 if (context instanceof MainActivity) {
+                    MainActivity mainActivity = (MainActivity) context;
                     webAiOutput.removeJavascriptInterface("AndroidBridge");
-                    webAiOutput.addJavascriptInterface(((MainActivity) context).new WebAppInterface(context), "AndroidBridge");
+                    
+                    // เรียกผ่านอินสแตนซ์หลักของคลาสหน้าต่างแอปเพื่อผูกสะพานเชื่อมให้สมบูรณ์
+                    webAiOutput.addJavascriptInterface(mainActivity.new WebAppInterface(context), "AndroidBridge");
                 }
             }
 

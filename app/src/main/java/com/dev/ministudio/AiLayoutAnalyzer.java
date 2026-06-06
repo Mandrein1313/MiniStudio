@@ -5,14 +5,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.speech.tts.TextToSpeech;
 import android.text.SpannableString;
-import android.text.Spanned;
-import android.text.style.ForegroundColorSpan;
-import android.text.style.StyleSpan;
-import android.graphics.Color;
-import android.graphics.Typeface;
 import java.util.Locale;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import com.dev.ministudio.ai.GeminiAssistant;
 
@@ -59,9 +52,8 @@ public class AiLayoutAnalyzer {
         }
 
         if (listener != null) listener.onStart();
-        String prompt = buildAnalysisPrompt(fileName, rawCode);
+        String prompt = "ไฟล์: " + fileName + "\n\nโค้ด:\n" + rawCode + "\n\nช่วยวิเคราะห์ปัญหา, Code Smell, คำแนะนำ และให้คะแนน 1-10 เป็นภาษาไทย";
         
-        // 🌟 แก้จุดที่ 1: เปลี่ยนจาก askAI เป็น askAi (ตัว i พิมพ์เล็กเพื่อให้ตรงกับ GeminiAssistant.java)
         aiAssistant.askAi(prompt, new GeminiAssistant.AICallback() {
             @Override
             public void onSuccess(final String responseText) {
@@ -87,7 +79,6 @@ public class AiLayoutAnalyzer {
         if (listener != null) listener.onStart();
         String prompt = "คุณคือผู้เชี่ยวชาญด้าน Android Development ช่วยตอบคำถามหรือให้คำแนะนำเกี่ยวกับเรื่องนี้ให้หน่อยครับ: \n\n" + userQuestion;
         
-        // 🌟 แก้จุดที่ 2: เปลี่ยนจาก askAI เป็น askAi (ตัว i พิมพ์เล็กเพื่อให้ตรงกับ GeminiAssistant.java)
         aiAssistant.askAi(prompt, new GeminiAssistant.AICallback() {
             @Override
             public void onSuccess(final String responseText) {
@@ -103,10 +94,8 @@ public class AiLayoutAnalyzer {
     }
 
     private void processResponse(String responseText, OnAnalysisListener listener) {
+        // แตกตัวอักษรเพื่อส่งไปให้ระบบอ่านออกเสียง (ล้างเครื่องหมายแปลกๆ ออก)
         String cleanText = responseText
-                .replaceAll("\\*\\*", "")
-                .replaceAll("\\*", "")
-                .replaceAll("#+", "")
                 .replaceAll("`", "")
                 .replaceAll("/", " ")
                 .replaceAll("\\\\", " ")
@@ -114,7 +103,7 @@ public class AiLayoutAnalyzer {
         
         speakText(cleanText);
         
-        SpannableString formatted = formatAiResponse(responseText);
+        SpannableString formatted = new SpannableString(responseText);
         
         if (listener != null) {
             listener.onSuccess(formatted);
@@ -127,28 +116,17 @@ public class AiLayoutAnalyzer {
         }
     }
 
-    private SpannableString formatAiResponse(String text) {
-        String processedText = text.replaceAll("\\*\\*", "");
-        SpannableString spannable = new SpannableString(processedText);
-
-        highlightPattern(spannable, "(Error|ข้อผิดพลาด|ปัญหา|Bug)", Color.RED);
-        highlightPattern(spannable, "(แนะนำ|ควร|ดีกว่า|ปรับปรุง|แก้ไข)", Color.parseColor("#4CAF50"));
-        highlightPattern(spannable, "(คำแนะนำ|สรุป|ปรับปรุง)", Color.parseColor("#2196F3"));
-
-        return spannable;
-    }
-
-    private void highlightPattern(SpannableString spannable, String regex, int color) {
-        Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(spannable.toString());
-        while (matcher.find()) {
-            spannable.setSpan(new ForegroundColorSpan(color), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            spannable.setSpan(new StyleSpan(Typeface.BOLD), matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+    // ➕ 🛠️ เมทอดที่เพิ่มขึ้นมาใหม่: สำหรับสั่งให้ AI หยุดพูดทันทีในพริบตา!
+    public void stopSpeaking() {
+        if (tts != null && ttsInitialized) {
+            try {
+                if (tts.isSpeaking()) {
+                    tts.stop();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
-    }
-
-    private String buildAnalysisPrompt(String fileName, String rawCode) {
-        return "ไฟล์: " + fileName + "\n\nโค้ด:\n" + rawCode + "\n\nช่วยวิเคราะห์ปัญหา, Code Smell, คำแนะนำ และให้คะแนน 1-10 เป็นภาษาไทย";
     }
 
     public void shutdown() {
