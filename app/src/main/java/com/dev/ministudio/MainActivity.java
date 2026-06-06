@@ -130,7 +130,6 @@ public class MainActivity extends AppCompatActivity {
         tvSaveStatus = findViewById(R.id.tvSaveStatus);
         emptyStateView = findViewById(R.id.emptyStateView);
         
-        
         treeView = findViewById(R.id.treeView); 
         tabRecyclerView = findViewById(R.id.tabRecyclerView);
         tabRecyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
@@ -879,12 +878,12 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    // 🤖 สะพานเชื่อมแบบรวมศูนย์ตัวจริงตัวเดียว (ล้างตัวซ้ำซ้อนออกทั้งหมดเพื่อความเสถียร)
+    // 🤖 สะพานเชื่อมแบบรวมศูนย์ตัวจริงตัวเดียว (ปรับปรุงให้รองรับ JavaScript เรียกใช้งานได้ชัวร์)
     public class WebAppInterface {
         Context mContext;
 
         public WebAppInterface(Context c) {
-            mContext = c;
+            this.mContext = c;
         }
 
         // ปุ่ม 1: คัดลอกข้อความซอร์สโค้ดธรรมดาลงคลิปบอร์ด Android
@@ -920,7 +919,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 🎯 🛠️ เติมกลับคืนให้แล้วครับน้า! คลาสตัวเลือกเมนูคลิกขวาที่ไฟล์ต้นไม้ (ProjectTreeManager) เรียกใช้
+    // คลาสเมนูต้นไม้
     public static class MenuOption {
         public String title;
         public int iconRes;
