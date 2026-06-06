@@ -364,7 +364,112 @@ public class MainActivity extends AppCompatActivity {
             etAiInput.setText("");
         }, 300);
     }
+    // 🌟 ระบบตรวจจับสกัดกั้นและแก้บั๊กอัจฉริยะ (AI Error Fixer Pipeline) สำหรับระบบที่ 1 ตัวใหม่ล่าสุดครับท่าน
+    public void triggerAiErrorFixerPipeline() {
+        if (codeEditor == null || currentProject == null) {
+            showToast("⚠️ ไม่สามารถเข้าถึงตัวจัดเตรียมรหัสซอร์สโค้ดได้");
+            return;
+        }
 
+        // 1. ดึงข้อความล็อก Error จาก Console ออกมาทั้งหมด
+        String consoleLog = "";
+        if (dialogPanelAdapter != null && dialogPanelAdapter.getTvConsole() != null) {
+            consoleLog = dialogPanelAdapter.getTvConsole().getText().toString().trim();
+        } else if (tvConsole != null) {
+            consoleLog = tvConsole.getText().toString().trim();
+        }
+
+        if (consoleLog.isEmpty() || consoleLog.equals("> Ready to build...")) {
+            showToast("🔎 ยังไม่มีบันทึกข้อผิดพลาด (Error Log) ปรากฏขึ้นในคอนโซลครับท่าน");
+            return;
+        }
+
+        // 2. ดึงข้อมูลโค้ดดิบในหน้าตัวแก้ไขปัจจุบันที่กำลังทำงาน
+        java.io.File currentFile = currentProject.getCurrentOpenFile();
+        final String fileName = (currentFile != null) ? currentFile.getName() : "UnknownFile.java";
+        String currentSourceCode = codeEditor.getText().toString();
+
+        // 3. ปรับโครงสร้างเพื่อบังคับมุมมองแท็บย้ายไปหน้าต่างแผงแสดงผล AI อัตโนมัติ
+        if (dialogViewPager != null) {
+            dialogViewPager.setCurrentItem(1, true);
+        }
+
+        // สั่งระงับเสียงพูดเดิมทันทีป้องกันการทำงานเหลื่อมล้ำซ้อนกันครับท่าน
+        if (aiLayoutAnalyzer != null) {
+            aiLayoutAnalyzer.stopSpeaking();
+        }
+
+        // 4. บันทึกและแสดงข้อความบอกฝั่งผู้ใช้ให้ทราบบนหน้ากระดานสนทนา
+        chatHistory += "\n\n🚨 **[ระบบตรวจจับอัตโนมัติ]:** ร้องขอให้แก้ไขบั๊กของไฟล์ `" + fileName + "` จากข้อความผิดพลาดในระบบ Console";
+        
+        runOnUiThread(() -> {
+            try {
+                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                if (currentWeb != null) {
+                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                    
+                    String tempHtml = AiHtmlFormatter.convertMarkdownToHtml(chatHistory + "\n\n🤖 *AI กำลังวิเคราะห์สาเหตุและค้นหาจุดพังเพื่อซ่อมโค้ดให้ท่าน...*");
+                    currentWeb.loadDataWithBaseURL(null, tempHtml, "text/html", "utf-8", null);
+                }
+            } catch (Exception e) { e.printStackTrace(); }
+        });
+
+        // 5. ป้อนคำสั่ง Prompt คุณภาพวิเคราะห์เจาะลึกส่งให้โมเดลประมวลผลแก้ปัญหาตรงจุด
+        String errorFixerPrompt = "คุณคือระบบ AI ตรวจจับและแก้ไขบั๊กอัตโนมัติประจำโปรแกรม MiniStudio\n\n" +
+                "นี่คือชื่อไฟล์ที่เกิดปัญหา: " + fileName + "\n\n" +
+                "❌ ข้อความผิดพลาดที่เกิดขึ้นในหน้าจอ Console (Error Log):\n" +
+                "```\n" + consoleLog + "\n```\n\n" +
+                "📄 ซอร์สโค้ดปัจจุบันในไฟล์นี้ทั้งหมด:\n" +
+                "```java\n" + currentSourceCode + "\n```\n\n" +
+                "กรุณาทำตามคำสั่งต่อไปนี้อย่างเข้มงวด:\n" +
+                "1. อธิบายสั้นๆ ว่าโค้ดพังที่บรรทัดไหน และเกิดจากสาเหตุใด\n" +
+                "2. ส่งซอร์สโค้ดของไฟล์นี้ทั้งหมดที่แก้ไขปัญหาเสร็จสมบูรณ์ร้อยเปอร์เซ็นต์แล้วกลับมาให้ในบล็อกโค้ด ```java เพื่อให้ผู้ใช้สามารถกดปุ่มนำไปใช้งานสวมทับได้ทันที";
+
+        aiLayoutAnalyzer.askAi(errorFixerPrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
+            @Override
+            public void onStart() {}
+
+            @Override
+            public void onSuccess(android.text.SpannableString formattedResult) {
+                runOnUiThread(() -> {
+                    try {
+                        android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                        chatHistory += "\n\n🤖 **AI Fixer แนะนำแนวทางแก้ไขสำหรับไฟล์ (" + fileName + "):**\n" + formattedResult.toString();
+                        
+                        if (currentWeb != null) {
+                            currentWeb.getSettings().setJavaScriptEnabled(true);
+                            currentWeb.removeJavascriptInterface("AndroidBridge");
+                            currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                            
+                            String htmlResult = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                            currentWeb.loadDataWithBaseURL(null, htmlResult, "text/html", "utf-8", null);
+                        }
+                    } catch (Exception e) { e.printStackTrace(); }
+                });
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                runOnUiThread(() -> {
+                    try {
+                        android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                        chatHistory += "\n\n❌ **AI Fixer ไม่สามารถวิเคราะห์ได้:** " + errorMessage;
+                        
+                        if (currentWeb != null) {
+                            currentWeb.getSettings().setJavaScriptEnabled(true);
+                            currentWeb.removeJavascriptInterface("AndroidBridge");
+                            currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                            
+                            String htmlError = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                            currentWeb.loadDataWithBaseURL(null, htmlError, "text/html", "utf-8", null);
+                        }
+                    } catch (Exception e) { e.printStackTrace(); }
+                });
+            }
+        });
+    }
 
     private void toggleXmlPreview() {
         if (codeEditor == null || previewContainer == null) {
