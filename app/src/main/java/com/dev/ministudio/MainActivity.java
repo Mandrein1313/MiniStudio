@@ -97,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
     private ProjectDialogManager dialogManager;
     
     // 🤖 ตัวจัดการวิเคราะห์เลย์เอาต์ระดับสูงเพื่อความเสถียร
-    private com.dev.ministudio.AiLayoutAnalyzer aiLayoutAnalyzer; 
+    public com.dev.ministudio.AiLayoutAnalyzer aiLayoutAnalyzer; 
     
     private RecyclerView rvErrorPanel;
     
@@ -255,7 +255,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // 🛠️ ➕ วางตรงนี้เลยครับน้า: ดักฟังคำสั่งเมื่อหน้าต่างแชทโดนปิด ไม่ว่าจะกดปุ่มกากบาทหรือกด Back บนมือถือ เสียงจะเงียบทันทีครับ
+        // 🛠️ ดักฟังคำสั่งเมื่อหน้าต่างแชทโดนปิด ไม่ว่าจะกดปุ่มกากบาทหรือกด Back บนมือถือ เสียงจะเงียบทันทีครับ
         fullPanelDialog.setOnDismissListener(dialog -> {
             if (aiLayoutAnalyzer != null) {
                 aiLayoutAnalyzer.stopSpeaking(); 
@@ -280,9 +280,9 @@ public class MainActivity extends AppCompatActivity {
 
             // 🎯 เปิดสิทธิ์การใช้งาน JavaScript และผูกสะพานเชื่อมตัวหลัก
             webAiOutput.getSettings().setJavaScriptEnabled(true);
+            webAiOutput.getSettings().setDomStorageEnabled(true);
             webAiOutput.removeJavascriptInterface("AndroidBridge");
-            webAiOutput.addJavascriptInterface(new WebAppInterface(this), "AndroidBridge");
-
+            webAiOutput.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
 
             String userQuestion = etAiInput.getText().toString().trim();
             if (userQuestion.isEmpty()) {
@@ -292,7 +292,7 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
-            // 🛠️ ➕ เพิ่มเติมจุดนี้ครับน้า: สั่งหยุดพูดทันทีก่อนที่ AI ตัวใหม่จะประมวลผลคำถามถัดไป (ป้องกันเสียงตีกัน)
+            // สั่งหยุดพูดทันทีก่อนที่ AI ตัวใหม่จะประมวลผลคำถามถัดไป (ป้องกันเสียงตีกัน)
             if (aiLayoutAnalyzer != null) {
                 aiLayoutAnalyzer.stopSpeaking();
             }
@@ -312,7 +312,6 @@ public class MainActivity extends AppCompatActivity {
                         try {
                             android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
                             if (currentWeb != null) {
-                                // 🎯 เปิด JavaScript และผูกสะพานเชื่อมตอน AI กำลังคิด (ป้องกัน View หลุดสิทธิ์)
                                 currentWeb.getSettings().setJavaScriptEnabled(true);
                                 currentWeb.removeJavascriptInterface("AndroidBridge");
                                 currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
@@ -332,7 +331,6 @@ public class MainActivity extends AppCompatActivity {
                             chatHistory += "\n\n🤖 **AI:** " + formattedResult.toString();
                             
                             if (currentWeb != null) {
-                                // 🎯 เปิด JavaScript และผูกสะพานเชื่อมก่อนพ่นหน้าเว็บตัวจริง เพื่อรองรับโค้ด 1,000 บรรทัดแบบไม่เอ๋อครับน้า
                                 currentWeb.getSettings().setJavaScriptEnabled(true);
                                 currentWeb.removeJavascriptInterface("AndroidBridge");
                                 currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
@@ -352,7 +350,6 @@ public class MainActivity extends AppCompatActivity {
                             chatHistory += "\n\n❌ **AI เกิดข้อผิดพลาด:** " + errorMessage;
                             
                             if (currentWeb != null) {
-                                // 🎯 แถมนอกเหนือ: ผูกสะพานเชื่อมฝั่ง Error ไว้ด้วย เผื่อมีบล็อกโค้ดรายงานความผิดพลาดครับน้า
                                 currentWeb.getSettings().setJavaScriptEnabled(true);
                                 currentWeb.removeJavascriptInterface("AndroidBridge");
                                 currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
@@ -576,7 +573,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 🛠️ เมทอดเก่าชุดใหญ่ถูกย้ายออกจากไฟล์นี้แล้ว โดยส่งผ่านตัวกระจายคำสั่งแทน
     public void openFilePicker() {
         android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_GET_CONTENT);
         intent.setType("*/*"); 
@@ -677,6 +673,10 @@ public class MainActivity extends AppCompatActivity {
                             try {
                                 android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
                                 if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
                                     String tempHtml = AiHtmlFormatter.convertMarkdownToHtml("🤖 *MiniStudio AI กำลังวิเคราะห์โค้ด...*");
                                     currentWeb.loadDataWithBaseURL(null, tempHtml, "text/html", "utf-8", null);
                                 }
@@ -691,6 +691,10 @@ public class MainActivity extends AppCompatActivity {
                                 android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
                                 chatHistory += "\n\n🤖 **ผลวิเคราะห์โค้ด (" + fileName + "):**\n" + formattedResult.toString();
                                 if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
                                     String htmlResult = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
                                     currentWeb.loadDataWithBaseURL(null, htmlResult, "text/html", "utf-8", null);
                                 }
@@ -705,6 +709,10 @@ public class MainActivity extends AppCompatActivity {
                                 android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
                                 chatHistory += "\n\n❌ **AI เกิดข้อผิดพลาดในการวิเคราะห์:** " + errorMessage;
                                 if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
                                     String htmlError = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
                                     currentWeb.loadDataWithBaseURL(null, htmlError, "text/html", "utf-8", null);
                                 }
@@ -839,7 +847,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    // 🌟 ระบบเปิดช่องทางการเชื่อมโยงข้อมูล (Getters สำหรับเรียกจากภายนอก)
+    // 🌟 Getters สำหรับเรียกจากภายนอก
     public ProjectModel getCurrentProject() { return currentProject; }
     public ProjectDialogManager getDialogManager() { return dialogManager; }
     public DrawerLayout getDrawerLayout() { return drawerLayout; }
@@ -849,60 +857,41 @@ public class MainActivity extends AppCompatActivity {
     public Runnable getSaveRunnable() { return saveRunnable; }
     public PanelPagerAdapter getDialogPanelAdapter() { return dialogPanelAdapter; }
 
-    public static class MenuOption {
-        public String title;
-        public int iconRes;
-        public MenuOption(String title, int iconRes) {
-            this.title = title;
-            this.iconRes = iconRes;
-        }
-    }
-    
-       // 🌟 ใส่ไว้ใน MainActivity.java เพื่อเป็นสะพานส่งข้อมูลต่อให้ ProjectTreeManager ครับน้า
     @Override
     protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        
-        // ส่งไม้ต่อให้ตัวจัดการไฟล์ประมวลผลทันที โค้ดใน MainActivity เลยยังคงสั้นและสะอาดเหมือนเดิมครับ
         if (requestCode == 2026 && projectTreeManager != null) {
             projectTreeManager.onActivityResult(requestCode, resultCode, data);
         }
     }
 
-/**
- * ฟังก์ชันสลับการแสดงผลหน้ากระดาษ: 
- * true = มีไฟล์เปิดอยู่ (แสดง CodeEditor, ซ่อนลายน้ำ)
- * false = หน้าจอว่างเปล่า (ซ่อน CodeEditor, แสดงสัญลักษณ์แทนแบบ AIDE)
- */
-public void setEditorActiveState(boolean isFileActive) {
-    runOnUiThread(() -> {
-        if (emptyStateView == null || codeEditor == null) return;
-        
-        if (isFileActive) {
-            emptyStateView.setVisibility(View.GONE);
-            codeEditor.setVisibility(View.VISIBLE);
-        } else {
-            codeEditor.setVisibility(View.GONE);
-            emptyStateView.setVisibility(View.VISIBLE);
-            if (tvFilePath != null) tvFilePath.setText("No file open");
-        }
-    });
-}
+    public void setEditorActiveState(boolean isFileActive) {
+        runOnUiThread(() -> {
+            if (emptyStateView == null || codeEditor == null) return;
+            if (isFileActive) {
+                emptyStateView.setVisibility(View.GONE);
+                codeEditor.setVisibility(View.VISIBLE);
+            } else {
+                codeEditor.setVisibility(View.GONE);
+                emptyStateView.setVisibility(View.VISIBLE);
+                if (tvFilePath != null) tvFilePath.setText("No file open");
+            }
+        });
+    }
 
-    // 🤖 สะพานเชื่อมคำสั่งจากปุ่มใน WebView เข้ามาทำงานที่ CodeEditor บน Android
-    // 🤖 สะพานเชื่อมตัวอัปเกรด รองรับทั้ง Copy และ วางโค้ด
+    // 🤖 สะพานเชื่อมแบบรวมศูนย์ตัวจริงตัวเดียว (ล้างตัวซ้ำซ้อนออกทั้งหมดเพื่อความเสถียร)
     public class WebAppInterface {
         Context mContext;
 
-        WebAppInterface(Context c) {
+        public WebAppInterface(Context c) {
             mContext = c;
         }
 
-        // ปุ่ม 1: สำหรับคัดลอกโค้ดลงคลิปบอร์ด Android
+        // ปุ่ม 1: คัดลอกข้อความซอร์สโค้ดธรรมดาลงคลิปบอร์ด Android
         @android.webkit.JavascriptInterface
         public void copyToSystemClipboard(final String text) {
             runOnUiThread(() -> {
-                android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                android.content.ClipboardManager clipboard = (android.content.ClipboardManager) mContext.getSystemService(Context.CLIPBOARD_SERVICE);
                 android.content.ClipData clip = android.content.ClipData.newPlainText("MiniStudioCode", text);
                 if (clipboard != null) {
                     clipboard.setPrimaryClip(clip);
@@ -911,29 +900,31 @@ public void setEditorActiveState(boolean isFileActive) {
             });
         }
 
-        // ปุ่ม 2: สำหรับเอาโค้ดไปใส่ใน Editor
+        // ปุ่ม 2: วางโค้ดพุ่งเข้าหา Sora CodeEditor โดยตรง
         @android.webkit.JavascriptInterface
         public void insertCodeIntoEditor(final String codeFromAi) {
             runOnUiThread(() -> {
                 if (codeEditor != null) {
                     codeEditor.setText(codeFromAi);
+                    
+                    // ปิดเสียง AI ทันทีเมื่อกดยอมรับโค้ดไปใช้งาน
+                    if (aiLayoutAnalyzer != null) {
+                        aiLayoutAnalyzer.stopSpeaking();
+                    }
                     if (fullPanelDialog != null && fullPanelDialog.isShowing()) {
                         fullPanelDialog.dismiss();
                     }
-                    showToast("✨ อัปเดตโค้ดลงใน Editor เรียบร้อยแล้วครับน้า!");
+                    showToast("✨ นำโค้ดเข้าสู่หน้าแก้ไขเรียบร้อยแล้วครับน้า!");
                 }
             });
         }
     }
 
-    
     @Override
     protected void onDestroy() {
-        
         if (aiLayoutAnalyzer != null) {
-            aiLayoutAnalyzer.shutdown(); // 👈 แปะเพิ่มแค่บรรทัดพวกนี้เข้าไปครับน้า
+            aiLayoutAnalyzer.shutdown(); 
         }
         super.onDestroy();
     }
 }
-

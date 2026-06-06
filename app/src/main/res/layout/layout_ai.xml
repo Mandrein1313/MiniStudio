@@ -25,6 +25,19 @@
         android:paddingBottom="16dp"
         android:gravity="center_vertical">
 
+        <ImageView
+            android:id="@+id/btnStopAiVoice"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginRight="8dp"
+            android:padding="10dp"
+            android:src="@android:drawable/ic_lock_silent_mode_off"
+            android:tint="#A0A0A0"
+            android:background="@drawable/bg_ai_input"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="หยุดเสียงพูด" />
+
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
