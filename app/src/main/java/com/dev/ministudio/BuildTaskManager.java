@@ -192,18 +192,22 @@ public class BuildTaskManager {
                         BufferedReader logReader = new BufferedReader(new InputStreamReader(logConn.getInputStream()));
                         final BuildSummaryAnalyzer analyzer = (externalAnalyzer != null) ? externalAnalyzer : new BuildSummaryAnalyzer();
                         
+                        // 🛠️ แก้ไข: ขณะที่ดึงประวัติแกะ Log ทีละบรรทัด เราจะซ่อนไม่ให้สตรีม Log สดพ่นซ้ำออกทางจอ Console 
+                        // โดยเปลี่ยน Callback เป็นดึงวิเคราะห์เข้าหน่วยจำอย่างเดียว (ไม่สั่งทำงานส่งพ่น Progress ออกหน้าจอซ้อนกันสองครั้งครับท่าน)
                         while ((line = logReader.readLine()) != null) {
-                            boolean shouldStop = analyzer.analyzeLine(line, COLOR_WARNING, (txt, col) -> sendProgress(txt, col));
+                            boolean shouldStop = analyzer.analyzeLine(line, COLOR_WARNING, (txt, col) -> {
+                                // เก็บบันทึกข้อมูลภายในเงียบ ๆ เพื่อความสะอาด ไม่ส่งพ่นออก Console สดตัวนี้ครับท่าน
+                            });
                             if (shouldStop) {
                                 break;
                             }
                         }
                         logReader.close();
 
-                        // พ่นสรุป Log ลงหน้าจอ Console ตามปกติ
+                        // พ่นรายงานสรุปผลการวิเคราะห์สีสวยงามรอบเดียว เน้น ๆ ตรงประเด็น
                         analyzer.printSummary((txt, col) -> sendProgress(txt, col));
 
-                        // 🌟 ไฮไลต์ระบบเชื่อมโยงอัจฉริยะ: สั่งยิงข้อมูลบั๊กเข้าท่อส่ง AI Fixer บนหน้าหลักโดยอัตโนมัติทันทีครับท่าน
+                        // สั่งยิงข้อมูลบั๊กเข้าท่อส่ง AI Fixer บนหน้าหลักโดยอัตโนมัติทันที
                         uiHandler.post(() -> {
                             if (context instanceof MainActivity) {
                                 MainActivity mainActivity = (MainActivity) context;
