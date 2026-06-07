@@ -364,7 +364,6 @@ public class MainActivity extends AppCompatActivity {
             etAiInput.setText("");
         }, 300);
     }
-    
     // 🌟 ระบบตรวจจับสกัดกั้นและแก้บั๊กอัจฉริยะ (AI Error Fixer Pipeline) สำหรับระบบที่ 1 ตัวใหม่ล่าสุดครับท่าน
     public void triggerAiErrorFixerPipeline() {
         if (codeEditor == null || currentProject == null) {
@@ -552,12 +551,10 @@ public class MainActivity extends AppCompatActivity {
                         String lowerText = text != null ? text.toLowerCase() : "";
                         boolean isErrorLine = lowerText.contains("error:") || lowerText.contains("failed:") || color == Color.RED;
 
-                        // 🛠️ แก้ไขหลัก: กรองประวัติการสแกนในสตรีมสดไม่ให้สั่งปริ้นสดซ้ำกันจนลายตา 
-                        // โดยเราจะดูดบันทึกเก็บวิเคราะห์ใน analyzer อย่างเงียบ ๆ เพื่อประมวลสรุปผลรอบเดียวท้ายบรรทัดครับท่าน
                         boolean hasFailed = analyzer.analyzeLine(text, color, new BuildSummaryAnalyzer.LogOutputListener() {
                             @Override
                             public void onAppendLog(String logText, int logColor) {
-                                // เก็บค่าวิเคราะห์เงียบ ๆ ในส่วนแกนกลาง ไม่พ่นสตรีมสดซ้ำตัวนี้ครับท่าน
+                                appendLog(logText, logColor); 
                             }
                         });
 
@@ -571,7 +568,6 @@ public class MainActivity extends AppCompatActivity {
                             return;
                         }
 
-                        // แสดงเฉพาะ Log สตรีมจริงที่มาจากหน้าแท็บ GitHub Workflow เพื่อดูความก้าวหน้า
                         if (color == Color.GREEN || lowerText.contains("success")) {
                             appendLog(text, TerminalColor.SUGGEST_GREEN); 
                         } else if (color == Color.YELLOW) {
@@ -610,7 +606,6 @@ public class MainActivity extends AppCompatActivity {
                             showToast("กระบวนการทำงานล้มเหลว");
                             appendLog("\n##[error] การทำงานหยุดช้าลงเนื่องจากการปิดตัวของระบบบิวด์อย่างกะทันหัน", TerminalColor.ERROR_RED);
                             
-                            // 🛠️ ดึงพิกัดรายงานความผิดพลาดที่สกัดสรุปเสร็จสมบูรณ์เรียบร้อยแล้วมาพ่นเป็นข้อความสีเด่นงาม ๆ รอบเดียวครับ
                             if (analyzer != null) {
                                 analyzer.printSummary(new BuildSummaryAnalyzer.LogOutputListener() {
                                     @Override
@@ -634,7 +629,7 @@ public class MainActivity extends AppCompatActivity {
 
             String githubToken = savedToken; 
             String projectName = currentProject.getProjectName();
-            String repoUrl = "[https://github.com/](https://github.com/)" + username + "/" + projectName + ".git";
+            String repoUrl = "https://github.com/" + username + "/" + projectName + ".git";
             String packageName = "com.dev.ministudio"; 
 
             buildTask.startCloudBuild(githubToken, repoUrl, projectName, packageName); 
