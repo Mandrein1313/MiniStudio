@@ -1,64 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/consoleScrollView"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#1E1E1E">
+    android:background="#1E1E1E"
+    android:fillViewport="true"
+    android:clipToPadding="false">
 
-    <ScrollView
-        android:id="@+id/consoleScrollView"
+    <TextView
+        android:id="@+id/tvConsole"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:fillViewport="true"
-        android:clipToPadding="false">
-
-        <TextView
-            android:id="@+id/tvConsole"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingLeft="12dp"
-            android:paddingRight="12dp"
-            android:paddingTop="12dp"
-            android:paddingBottom="90dp"
-            android:text="> Ready to build..."
-            android:textColor="#FFFFFF"
-            android:textSize="12sp"
-            android:fontFamily="monospace"
-            android:lineSpacingMultiplier="1.2" />
-    </ScrollView>
-
-    <LinearLayout
-        android:id="@+id/btnAiFixer"
-        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentRight="true"
-        android:layout_marginRight="20dp"
-        android:layout_marginBottom="25dp"
-        android:background="@android:color/transparent"
-        android:orientation="horizontal"
-        android:clickable="true"
-        android:focusable="true">
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="80dp"
+        android:text="> Ready to build..."
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:fontFamily="monospace"
+        android:lineSpacingMultiplier="1.2" />
 
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="44dp"
-            android:background="#2A1B40"
-            android:gravity="center"
-            android:paddingLeft="16dp"
-            android:paddingRight="16dp"
-            android:elevation="6dp"
-            android:outlineProvider="background">
-            
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🛠️ แก้ไขบั๊กด้วย AI"
-                android:textColor="#BB86FC"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"/>
-        </LinearLayout>
-    </LinearLayout>
-
-</RelativeLayout>
+</ScrollView>
