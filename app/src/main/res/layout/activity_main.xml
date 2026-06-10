@@ -196,13 +196,58 @@
                 android:id="@+id/codeEditor"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:visibility="gone" /> <FrameLayout
+                android:visibility="gone" /> 
+                
+            <FrameLayout
                 android:id="@+id/previewContainer"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:background="#1E1E1E"
                 android:visibility="gone" />
         </FrameLayout>
+
+        <LinearLayout
+            android:id="@+id/aiSuggestionBar"
+            android:layout_width="match_parent"
+            android:layout_height="38dp"
+            android:background="#2D203D"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:visibility="gone"> <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="✨ AI แนะนำ: "
+                android:textColor="#BB86FC"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvAiSuggestionText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="..."
+                android:textColor="#A5A5A5"
+                android:textSize="12sp"
+                android:fontFamily="monospace" />
+
+            <Button
+                android:id="@+id/btnAcceptAiSuggestion"
+                android:layout_width="wrap_content"
+                android:layout_height="28dp"
+                android:backgroundTint="#BB86FC"
+                android:text="แทรกโค้ด"
+                android:textColor="#121212"
+                android:textSize="10sp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                style="@style/Widget.MaterialComponents.Button.UnelevatedButton" />
+        </LinearLayout>
 
         <HorizontalScrollView
             android:layout_width="match_parent"
@@ -244,6 +289,7 @@
                     app:tabTextColor="#8C8C8C"
                     app:tabSelectedTextColor="#FFFFFF"
                     app:tabIndicatorColor="#BB86FC"
+                    app:tabIndicatorHeight="2dp"
                     app:tabMode="fixed" />
 
                 <View

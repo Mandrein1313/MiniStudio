@@ -107,6 +107,11 @@ public class MainActivity extends AppCompatActivity {
     private String chatHistory = "";
     // Views ตัวใหม่เพิ่มเติม
     private LinearLayout emptyStateView;
+    private AiAutoCompleteManager aiAutoCompleteManager;
+   private LinearLayout aiSuggestionBar;
+   private TextView tvAiSuggestionText;
+   private String lastReceivedSuggestion = "";
+
 
 
     @Override
@@ -170,10 +175,44 @@ public class MainActivity extends AppCompatActivity {
         codeEditor.setUndoEnabled(true); 
         codeEditor.setHighlightCurrentBlock(true); 
 
+        // ===================================================================
+        // ✨ [เพิ่มใหม่]: ค้นหา View แผงคำแนะนำ AI จาก XML และผูกตัวจัดการ
+        // ===================================================================
+        aiSuggestionBar = findViewById(R.id.aiSuggestionBar);
+        tvAiSuggestionText = findViewById(R.id.tvAiSuggestionText);
+        Button btnAcceptAi = findViewById(R.id.btnAcceptAiSuggestion);
+
+        // เรียกตื่นตัวจัดการเดาคำศัพท์อัจฉริยะ
+        aiAutoCompleteManager = new AiAutoCompleteManager(this, codeEditor, aiLayoutAnalyzer);
+
+        // ปุ่มกดเพื่อสวมโค้ดแนะนำลงหน้าจอแก้ไขตัวจริง
+        if (btnAcceptAi != null) {
+            btnAcceptAi.setOnClickListener(v -> {
+                if (codeEditor != null && !lastReceivedSuggestion.isEmpty()) {
+                    int line = codeEditor.getCursor().getLeftLine();
+                    int column = codeEditor.getCursor().getLeftColumn();
+                    
+                    // วางโค้ดแนะนำของ AI พุ่งตรงเข้าจุดกระพริบเคอร์เซอร์ทันที
+                    codeEditor.getText().insert(line, column, lastReceivedSuggestion);
+                    
+                    // วางเสร็จล้างแผงประจุข้อมูล และซ่อนตัวลงไปอย่างนุ่มนวล
+                    lastReceivedSuggestion = "";
+                    if (aiSuggestionBar != null) {
+                        aiSuggestionBar.setVisibility(View.GONE);
+                    }
+                    showToast("✨ เติมโค้ดสำเร็จ!");
+                }
+            });
+        }
+
+        // ===================================================================
+        // 🛠️ [ปรับปรุง]: ควบรวมสตรีมตรวจจับการพิมพ์ (Auto-Save + AI Auto-Complete)
+        // ===================================================================
         codeEditor.subscribeEvent(ContentChangeEvent.class, (event, unsubscribe) -> {
             tvSaveStatus.setText("Editing...");
             tvSaveStatus.setTextColor(android.graphics.Color.parseColor("#FFB74D"));
 
+            // 1. ระบบออโต้เซฟเดิมของน้า
             autoSaveHandler.removeCallbacks(saveRunnable);
             saveRunnable = () -> {
                 saveFile();
@@ -181,8 +220,29 @@ public class MainActivity extends AppCompatActivity {
                 tvSaveStatus.setTextColor(android.graphics.Color.parseColor("#4CAF50"));
             };
             autoSaveHandler.postDelayed(saveRunnable, 1500);
+
+            // 2. 🔥 [ระบบใหม่]: สั่งให้ AI วิเคราะห์คำศัพท์ต่อท้ายแบบเบื้องหลัง
+            if (codeEditor.getCursor() != null && aiAutoCompleteManager != null) {
+                String fullText = codeEditor.getText().toString();
+                int curLine = codeEditor.getCursor().getLeftLine();
+                int curCol = codeEditor.getCursor().getLeftColumn();
+
+                aiAutoCompleteManager.onTextChanged(fullText, curLine, curCol, suggestionText -> {
+                    // เมื่อ AI วิเคราะห์และตอบกลับมาเรียบร้อย ให้เด้งแผงขึ้นมาแสดงผลทันที
+                    runOnUiThread(() -> {
+                        lastReceivedSuggestion = suggestionText;
+                        if (tvAiSuggestionText != null) {
+                            tvAiSuggestionText.setText(suggestionText);
+                        }
+                        if (aiSuggestionBar != null) {
+                            aiSuggestionBar.setVisibility(View.VISIBLE);
+                        }
+                    });
+                });
+            }
         });
 
+        // โครงสร้างดึงข้อมูลโปรเจกต์เดิมของน้าทำงานต่อไปปกติ...
         String projectName = getIntent().getStringExtra("projectName");
         if (projectName != null) {
             String rootPath = "/sdcard/MiniStudio/" + projectName;
@@ -197,6 +257,7 @@ public class MainActivity extends AppCompatActivity {
             setEditorActiveState(false);
         }
     }
+
 
     // 🌟 ฟังก์ชันเปิดหน้าต่าง Dialog คอนโซลแบบเต็มหน้าจอ (เวอร์ชันแก้ไขให้เห็น Status Bar + ดักปิดเสียง AI)
     private void showFullPanelDialog(int initialTabPosition) {
