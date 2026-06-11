@@ -24,17 +24,15 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingEnd="16dp">
-
+                android:padding="8dp">
                 <TextView
                     android:id="@+id/tvProjectTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="MiniStudio"
                     android:textColor="#FFFFFF"
-                    android:textSize="18sp"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
-
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -46,7 +44,7 @@
                         android:layout_weight="1"
                         android:text="No file open"
                         android:textColor="#8C8C8C"
-                        android:textSize="12sp"
+                        android:textSize="11sp"
                         android:maxLines="1"
                         android:ellipsize="start" />
                     <TextView
@@ -55,7 +53,7 @@
                         android:layout_height="wrap_content"
                         android:text="Saved"
                         android:textColor="#4CAF50"
-                        android:textSize="12sp"
+                        android:textSize="11sp"
                         android:layout_marginStart="8dp" />
                 </LinearLayout>
             </LinearLayout>
@@ -76,18 +74,11 @@
             android:background="#2D2D2D"
             android:padding="8dp"
             android:visibility="gone">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
                 <EditText android:id="@+id/etFind" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="ค้นหาคำ..." android:textColor="#FFFFFF" android:textColorHint="#707070" android:textSize="14sp" />
                 <Button android:id="@+id/btnNext" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ถัดไป" android:textSize="12sp" />
             </LinearLayout>
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="4dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="4dp">
                 <EditText android:id="@+id/etReplace" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="แทนที่ด้วย..." android:textColor="#FFFFFF" android:textColorHint="#707070" android:textSize="14sp" />
                 <Button android:id="@+id/btnReplace" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="แทนที่" android:textSize="12sp" />
             </LinearLayout>
@@ -98,17 +89,14 @@
             android:layout_height="0dp"
             android:layout_weight="1"
             android:background="#1E1E1E">
-            
             <LinearLayout android:id="@+id/emptyStateView" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:orientation="vertical">
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Don't open files" android:textColor="#8C8C8C" android:textSize="18sp" />
             </LinearLayout>
-
             <io.github.rosemoe.sora.widget.CodeEditor
                 android:id="@+id/codeEditor"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:visibility="gone" /> 
-                
             <FrameLayout
                 android:id="@+id/previewContainer"
                 android:layout_width="match_parent"
@@ -154,7 +142,35 @@
             android:orientation="vertical"
             android:background="#1E1E1E"
             android:visibility="gone">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="35dp"
+                android:orientation="horizontal"
+                android:background="#2D2D2D"
+                android:gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
+                <com.google.android.material.tabs.TabLayout
+                    android:id="@+id/consoleFilterTabs"
+                    android:layout_width="160dp"
+                    android:layout_height="match_parent"
+                    android:background="#2D2D2D"
+                    app:tabTextColor="#8C8C8C"
+                    app:tabSelectedTextColor="#FFFFFF"
+                    app:tabIndicatorColor="#BB86FC"
+                    app:tabIndicatorHeight="2dp" />
+                <View android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+                <ImageButton android:id="@+id/btnConsoleScrollDown" android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/arrow_down_float" app:tint="#FFFFFF" />
+                <ImageButton android:id="@+id/btnConsoleClear" android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_menu_close_clear_cancel" app:tint="#FFFFFF" />
+                <ImageButton android:id="@+id/btnToggleExpand" android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_menu_compass" app:tint="#FFB74D" />
+                <ImageButton android:id="@+id/btnCloseConsole" android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_menu_delete" app:tint="#FF5252" />
             </LinearLayout>
+            <androidx.viewpager2.widget.ViewPager2
+                android:id="@+id/viewPager"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+        </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvErrorPanel"
@@ -162,7 +178,6 @@
             android:layout_height="wrap_content"
             android:background="#2D1F1F"
             android:visibility="gone" />
-
     </LinearLayout>
 
     <com.google.android.material.navigation.NavigationView
@@ -170,11 +185,6 @@
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:background="#252526">
-        <ListView
-            android:id="@+id/treeView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:padding="8dp" />
+        <ListView android:id="@+id/treeView" android:layout_width="match_parent" android:layout_height="match_parent" />
     </com.google.android.material.navigation.NavigationView>
-
 </androidx.drawerlayout.widget.DrawerLayout>
