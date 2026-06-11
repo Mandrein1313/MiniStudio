@@ -298,13 +298,13 @@
                     android:layout_height="match_parent"
                     android:layout_weight="1" />
 
-                <ImageButton
-                    android:id="@+id/btnConsoleScrollDown"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:src="@android:drawable/absolute_layout"
-                    app:tint="#4CAF50" />
+ <ImageButton
+    android:id="@+id/btnConsoleScrollDown"
+    android:layout_width="32dp"
+    android:layout_height="32dp"
+    android:background="?attr/selectableItemBackgroundBorderless"
+    android:src="@android:drawable/arrow_down_float"  app:tint="#FFFFFF" />
+
                 
                 <ImageButton
                     android:id="@+id/btnConsoleClear"
