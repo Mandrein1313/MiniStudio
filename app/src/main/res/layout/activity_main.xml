@@ -107,15 +107,15 @@
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"
-            android:background="#1E1E1E">
+            android:layout_weight="1">
 
             <LinearLayout
                 android:id="@+id/emptyStateView"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
                 android:orientation="vertical"
+                android:gravity="center"
                 android:visibility="visible">
 
                 <LinearLayout
@@ -298,13 +298,13 @@
                     android:layout_height="match_parent"
                     android:layout_weight="1" />
 
-                <ImageButton
-                    android:id="@+id/btnConsoleScrollDown"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:src="@android:drawable/arrow_down_float"
-                    app:tint="#FFFFFF" />
+ <ImageButton
+    android:id="@+id/btnConsoleScrollDown"
+    android:layout_width="32dp"
+    android:layout_height="32dp"
+    android:background="?attr/selectableItemBackgroundBorderless"
+    android:src="@android:drawable/arrow_down_float"  app:tint="#FFFFFF" />
+
                 
                 <ImageButton
                     android:id="@+id/btnConsoleClear"

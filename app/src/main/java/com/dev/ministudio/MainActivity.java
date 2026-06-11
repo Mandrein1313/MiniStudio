@@ -745,30 +745,12 @@ public class MainActivity extends AppCompatActivity {
         startActivityForResult(android.content.Intent.createChooser(intent, "เลือกไฟล์ที่จะนำเข้า"), PICK_FILE_REQUEST_CODE);
     }
 
-public void openFile(File file) {
-    if (file == null) return;
-
-    // 1. สั่งเปิดไฟล์ผ่าน Manager ก่อน
-    if (projectTreeManager != null) {
-        projectTreeManager.openFile(file);
-    }
-
-    // 2. บังคับอัปเดต UI ทันทีโดยไม่ต้องรอ Callback ที่อาจช้า
-    updateFilePathStatus(file);
-    
-    // 3. สั่งให้ Editor พร้อมทำงานและ Visible ทันที
-    runOnUiThread(() -> {
-        if (codeEditor != null) {
-            // ดึงไฟล์มาโชว์ใน editor (ถ้าคลาส projectTreeManager ไม่ได้ทำไว้)
-            // ตัวอย่างเช่น: codeEditor.setText(FileUtils.read(file));
-            
-            if (codeEditor.getVisibility() != View.VISIBLE) {
-                setEditorActiveState(true);
-            }
+    public void openFile(File file) {
+        if (projectTreeManager != null) {
+            projectTreeManager.openFile(file);
+            setEditorActiveState(true); 
         }
-    });
-}
-
+    }
 
     public void saveFile() {
         if (projectTreeManager != null) {
@@ -787,104 +769,222 @@ public void openFile(File file) {
         });
     }
 
-private void setupShortcutBar() {
-    LinearLayout shortcutBar = findViewById(R.id.shortcutBar);
-    if (shortcutBar == null) return;
-    shortcutBar.removeAllViews();
+     private void setupShortcutBar() { 
+        LinearLayout shortcutBar = findViewById(R.id.shortcutBar); 
+        if (shortcutBar == null) return;
+        shortcutBar.removeAllViews();
 
-    float density = getResources().getDisplayMetrics().density;
-    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+        String[] shortcuts = {
+            "↩", "↪", "{", "}", "[", "]", "(", ")", "<", ">", ";"
+        };
+
+        float density = getResources().getDisplayMetrics().density;
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT, (int) (36 * density)
-    );
-    params.setMargins((int) (3 * density), (int) (2 * density), (int) (3 * density), (int) (2 * density));
+        );
+        params.setMargins((int)(3 * density), (int)(2 * density), (int)(3 * density), (int)(2 * density));
 
-    // 1. ปุ่ม Undo & Redo
-    shortcutBar.addView(createButton("↶", params, v -> { if (codeEditor != null) codeEditor.undo(); }, "#B0B3B8", "#2D2D2D"));
-    shortcutBar.addView(createButton("↷", params, v -> { if (codeEditor != null) codeEditor.redo(); }, "#B0B3B8", "#2D2D2D"));
+        // 1. วาดปุ่มสัญลักษณ์ทางเลือกป้อนคำสั่งลัดทั่วไป
+        for (final String shortcut : shortcuts) {
+            TextView btn = new TextView(this);
+            btn.setText(shortcut);
+            btn.setTextSize(15); 
+            btn.setGravity(Gravity.CENTER);
+            btn.setPadding((int)(10 * density), 0, (int)(10 * density), 0);
+            btn.setTextColor(Color.parseColor("#B0B3B8")); 
 
-    // 2. ปุ่มสัญลักษณ์ทั่วไป
-    String[] shortcuts = { "{", "}", "[", "]", "(", ")", "<", ">", ";"};
-    for (String symbol : shortcuts) {
-        shortcutBar.addView(createButton(symbol, params, v -> {
-            if (codeEditor != null && codeEditor.getCursor() != null) {
-                codeEditor.getText().insert(codeEditor.getCursor().getLeftLine(), codeEditor.getCursor().getLeftColumn(), symbol);
+            GradientDrawable shape = new GradientDrawable();
+            shape.setCornerRadius(6 * density); 
+            shape.setColor(Color.parseColor("#2D2D2D")); 
+            btn.setBackground(shape);
+            btn.setLayoutParams(params);
+
+            btn.setOnClickListener(v -> {
+                if (codeEditor.getCursor() != null) {
+                    int line = codeEditor.getCursor().getLeftLine();
+                    int column = codeEditor.getCursor().getLeftColumn();
+                    codeEditor.getText().insert(line, column, shortcut);
+                }
+            });
+            shortcutBar.addView(btn);
+        }
+
+        // 2. 🤖 ปุ่มลัดสั่งวิเคราะห์แกะโครงสร้างซอร์สโค้ด (ถาม AI) สีม่วงพาสเทลเดิมของน้า
+        TextView btnAskAI = new TextView(this);
+        btnAskAI.setText("🤖 ถาม AI");
+        btnAskAI.setTextSize(14);
+        btnAskAI.setGravity(Gravity.CENTER);
+        btnAskAI.setPadding((int)(10 * density), 0, (int)(10 * density), 0);
+        btnAskAI.setTextColor(Color.parseColor("#BB86FC")); 
+
+        GradientDrawable aiShape = new GradientDrawable();
+        aiShape.setCornerRadius(6 * density);
+        aiShape.setColor(Color.parseColor("#251F35")); 
+        btnAskAI.setBackground(aiShape);
+        btnAskAI.setLayoutParams(params);
+
+        btnAskAI.setOnClickListener(v -> {
+            if (codeEditor == null || currentProject == null) return;
+
+            showFullPanelDialog(1); 
+
+            java.io.File currentFile = currentProject.getCurrentOpenFile();
+            final String fileName = (currentFile != null) ? currentFile.getName() : "UnknownFile.java";
+            final String currentCode = codeEditor.getText().toString();
+
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
+                    @Override
+                    public void onStart() {
+                        runOnUiThread(() -> {
+                            try {
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
+                                    String tempHtml = AiHtmlFormatter.convertMarkdownToHtml("🤖 *MiniStudio AI กำลังวิเคราะห์โค้ด...*");
+                                    currentWeb.loadDataWithBaseURL(null, tempHtml, "text/html", "utf-8", null);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
+                    }
+
+                    @Override
+                    public void onSuccess(final android.text.SpannableString formattedResult) {
+                        runOnUiThread(() -> {
+                            try {
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                chatHistory += "\n\n🤖 **ผลวิเคราะห์โค้ด (" + fileName + "):**\n" + formattedResult.toString();
+                                if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
+                                    String htmlResult = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                                    currentWeb.loadDataWithBaseURL(null, htmlResult, "text/html", "utf-8", null);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
+                    }
+
+                    @Override
+                    public void onError(final String errorMessage) {
+                        runOnUiThread(() -> {
+                            try {
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                chatHistory += "\n\n❌ **AI เกิดข้อผิดพลาดในการวิเคราะห์:** " + errorMessage;
+                                if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
+                                    String htmlError = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                                    currentWeb.loadDataWithBaseURL(null, htmlError, "text/html", "utf-8", null);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
+                    }
+                });
+            }, 500); 
+        });
+
+        shortcutBar.addView(btnAskAI); 
+
+        // 🪄 3. [เพิ่มใหม่]: ปุ่มลัดตรวจและเขียนปรับแต่งโค้ดระดับสูงด้วย AI (Optimize) สีเขียวพาสเทล
+        TextView btnOptimizeCode = new TextView(this);
+        btnOptimizeCode.setText("🪄 ปรับปรุงโค้ด");
+        btnOptimizeCode.setTextSize(14);
+        btnOptimizeCode.setGravity(Gravity.CENTER);
+        btnOptimizeCode.setPadding((int)(10 * density), 0, (int)(10 * density), 0);
+        btnOptimizeCode.setTextColor(Color.parseColor("#81C784")); 
+
+        GradientDrawable optShape = new GradientDrawable();
+        optShape.setCornerRadius(6 * density);
+        optShape.setColor(Color.parseColor("#1C2A20")); // ย้อมสีโทนมืดเขียวพาสเทลคุมโทนพรีเมี่ยม
+        btnOptimizeCode.setBackground(optShape);
+        btnOptimizeCode.setLayoutParams(params);
+
+        btnOptimizeCode.setOnClickListener(v -> {
+            if (codeEditor == null || currentProject == null) return;
+            
+            java.io.File currentFile = currentProject.getCurrentOpenFile();
+            if (currentFile == null) {
+                showToast("⚠️ กรุณาเปิดไฟล์ที่ต้องการปรับปรุงก่อนครับ");
+                return;
             }
-        }, "#B0B3B8", "#2D2D2D"));
+
+            // สั่งเบรกเสียง AI เก่าที่บ่นค้างอยู่ชั่วคราวก่อนเริ่มจัดวางหน้าต่าง
+            if (aiLayoutAnalyzer != null) aiLayoutAnalyzer.stopSpeaking();
+            showFullPanelDialog(1); // เปิดหน้าจอแสดงผล AI ทันที
+
+            final String fileName = currentFile.getName();
+            final String currentCode = codeEditor.getText().toString();
+
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                // สร้างคำสั่งกระตุ้นพลังจากคลาสจัดการระบบที่ 3 (CodeOptimizerManager)
+                String optimizePrompt = CodeOptimizerManager.createOptimizePrompt(fileName, currentCode);
+                
+                aiLayoutAnalyzer.askAi(optimizePrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
+                    @Override
+                    public void onStart() {
+                        runOnUiThread(() -> {
+                            try {
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
+                                    String tempHtml = AiHtmlFormatter.convertMarkdownToHtml("🤖 *กำลังสแกนวิเคราะห์ ค้นหาจุดกินแรมและเยิ่นเย้อเพื่อปรับปรุงโค้ดไฟล์ " + fileName + "...*");
+                                    currentWeb.loadDataWithBaseURL(null, tempHtml, "text/html", "utf-8", null);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
+                    }
+
+                    @Override
+                    public void onSuccess(final android.text.SpannableString formattedResult) {
+                        runOnUiThread(() -> {
+                            try {
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                chatHistory += "\n\n🤖 **[ผลลัพธ์การปรับปรุงประสิทธิภาพของไฟล์ (" + fileName + ")]:**\n" + formattedResult.toString();
+                                if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
+                                    String htmlResult = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                                    currentWeb.loadDataWithBaseURL(null, htmlResult, "text/html", "utf-8", null);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
+                    }
+
+                    @Override
+                    public void onError(final String errorMessage) {
+                        runOnUiThread(() -> {
+                            try {
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                chatHistory += "\n\n❌ **AI ปรับแต่งโค้ดเกิดข้อผิดพลาด:** " + errorMessage;
+                                if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
+                                    String htmlError = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                                    currentWeb.loadDataWithBaseURL(null, htmlError, "text/html", "utf-8", null);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
+                    }
+                });
+            }, 600); // ตั้งค่าหน่วง 600ms เพื่อให้แอนิเมชันสลับสเตตัสวาดวิวเสร็จเรียบร้อย
+        });
+
+        shortcutBar.addView(btnOptimizeCode); 
     }
-
-    // 3. ปุ่ม AI
-    shortcutBar.addView(createButton("🤖 ถาม AI", params, v -> handleAiAction(false), "#BB86FC", "#251F35"));
-    shortcutBar.addView(createButton("🪄 ปรับปรุง", params, v -> handleAiAction(true), "#81C784", "#1C2A20"));
-}
-
-// ฟังก์ชัน Helper สร้างปุ่ม (ลดความซ้ำซ้อน)
-private TextView createButton(String text, LinearLayout.LayoutParams params, View.OnClickListener listener, String textColor, String bgColor) {
-    float density = getResources().getDisplayMetrics().density;
-    TextView btn = new TextView(this);
-    btn.setText(text);
-    btn.setTextSize(14);
-    btn.setGravity(Gravity.CENTER);
-    btn.setPadding((int) (10 * density), 0, (int) (10 * density), 0);
-    btn.setTextColor(Color.parseColor(textColor));
-    btn.setLayoutParams(params);
-
-    GradientDrawable shape = new GradientDrawable();
-    shape.setCornerRadius(6 * density);
-    shape.setColor(Color.parseColor(bgColor));
-    btn.setBackground(shape);
-    btn.setOnClickListener(listener);
-    return btn;
-}
-
-// จัดการ Logic ของ AI
-private void handleAiAction(boolean isOptimize) {
-    if (codeEditor == null || currentProject == null) return;
-    java.io.File currentFile = currentProject.getCurrentOpenFile();
-    if (isOptimize && currentFile == null) {
-        showToast("⚠️ กรุณาเปิดไฟล์ที่ต้องการปรับปรุงก่อนครับ");
-        return;
-    }
-
-    if (aiLayoutAnalyzer != null) aiLayoutAnalyzer.stopSpeaking();
-    showFullPanelDialog(1);
-
-    String fileName = (currentFile != null) ? currentFile.getName() : "UnknownFile.java";
-    String code = codeEditor.getText().toString();
-    String prompt = isOptimize ? CodeOptimizerManager.createOptimizePrompt(fileName, code) : null;
-
-    updateAiOutput("🤖 *" + (isOptimize ? "กำลังสแกนวิเคราะห์เพื่อปรับปรุงโค้ด..." : "กำลังวิเคราะห์โค้ด...") + "*");
-
-    AiLayoutAnalyzer.OnAnalysisListener listener = new AiLayoutAnalyzer.OnAnalysisListener() {
-        @Override
-        public void onStart() {} // ส่วนแสดงผลถูกเรียกจากบรรทัด updateAiOutput ด้านบนแล้ว
-        @Override
-        public void onSuccess(android.text.SpannableString result) {
-            chatHistory += "\n\n🤖 **" + (isOptimize ? "ผลลัพธ์การปรับปรุง:" : "ผลวิเคราะห์:") + "**\n" + result.toString();
-            updateAiOutput(chatHistory);
-        }
-        @Override
-        public void onError(String error) {
-            chatHistory += "\n\n❌ **Error:** " + error;
-            updateAiOutput(chatHistory);
-        }
-    };
-
-    if (isOptimize) aiLayoutAnalyzer.askAi(prompt, listener);
-    else aiLayoutAnalyzer.analyzeCode(fileName, code, listener);
-}
-
-// ฟังก์ชันอัปเดตหน้าจอ WebView ที่ใช้ซ้ำได้
-private void updateAiOutput(String markdownText) {
-    runOnUiThread(() -> {
-        android.webkit.WebView web = dialogPanelAdapter.getWebAiOutput();
-        if (web != null) {
-            web.getSettings().setJavaScriptEnabled(true);
-            web.addJavascriptInterface(new WebAppInterface(this), "AndroidBridge");
-            web.loadDataWithBaseURL(null, AiHtmlFormatter.convertMarkdownToHtml(markdownText), "text/html", "utf-8", null);
-        }
-    });
-}
-
     private void findAndHighlight() {
         String query = etFind.getText().toString();
         String content = codeEditor.getText().toString();
@@ -975,18 +1075,8 @@ private void updateAiOutput(String markdownText) {
     }
 
     public void updateFilePathStatus(File file) {
-    if (tvFilePath != null && file != null) {
-        // ดึง Path เต็มๆ มาแสดงผล
-        String fullPath = file.getAbsolutePath();
-        
-        // ถ้าต้องการตัดส่วนของ SDCARD หรือ Root ออกเพื่อความสวยงาม
-        // สมมติว่าอยู่ใน /sdcard/MiniStudio/
-        String displayPath = fullPath.replace("/sdcard/", ""); 
-        
-        tvFilePath.setText(displayPath);
-        tvFilePath.setSelected(true); // เพิ่มให้ข้อความเลื่อนได้ถ้ามันยาวเกินหน้าจอ
+        if (tvFilePath != null && file != null) tvFilePath.setText(file.getName());
     }
-}
 
     public void showToast(final String message) {
         runOnUiThread(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show());
@@ -1106,39 +1196,34 @@ private void updateAiOutput(String markdownText) {
         }
         super.onDestroy();
     }
+// ฟังก์ชันกดปุ๊บ วาร์ปปั๊บ ไปยังตำแหน่งที่โค้ด Error (ฉบับปรับปรุงแก้อาการสัญลักษณ์หาย)
 public void jumpToErrorLocation(String fileName, int lineNumber) {
     runOnUiThread(() -> {
-        // 1. สั่งซ่อนแผงคอนโซล (เอาไว้ที่เดิมครับ)
+        // 1. สั่งซ่อนแผงคอนโซลลงไปก่อนเพื่อคืนพื้นที่ให้หน้าจอแก้ไขโค้ด
         View consolePanel = findViewById(R.id.consolePanel);
         if (consolePanel != null) consolePanel.setVisibility(View.GONE);
 
-        // 2. ค้นหาและเปิดไฟล์
+        // 2. ลอจิกการสั่งเปิดไฟล์ .java ที่พังขึ้นกระดาน (อิงตามระบบเปิดไฟล์หลักของน้า)
         if (projectTreeManager != null && currentProject != null) {
+            // เดินสายหาตำแหน่งไฟล์จริงในโปรเจกต์แล้วบังคับให้ระบบ Tab โหลดขึ้นมาทำงาน
             java.io.File fileToOpen = projectTreeManager.findFileInProject(currentProject.getRootPath(), fileName);
             if (fileToOpen != null && fileToOpen.exists()) {
-                openFile(fileToOpen); 
-                
-                // 🌟 จุดสำคัญ: ต้องใช้ postDelayed หรือ post เพื่อรอให้ Editor โหลดไฟล์เสร็จก่อนวาร์ป
-                codeEditor.post(() -> {
-                    int targetLine = Math.max(0, lineNumber - 1);
-                    
-                    // ปรับตำแหน่ง cursor และเลื่อนหน้าจอ
-                    codeEditor.getCursor().setLeft(targetLine, 0);
-                    codeEditor.getCursor().setRight(targetLine, 0);
-                    codeEditor.ensurePositionVisible(targetLine, 0);
-                    
-                    // เพิ่มการ Highlight บรรทัดที่พังให้เห็นชัดๆ (ถ้า Editor ของน้ารองรับ)
-                    codeEditor.setSelectionRegion(targetLine, 0, targetLine, 10); 
-                    
-                    showToast("🔍 วาร์ปมาบรรทัดที่ " + lineNumber + " แล้วครับน้า!");
-                });
-            } else {
-                showToast("❌ ไม่พบไฟล์ " + fileName);
+                openFile(fileToOpen); // ใช้ฟังก์ชันเปิดไฟล์หลักของน้า
             }
+        }
+
+        // 3. ปรับโค้ดคำสั่งวาร์ปเคอร์เซอร์ให้ตรงกับ Sora Editor API ของเครื่องน้าครับ
+        if (codeEditor != null) {
+            int targetLine = Math.max(0, lineNumber - 1);
+            // สั่งขยับตำแหน่งและเลื่อนหน้าจอฉบับตรงรุ่น
+            codeEditor.getCursor().setLeft(targetLine, 0);
+            codeEditor.getCursor().setRight(targetLine, 0);
+            codeEditor.ensurePositionVisible(targetLine, 0);
+            
+            showToast("🔍 วาร์ปมาบรรทัดที่ " + lineNumber + " ให้แล้วครับน้า!");
         }
     });
 }
-
 
 
 }
