@@ -1102,4 +1102,27 @@ public class MainActivity extends AppCompatActivity {
         }
         super.onDestroy();
     }
+    // ฟังก์ชันกดปุ๊บ วาร์ปปั๊บ ไปยังตำแหน่งที่โค้ด Error
+public void jumpToErrorLocation(String fileName, int lineNumber) {
+    runOnUiThread(() -> {
+        // 1. สั่งซ่อนแผงคอนโซลลงไปก่อนเพื่อคืนพื้นที่ให้หน้าจอแก้ไขโค้ด
+        View consolePanel = findViewById(R.id.consolePanel);
+        if (consolePanel != null) consolePanel.setVisibility(View.GONE);
+
+        // 2. เรียกใช้งานตัวจัดการไฟล์ของน้า สั่งให้เปิดไฟล์ตัวที่พังขึ้นมาแก้ไข
+        if (projectTreeManager != null) {
+            // ค้นหาตำแหน่งไฟล์จริงผ่านโครงสร้างต้นไม้ และเปิดไฟล์ขึ้นกระดาน
+            projectTreeManager.openFileByName(fileName);
+        }
+
+        // 3. สั่งให้ CodeEditor วาร์ปเคอร์เซอร์ไปบรรทัดนั้นและโฟกัสทันที (Sora Editor บรรทัดจะเริ่มนับจาก 0 ลอจิกเลยต้องลบ 1)
+        if (codeEditor != null) {
+            int targetLine = Math.max(0, lineNumber - 1);
+            codeEditor.getCursor().setSelection(targetLine, 0);
+            codeEditor.scrollToLine(targetLine);
+            showToast("🔍 วาร์ปมาบรรทัดที่ " + lineNumber + " ให้แล้วครับน้า!");
+        }
+    });
+}
+
 }
