@@ -215,7 +215,8 @@
             android:gravity="center_vertical"
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
-            android:visibility="gone"> <TextView
+            android:visibility="gone">
+            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="✨ AI แนะนำ: "
@@ -282,7 +283,7 @@
                 android:paddingEnd="8dp">
                 
                 <com.google.android.material.tabs.TabLayout
-                    android:id="@+id/tabLayout"
+                    android:id="@+id/consoleFilterTabs"
                     android:layout_width="160dp"
                     android:layout_height="match_parent"
                     android:background="#2D2D2D"
@@ -298,19 +299,21 @@
                     android:layout_weight="1" />
 
                 <ImageButton
-                    android:id="@+id/btnConsoleRun"
+                    android:id="@+id/btnConsoleScrollDown"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
-                    android:src="@android:drawable/ic_media_play"
+                    android:src="@android:drawable/absolute_layout"
                     app:tint="#4CAF50" />
+                
                 <ImageButton
-                    android:id="@+id/btnClearConsole"
+                    android:id="@+id/btnConsoleClear"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:src="@android:drawable/ic_menu_close_clear_cancel"
                     app:tint="#FFFFFF" />
+                
                 <ImageButton
                     android:id="@+id/btnToggleExpand"
                     android:layout_width="32dp"

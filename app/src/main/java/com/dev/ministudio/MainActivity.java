@@ -1102,27 +1102,34 @@ public class MainActivity extends AppCompatActivity {
         }
         super.onDestroy();
     }
-    // ฟังก์ชันกดปุ๊บ วาร์ปปั๊บ ไปยังตำแหน่งที่โค้ด Error
+// ฟังก์ชันกดปุ๊บ วาร์ปปั๊บ ไปยังตำแหน่งที่โค้ด Error (ฉบับปรับปรุงแก้อาการสัญลักษณ์หาย)
 public void jumpToErrorLocation(String fileName, int lineNumber) {
     runOnUiThread(() -> {
         // 1. สั่งซ่อนแผงคอนโซลลงไปก่อนเพื่อคืนพื้นที่ให้หน้าจอแก้ไขโค้ด
         View consolePanel = findViewById(R.id.consolePanel);
         if (consolePanel != null) consolePanel.setVisibility(View.GONE);
 
-        // 2. เรียกใช้งานตัวจัดการไฟล์ของน้า สั่งให้เปิดไฟล์ตัวที่พังขึ้นมาแก้ไข
-        if (projectTreeManager != null) {
-            // ค้นหาตำแหน่งไฟล์จริงผ่านโครงสร้างต้นไม้ และเปิดไฟล์ขึ้นกระดาน
-            projectTreeManager.openFileByName(fileName);
+        // 2. ลอจิกการสั่งเปิดไฟล์ .java ที่พังขึ้นกระดาน (อิงตามระบบเปิดไฟล์หลักของน้า)
+        if (projectTreeManager != null && currentProject != null) {
+            // เดินสายหาตำแหน่งไฟล์จริงในโปรเจกต์แล้วบังคับให้ระบบ Tab โหลดขึ้นมาทำงาน
+            java.io.File fileToOpen = projectTreeManager.findFileInProject(currentProject.getRootPath(), fileName);
+            if (fileToOpen != null && fileToOpen.exists()) {
+                openFile(fileToOpen); // ใช้ฟังก์ชันเปิดไฟล์หลักของน้า
+            }
         }
 
-        // 3. สั่งให้ CodeEditor วาร์ปเคอร์เซอร์ไปบรรทัดนั้นและโฟกัสทันที (Sora Editor บรรทัดจะเริ่มนับจาก 0 ลอจิกเลยต้องลบ 1)
+        // 3. ปรับโค้ดคำสั่งวาร์ปเคอร์เซอร์ให้ตรงกับ Sora Editor API ของเครื่องน้าครับ
         if (codeEditor != null) {
             int targetLine = Math.max(0, lineNumber - 1);
-            codeEditor.getCursor().setSelection(targetLine, 0);
-            codeEditor.scrollToLine(targetLine);
+            // สั่งขยับตำแหน่งและเลื่อนหน้าจอฉบับตรงรุ่น
+            codeEditor.getCursor().setLeft(targetLine, 0);
+            codeEditor.getCursor().setRight(targetLine, 0);
+            codeEditor.ensurePositionVisible(targetLine, 0);
+            
             showToast("🔍 วาร์ปมาบรรทัดที่ " + lineNumber + " ให้แล้วครับน้า!");
         }
     });
 }
+
 
 }

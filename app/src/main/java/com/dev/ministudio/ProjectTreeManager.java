@@ -245,6 +245,33 @@ public class ProjectTreeManager {
         }
     }
 
+    /**
+     * 🔍 [เพิ่มใหม่]: ตัวช่วยสแกนค้นหาไฟล์ตามชื่อ วิ่งเจาะลึกเข้าไปในทุก ๆ โฟลเดอร์ย่อย (BFS Pattern)
+     * เพื่อรับแรงกระแทกจากคำสั่งจิ้มวาร์ปหน้าแก้ไขโค้ดเมื่อพบ Error Link
+     */
+    public java.io.File findFileInProject(String rootPath, String targetFileName) {
+        java.io.File root = new java.io.File(rootPath);
+        if (!root.exists()) return null;
+        
+        java.util.Queue<java.io.File> queue = new java.util.LinkedList<>();
+        queue.add(root);
+        
+        while (!queue.isEmpty()) {
+            java.io.File current = queue.poll();
+            java.io.File[] files = current.listFiles();
+            if (files != null) {
+                for (java.io.File f : files) {
+                    if (f.isDirectory()) {
+                        queue.add(f);
+                    } else if (f.getName().equals(targetFileName)) {
+                        return f; // ค้นเจอเป้าหมาย ส่งข้อมูลพิกัดไฟล์กลับทันที!
+                    }
+                }
+            }
+        }
+        return null; // วิ่งหาจนทั่วแล้วไม่พบ
+    }
+
     public void openFile(File file) {
         if (file == null || !file.exists()) return;
         ProjectModel currentProject = activity.getCurrentProject();
