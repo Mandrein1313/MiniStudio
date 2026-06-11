@@ -26,16 +26,15 @@
             android:orientation="horizontal"
             android:background="#252526"
             android:padding="6dp">
-            <TextView
-                android:id="@+id/tvFilePath"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="No file open"
-                android:textColor="#8C8C8C"
-                android:textSize="12sp"
-                android:maxLines="1"
-                android:ellipsize="end" />
+         <TextView
+    android:id="@+id/tvFilePath"
+    android:singleLine="true"
+    android:ellipsize="marquee"
+    android:marqueeRepeatLimit="marquee_forever"
+    android:scrollHorizontally="true"
+    android:focusable="true"
+    android:focusableInTouchMode="true" />
+
             <TextView
                 android:id="@+id/tvSaveStatus"
                 android:layout_width="wrap_content"

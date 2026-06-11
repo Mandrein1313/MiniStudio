@@ -975,8 +975,18 @@ private void updateAiOutput(String markdownText) {
     }
 
     public void updateFilePathStatus(File file) {
-        if (tvFilePath != null && file != null) tvFilePath.setText(file.getName());
+    if (tvFilePath != null && file != null) {
+        // ดึง Path เต็มๆ มาแสดงผล
+        String fullPath = file.getAbsolutePath();
+        
+        // ถ้าต้องการตัดส่วนของ SDCARD หรือ Root ออกเพื่อความสวยงาม
+        // สมมติว่าอยู่ใน /sdcard/MiniStudio/
+        String displayPath = fullPath.replace("/sdcard/", ""); 
+        
+        tvFilePath.setText(displayPath);
+        tvFilePath.setSelected(true); // เพิ่มให้ข้อความเลื่อนได้ถ้ามันยาวเกินหน้าจอ
     }
+}
 
     public void showToast(final String message) {
         runOnUiThread(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show());
