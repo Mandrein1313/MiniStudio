@@ -769,7 +769,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void setupShortcutBar() { 
+     private void setupShortcutBar() { 
         LinearLayout shortcutBar = findViewById(R.id.shortcutBar); 
         if (shortcutBar == null) return;
         shortcutBar.removeAllViews();
@@ -784,6 +784,7 @@ public class MainActivity extends AppCompatActivity {
         );
         params.setMargins((int)(3 * density), (int)(2 * density), (int)(3 * density), (int)(2 * density));
 
+        // 1. วาดปุ่มสัญลักษณ์ทางเลือกป้อนคำสั่งลัดทั่วไป
         for (final String shortcut : shortcuts) {
             TextView btn = new TextView(this);
             btn.setText(shortcut);
@@ -808,6 +809,7 @@ public class MainActivity extends AppCompatActivity {
             shortcutBar.addView(btn);
         }
 
+        // 2. 🤖 ปุ่มลัดสั่งวิเคราะห์แกะโครงสร้างซอร์สโค้ด (ถาม AI) สีม่วงพาสเทลเดิมของน้า
         TextView btnAskAI = new TextView(this);
         btnAskAI.setText("🤖 ถาม AI");
         btnAskAI.setTextSize(14);
@@ -889,8 +891,100 @@ public class MainActivity extends AppCompatActivity {
         });
 
         shortcutBar.addView(btnAskAI); 
-    }
 
+        // 🪄 3. [เพิ่มใหม่]: ปุ่มลัดตรวจและเขียนปรับแต่งโค้ดระดับสูงด้วย AI (Optimize) สีเขียวพาสเทล
+        TextView btnOptimizeCode = new TextView(this);
+        btnOptimizeCode.setText("🪄 ปรับปรุงโค้ด");
+        btnOptimizeCode.setTextSize(14);
+        btnOptimizeCode.setGravity(Gravity.CENTER);
+        btnOptimizeCode.setPadding((int)(10 * density), 0, (int)(10 * density), 0);
+        btnOptimizeCode.setTextColor(Color.parseColor("#81C784")); 
+
+        GradientDrawable optShape = new GradientDrawable();
+        optShape.setCornerRadius(6 * density);
+        optShape.setColor(Color.parseColor("#1C2A20")); // ย้อมสีโทนมืดเขียวพาสเทลคุมโทนพรีเมี่ยม
+        btnOptimizeCode.setBackground(optShape);
+        btnOptimizeCode.setLayoutParams(params);
+
+        btnOptimizeCode.setOnClickListener(v -> {
+            if (codeEditor == null || currentProject == null) return;
+            
+            java.io.File currentFile = currentProject.getCurrentOpenFile();
+            if (currentFile == null) {
+                showToast("⚠️ กรุณาเปิดไฟล์ที่ต้องการปรับปรุงก่อนครับ");
+                return;
+            }
+
+            // สั่งเบรกเสียง AI เก่าที่บ่นค้างอยู่ชั่วคราวก่อนเริ่มจัดวางหน้าต่าง
+            if (aiLayoutAnalyzer != null) aiLayoutAnalyzer.stopSpeaking();
+            showFullPanelDialog(1); // เปิดหน้าจอแสดงผล AI ทันที
+
+            final String fileName = currentFile.getName();
+            final String currentCode = codeEditor.getText().toString();
+
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                // สร้างคำสั่งกระตุ้นพลังจากคลาสจัดการระบบที่ 3 (CodeOptimizerManager)
+                String optimizePrompt = CodeOptimizerManager.createOptimizePrompt(fileName, currentCode);
+                
+                aiLayoutAnalyzer.askAi(optimizePrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
+                    @Override
+                    public void onStart() {
+                        runOnUiThread(() -> {
+                            try {
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
+                                    String tempHtml = AiHtmlFormatter.convertMarkdownToHtml("🤖 *กำลังสแกนวิเคราะห์ ค้นหาจุดกินแรมและเยิ่นเย้อเพื่อปรับปรุงโค้ดไฟล์ " + fileName + "...*");
+                                    currentWeb.loadDataWithBaseURL(null, tempHtml, "text/html", "utf-8", null);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
+                    }
+
+                    @Override
+                    public void onSuccess(final android.text.SpannableString formattedResult) {
+                        runOnUiThread(() -> {
+                            try {
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                chatHistory += "\n\n🤖 **[ผลลัพธ์การปรับปรุงประสิทธิภาพของไฟล์ (" + fileName + ")]:**\n" + formattedResult.toString();
+                                if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
+                                    String htmlResult = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                                    currentWeb.loadDataWithBaseURL(null, htmlResult, "text/html", "utf-8", null);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
+                    }
+
+                    @Override
+                    public void onError(final String errorMessage) {
+                        runOnUiThread(() -> {
+                            try {
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                chatHistory += "\n\n❌ **AI ปรับแต่งโค้ดเกิดข้อผิดพลาด:** " + errorMessage;
+                                if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
+                                    String htmlError = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                                    currentWeb.loadDataWithBaseURL(null, htmlError, "text/html", "utf-8", null);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
+                    }
+                });
+            }, 600); // ตั้งค่าหน่วง 600ms เพื่อให้แอนิเมชันสลับสเตตัสวาดวิวเสร็จเรียบร้อย
+        });
+
+        shortcutBar.addView(btnOptimizeCode); 
+    }
     private void findAndHighlight() {
         String query = etFind.getText().toString();
         String content = codeEditor.getText().toString();

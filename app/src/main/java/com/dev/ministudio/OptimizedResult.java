@@ -1,8 +1,12 @@
 package com.dev.ministudio;
 
+/**
+ * 🪄 คลาสโมเดลเก็บข้อมูลผลลัพธ์การจัดแจงและปรับปรุงประสิทธิภาพซอร์สโค้ดจาก AI
+ * แยกแยะระหว่างตัวโค้ดใหม่ (ไม่มีตัวหนังสือปะปน) และคำอธิบายเชิงลึกภาษาไทย
+ */
 public class OptimizedResult {
-    public String updatedCode;   // โค้ดที่ AI ปรับปรุงแก้ไขให้สะอาดแล้ว
-    public String explanation;   // คำอธิบายภาษาไทยว่าทำไมถึงแก้ และแก้จุดไหนไปบ้าง
+    public String updatedCode;   // ซอร์สโค้ดฉบับปรับปรุงใหม่ทั้งหมดแบบสมบูรณ์
+    public String explanation;   // คำอธิบายภาษาไทยระบุรายละเอียดจุดแก้ไข
 
     public OptimizedResult(String updatedCode, String explanation) {
         this.updatedCode = updatedCode;
