@@ -272,45 +272,54 @@ public class ProjectTreeManager {
         return null; // วิ่งหาจนทั่วแล้วไม่พบ
     }
 
-    public void openFile(File file) {
-        if (file == null || !file.exists()) return;
-        ProjectModel currentProject = activity.getCurrentProject();
+public void openFile(File file) {
+    if (file == null || !file.exists()) return;
+    ProjectModel currentProject = activity.getCurrentProject();
 
-        try {
-            activity.getAutoSaveHandler().removeCallbacks(activity.getSaveRunnable());
+    try {
+        activity.getAutoSaveHandler().removeCallbacks(activity.getSaveRunnable());
 
-            if (currentProject != null) {
-                if (!currentProject.getOpenedFiles().contains(file)) {
-                    currentProject.getOpenedFiles().add(file);
-                }
-                currentProject.setCurrentOpenFile(file);
+        if (currentProject != null) {
+            if (!currentProject.getOpenedFiles().contains(file)) {
+                currentProject.getOpenedFiles().add(file);
             }
-
-            FileInputStream fis = new FileInputStream(file);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(fis, "UTF-8"));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line).append("\n");
-            }
-            reader.close();
-            
-            final String fileContent = sb.toString();
-
-            activity.runOnUiThread(() -> {
-                if (activity.getCodeEditor() != null) {
-                    activity.getCodeEditor().setText(fileContent);
-                    activity.getCodeEditor().setEditorLanguage(new JavaLanguage());
-                }
-                
-                activity.updateFilePathStatus(file);
-                if (activity.getTabAdapter() != null) activity.getTabAdapter().notifyDataSetChanged();
-            });
-
-        } catch (Exception e) {
-            e.printStackTrace();
+            currentProject.setCurrentOpenFile(file);
         }
+
+        // อ่านไฟล์
+        FileInputStream fis = new FileInputStream(file);
+        BufferedReader reader = new BufferedReader(new InputStreamReader(fis, "UTF-8"));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            sb.append(line).append("\n");
+        }
+        reader.close();
+        
+        final String fileContent = sb.toString();
+
+        // 🌟 แก้ไขตรงนี้: บังคับอัปเดตสถานะ UI ก่อน แล้วค่อยใส่ข้อความ
+        activity.runOnUiThread(() -> {
+            // 1. สั่งเปิดหน้าจอ Editor ทันที
+            activity.setEditorActiveState(true); 
+            
+            // 2. ใส่โค้ดลงไป
+            if (activity.getCodeEditor() != null) {
+                activity.getCodeEditor().setText(fileContent);
+                activity.getCodeEditor().setEditorLanguage(new JavaLanguage());
+                activity.getCodeEditor().invalidate(); // บังคับวาดใหม่
+            }
+            
+            // 3. อัปเดต Path และ Tab
+            activity.updateFilePathStatus(file);
+            if (activity.getTabAdapter() != null) activity.getTabAdapter().notifyDataSetChanged();
+        });
+
+    } catch (Exception e) {
+        e.printStackTrace();
     }
+}
+
 
     public void saveFile() {
         ProjectModel currentProject = activity.getCurrentProject();

@@ -745,12 +745,30 @@ public class MainActivity extends AppCompatActivity {
         startActivityForResult(android.content.Intent.createChooser(intent, "เลือกไฟล์ที่จะนำเข้า"), PICK_FILE_REQUEST_CODE);
     }
 
-    public void openFile(File file) {
-        if (projectTreeManager != null) {
-            projectTreeManager.openFile(file);
-            setEditorActiveState(true); 
-        }
+public void openFile(File file) {
+    if (file == null) return;
+
+    // 1. สั่งเปิดไฟล์ผ่าน Manager ก่อน
+    if (projectTreeManager != null) {
+        projectTreeManager.openFile(file);
     }
+
+    // 2. บังคับอัปเดต UI ทันทีโดยไม่ต้องรอ Callback ที่อาจช้า
+    updateFilePathStatus(file);
+    
+    // 3. สั่งให้ Editor พร้อมทำงานและ Visible ทันที
+    runOnUiThread(() -> {
+        if (codeEditor != null) {
+            // ดึงไฟล์มาโชว์ใน editor (ถ้าคลาส projectTreeManager ไม่ได้ทำไว้)
+            // ตัวอย่างเช่น: codeEditor.setText(FileUtils.read(file));
+            
+            if (codeEditor.getVisibility() != View.VISIBLE) {
+                setEditorActiveState(true);
+            }
+        }
+    });
+}
+
 
     public void saveFile() {
         if (projectTreeManager != null) {
