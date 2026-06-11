@@ -758,6 +758,17 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void appendLog(final String text, final int color) {
+        runOnUiThread(() -> {
+            if (dialogPanelAdapter != null) {
+                tvConsole = dialogPanelAdapter.getTvConsole();
+            }
+            if (tvConsole != null) {
+                appendColoredText(tvConsole, text + "\n", color);
+            }
+        });
+    }
+
 private void setupShortcutBar() { 
     LinearLayout shortcutBar = findViewById(R.id.shortcutBar); 
     if (shortcutBar == null) return;
@@ -773,7 +784,7 @@ private void setupShortcutBar() {
         "↩", "↪", "{", "}", "[", "]", "(", ")", "<", ">", ";"
     };
 
-    // 1. ปุ่มลัดสัญลักษณ์ทั่วไป + Undo / Redo
+    // 1. ปุ่มลัดสัญลักษณ์ทั่วไป
     for (final String shortcut : shortcuts) {
         TextView btn = new TextView(this);
         btn.setText(shortcut);
@@ -789,31 +800,16 @@ private void setupShortcutBar() {
         btn.setLayoutParams(params);
 
         btn.setOnClickListener(v -> {
-            if (codeEditor == null) return;
-
-            switch (shortcut) {
-                case "↩": // Undo
-                    performUndo();
-                    break;
-
-                case "↪": // Redo
-                    performRedo();
-                    break;
-
-                default:
-                    // ปุ่มลัดอื่นๆ
-                    if (codeEditor.getCursor() != null) {
-                        int line = codeEditor.getCursor().getLeftLine();
-                        int column = codeEditor.getCursor().getLeftColumn();
-                        codeEditor.getText().insert(line, column, shortcut);
-                    }
-                    break;
+            if (codeEditor.getCursor() != null) {
+                int line = codeEditor.getCursor().getLeftLine();
+                int column = codeEditor.getCursor().getLeftColumn();
+                codeEditor.getText().insert(line, column, shortcut);
             }
         });
         shortcutBar.addView(btn);
     }
 
-    // 2. 🤖 ปุ่มถาม AI (คงเดิม)
+    // 2. 🤖 ปุ่มถาม AI (วิเคราะห์โค้ด)
     TextView btnAskAI = new TextView(this);
     btnAskAI.setText("🤖 ถาม AI");
     btnAskAI.setTextSize(14);
@@ -896,7 +892,7 @@ private void setupShortcutBar() {
 
     shortcutBar.addView(btnAskAI); 
 
-    // 3. 🪄 ปุ่มปรับปรุงโค้ด
+    // 🪄 3. ปุ่มปรับปรุงโค้ด (เวอร์ชันใหม่ - ดีขึ้นมาก)
     TextView btnOptimizeCode = new TextView(this);
     btnOptimizeCode.setText("🪄 ปรับปรุงโค้ด");
     btnOptimizeCode.setTextSize(14);
@@ -924,7 +920,7 @@ private void setupShortcutBar() {
 
         final String fileName = currentFile.getName();
         final String currentCode = codeEditor.getText().toString();
-        final String originalCode = currentCode;
+        final String originalCode = currentCode; // เก็บไว้สำหรับ Undo / เปรียบเทียบ
 
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             String optimizePrompt = CodeOptimizerManager.createOptimizePrompt(fileName, currentCode);
@@ -965,6 +961,7 @@ private void setupShortcutBar() {
                                 currentWeb.loadDataWithBaseURL(null, htmlResult, "text/html", "utf-8", null);
                             }
 
+                            // แสดงปุ่มนำโค้ดไปใช้
                             if (!result.updatedCode.isEmpty()) {
                                 showApplyOptimizedCodeDialog(result.updatedCode, originalCode, fileName);
                             } else {
@@ -1000,47 +997,39 @@ private void setupShortcutBar() {
 
     shortcutBar.addView(btnOptimizeCode); 
 }
+/**
+ * แสดง Dialog ยืนยันการนำโค้ดที่ AI ปรับปรุงแล้วไปใช้
+ */
 private void showApplyOptimizedCodeDialog(String newCode, String originalCode, String fileName) {
     if (newCode == null || newCode.trim().isEmpty()) {
         showToast("⚠️ ไม่พบโค้ดที่ปรับปรุง");
         return;
     }
 
+    // ตรวจสอบว่ามีการเปลี่ยนแปลงจริงหรือไม่
+    boolean hasChanges = !newCode.trim().equals(originalCode.trim());
+
     new android.app.AlertDialog.Builder(this, androidx.appcompat.R.style.ThemeOverlay_AppCompat_Dialog_Alert)
         .setTitle("🪄 AI ปรับปรุงโค้ดสำเร็จ")
-        .setMessage("AI ได้ปรับปรุงไฟล์ **" + fileName + "** เรียบร้อย\n\nคุณต้องการทำอะไรต่อ?")
+        .setMessage("AI ได้ปรับปรุงโค้ดไฟล์ **" + fileName + "** เรียบร้อยแล้ว\n\n" +
+                   (hasChanges ? "พบการเปลี่ยนแปลง " + countChanges(originalCode, newCode) + " จุด" : "โค้ดไม่มีการเปลี่ยนแปลง"))
         .setPositiveButton("✅ ใช้โค้ดใหม่", (dialog, which) -> {
             codeEditor.setText(newCode);
-            showToast("✅ ใช้โค้ดใหม่สำเร็จ");
+            showToast("✅ นำโค้ดที่ปรับปรุงแล้วไปใช้สำเร็จ!");
             saveFile();
         })
         .setNegativeButton("❌ ยกเลิก", null)
-        .setNeutralButton("↩ กลับไปโค้ดเดิม", (dialog, which) -> {
+        .setNeutralButton("🔄 กลับไปโค้ดเดิม", (dialog, which) -> {
+            // Undo
             codeEditor.setText(originalCode);
-            showToast("↩ กลับไปโค้ดเดิมแล้ว");
+            showToast("🔄 กลับไปใช้โค้ดเดิมแล้ว");
             saveFile();
+        })
+        .setOnDismissListener(dialog -> {
+            // Optional: ล้าง chatHistory บางส่วนถ้าต้องการ
         })
         .show();
 }
-
-private void performUndo() {
-    if (codeEditor == null) return;
-    
-    try {
-        if (codeEditor.getUndoManager() != null) {
-            codeEditor.getUndoManager().undo();
-        } else {
-            codeEditor.undo(); // วิธีสำรอง
-        }
-        showToast("↩ Undo เรียบร้อย");
-    } catch (Exception e) {
-        showToast("↩ ไม่สามารถ Undo ได้");
-    }
-}
-
-
-
-
 // นับคร่าวๆ ว่ามีการเปลี่ยนแปลงกี่บรรทัด
 private String countChanges(String oldCode, String newCode) {
     if (oldCode == null || newCode == null) return "หลาย";
