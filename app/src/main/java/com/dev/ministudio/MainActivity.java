@@ -785,7 +785,7 @@ private void setupShortcutBar() {
     shortcutBar.addView(createButton("↷", params, v -> { if (codeEditor != null) codeEditor.redo(); }, "#B0B3B8", "#2D2D2D"));
 
     // 2. ปุ่มสัญลักษณ์ทั่วไป
-    String[] shortcuts = {"↩", "↪", "{", "}", "[", "]", "(", ")", "<", ">", ";"};
+    String[] shortcuts = { "{", "}", "[", "]", "(", ")", "<", ">", ";"};
     for (String symbol : shortcuts) {
         shortcutBar.addView(createButton(symbol, params, v -> {
             if (codeEditor != null && codeEditor.getCursor() != null) {
