@@ -1106,34 +1106,39 @@ private void updateAiOutput(String markdownText) {
         }
         super.onDestroy();
     }
-// ฟังก์ชันกดปุ๊บ วาร์ปปั๊บ ไปยังตำแหน่งที่โค้ด Error (ฉบับปรับปรุงแก้อาการสัญลักษณ์หาย)
 public void jumpToErrorLocation(String fileName, int lineNumber) {
     runOnUiThread(() -> {
-        // 1. สั่งซ่อนแผงคอนโซลลงไปก่อนเพื่อคืนพื้นที่ให้หน้าจอแก้ไขโค้ด
+        // 1. สั่งซ่อนแผงคอนโซล (เอาไว้ที่เดิมครับ)
         View consolePanel = findViewById(R.id.consolePanel);
         if (consolePanel != null) consolePanel.setVisibility(View.GONE);
 
-        // 2. ลอจิกการสั่งเปิดไฟล์ .java ที่พังขึ้นกระดาน (อิงตามระบบเปิดไฟล์หลักของน้า)
+        // 2. ค้นหาและเปิดไฟล์
         if (projectTreeManager != null && currentProject != null) {
-            // เดินสายหาตำแหน่งไฟล์จริงในโปรเจกต์แล้วบังคับให้ระบบ Tab โหลดขึ้นมาทำงาน
             java.io.File fileToOpen = projectTreeManager.findFileInProject(currentProject.getRootPath(), fileName);
             if (fileToOpen != null && fileToOpen.exists()) {
-                openFile(fileToOpen); // ใช้ฟังก์ชันเปิดไฟล์หลักของน้า
+                openFile(fileToOpen); 
+                
+                // 🌟 จุดสำคัญ: ต้องใช้ postDelayed หรือ post เพื่อรอให้ Editor โหลดไฟล์เสร็จก่อนวาร์ป
+                codeEditor.post(() -> {
+                    int targetLine = Math.max(0, lineNumber - 1);
+                    
+                    // ปรับตำแหน่ง cursor และเลื่อนหน้าจอ
+                    codeEditor.getCursor().setLeft(targetLine, 0);
+                    codeEditor.getCursor().setRight(targetLine, 0);
+                    codeEditor.ensurePositionVisible(targetLine, 0);
+                    
+                    // เพิ่มการ Highlight บรรทัดที่พังให้เห็นชัดๆ (ถ้า Editor ของน้ารองรับ)
+                    codeEditor.setSelectionRegion(targetLine, 0, targetLine, 10); 
+                    
+                    showToast("🔍 วาร์ปมาบรรทัดที่ " + lineNumber + " แล้วครับน้า!");
+                });
+            } else {
+                showToast("❌ ไม่พบไฟล์ " + fileName);
             }
-        }
-
-        // 3. ปรับโค้ดคำสั่งวาร์ปเคอร์เซอร์ให้ตรงกับ Sora Editor API ของเครื่องน้าครับ
-        if (codeEditor != null) {
-            int targetLine = Math.max(0, lineNumber - 1);
-            // สั่งขยับตำแหน่งและเลื่อนหน้าจอฉบับตรงรุ่น
-            codeEditor.getCursor().setLeft(targetLine, 0);
-            codeEditor.getCursor().setRight(targetLine, 0);
-            codeEditor.ensurePositionVisible(targetLine, 0);
-            
-            showToast("🔍 วาร์ปมาบรรทัดที่ " + lineNumber + " ให้แล้วครับน้า!");
         }
     });
 }
+
 
 
 }
