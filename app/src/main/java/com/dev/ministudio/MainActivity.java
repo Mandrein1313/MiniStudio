@@ -769,288 +769,222 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-private void setupShortcutBar() { 
-    LinearLayout shortcutBar = findViewById(R.id.shortcutBar); 
-    if (shortcutBar == null) return;
-    shortcutBar.removeAllViews();
+     private void setupShortcutBar() { 
+        LinearLayout shortcutBar = findViewById(R.id.shortcutBar); 
+        if (shortcutBar == null) return;
+        shortcutBar.removeAllViews();
 
-    float density = getResources().getDisplayMetrics().density;
-    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-        LinearLayout.LayoutParams.WRAP_CONTENT, (int) (36 * density)
-    );
-    params.setMargins((int)(3 * density), (int)(2 * density), (int)(3 * density), (int)(2 * density));
+        String[] shortcuts = {
+            "↩", "↪", "{", "}", "[", "]", "(", ")", "<", ">", ";"
+        };
 
-    String[] shortcuts = {
-        "↩", "↪", "{", "}", "[", "]", "(", ")", "<", ">", ";"
-    };
+        float density = getResources().getDisplayMetrics().density;
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, (int) (36 * density)
+        );
+        params.setMargins((int)(3 * density), (int)(2 * density), (int)(3 * density), (int)(2 * density));
 
-    // 1. ปุ่มลัดสัญลักษณ์ทั่วไป
-    for (final String shortcut : shortcuts) {
-        TextView btn = new TextView(this);
-        btn.setText(shortcut);
-        btn.setTextSize(15); 
-        btn.setGravity(Gravity.CENTER);
-        btn.setPadding((int)(10 * density), 0, (int)(10 * density), 0);
-        btn.setTextColor(Color.parseColor("#B0B3B8")); 
+        // 1. วาดปุ่มสัญลักษณ์ทางเลือกป้อนคำสั่งลัดทั่วไป
+        for (final String shortcut : shortcuts) {
+            TextView btn = new TextView(this);
+            btn.setText(shortcut);
+            btn.setTextSize(15); 
+            btn.setGravity(Gravity.CENTER);
+            btn.setPadding((int)(10 * density), 0, (int)(10 * density), 0);
+            btn.setTextColor(Color.parseColor("#B0B3B8")); 
 
-        GradientDrawable shape = new GradientDrawable();
-        shape.setCornerRadius(6 * density); 
-        shape.setColor(Color.parseColor("#2D2D2D")); 
-        btn.setBackground(shape);
-        btn.setLayoutParams(params);
+            GradientDrawable shape = new GradientDrawable();
+            shape.setCornerRadius(6 * density); 
+            shape.setColor(Color.parseColor("#2D2D2D")); 
+            btn.setBackground(shape);
+            btn.setLayoutParams(params);
 
-        btn.setOnClickListener(v -> {
-            if (codeEditor.getCursor() != null) {
-                int line = codeEditor.getCursor().getLeftLine();
-                int column = codeEditor.getCursor().getLeftColumn();
-                codeEditor.getText().insert(line, column, shortcut);
-            }
+            btn.setOnClickListener(v -> {
+                if (codeEditor.getCursor() != null) {
+                    int line = codeEditor.getCursor().getLeftLine();
+                    int column = codeEditor.getCursor().getLeftColumn();
+                    codeEditor.getText().insert(line, column, shortcut);
+                }
+            });
+            shortcutBar.addView(btn);
+        }
+
+        // 2. 🤖 ปุ่มลัดสั่งวิเคราะห์แกะโครงสร้างซอร์สโค้ด (ถาม AI) สีม่วงพาสเทลเดิมของน้า
+        TextView btnAskAI = new TextView(this);
+        btnAskAI.setText("🤖 ถาม AI");
+        btnAskAI.setTextSize(14);
+        btnAskAI.setGravity(Gravity.CENTER);
+        btnAskAI.setPadding((int)(10 * density), 0, (int)(10 * density), 0);
+        btnAskAI.setTextColor(Color.parseColor("#BB86FC")); 
+
+        GradientDrawable aiShape = new GradientDrawable();
+        aiShape.setCornerRadius(6 * density);
+        aiShape.setColor(Color.parseColor("#251F35")); 
+        btnAskAI.setBackground(aiShape);
+        btnAskAI.setLayoutParams(params);
+
+        btnAskAI.setOnClickListener(v -> {
+            if (codeEditor == null || currentProject == null) return;
+
+            showFullPanelDialog(1); 
+
+            java.io.File currentFile = currentProject.getCurrentOpenFile();
+            final String fileName = (currentFile != null) ? currentFile.getName() : "UnknownFile.java";
+            final String currentCode = codeEditor.getText().toString();
+
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
+                    @Override
+                    public void onStart() {
+                        runOnUiThread(() -> {
+                            try {
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
+                                    String tempHtml = AiHtmlFormatter.convertMarkdownToHtml("🤖 *MiniStudio AI กำลังวิเคราะห์โค้ด...*");
+                                    currentWeb.loadDataWithBaseURL(null, tempHtml, "text/html", "utf-8", null);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
+                    }
+
+                    @Override
+                    public void onSuccess(final android.text.SpannableString formattedResult) {
+                        runOnUiThread(() -> {
+                            try {
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                chatHistory += "\n\n🤖 **ผลวิเคราะห์โค้ด (" + fileName + "):**\n" + formattedResult.toString();
+                                if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
+                                    String htmlResult = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                                    currentWeb.loadDataWithBaseURL(null, htmlResult, "text/html", "utf-8", null);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
+                    }
+
+                    @Override
+                    public void onError(final String errorMessage) {
+                        runOnUiThread(() -> {
+                            try {
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                chatHistory += "\n\n❌ **AI เกิดข้อผิดพลาดในการวิเคราะห์:** " + errorMessage;
+                                if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
+                                    String htmlError = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                                    currentWeb.loadDataWithBaseURL(null, htmlError, "text/html", "utf-8", null);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
+                    }
+                });
+            }, 500); 
         });
-        shortcutBar.addView(btn);
-    }
 
-    // 2. 🤖 ปุ่มถาม AI (วิเคราะห์โค้ด)
-    TextView btnAskAI = new TextView(this);
-    btnAskAI.setText("🤖 ถาม AI");
-    btnAskAI.setTextSize(14);
-    btnAskAI.setGravity(Gravity.CENTER);
-    btnAskAI.setPadding((int)(10 * density), 0, (int)(10 * density), 0);
-    btnAskAI.setTextColor(Color.parseColor("#BB86FC")); 
+        shortcutBar.addView(btnAskAI); 
 
-    GradientDrawable aiShape = new GradientDrawable();
-    aiShape.setCornerRadius(6 * density);
-    aiShape.setColor(Color.parseColor("#251F35")); 
-    btnAskAI.setBackground(aiShape);
-    btnAskAI.setLayoutParams(params);
+        // 🪄 3. [เพิ่มใหม่]: ปุ่มลัดตรวจและเขียนปรับแต่งโค้ดระดับสูงด้วย AI (Optimize) สีเขียวพาสเทล
+        TextView btnOptimizeCode = new TextView(this);
+        btnOptimizeCode.setText("🪄 ปรับปรุงโค้ด");
+        btnOptimizeCode.setTextSize(14);
+        btnOptimizeCode.setGravity(Gravity.CENTER);
+        btnOptimizeCode.setPadding((int)(10 * density), 0, (int)(10 * density), 0);
+        btnOptimizeCode.setTextColor(Color.parseColor("#81C784")); 
 
-    btnAskAI.setOnClickListener(v -> {
-        if (codeEditor == null || currentProject == null) return;
+        GradientDrawable optShape = new GradientDrawable();
+        optShape.setCornerRadius(6 * density);
+        optShape.setColor(Color.parseColor("#1C2A20")); // ย้อมสีโทนมืดเขียวพาสเทลคุมโทนพรีเมี่ยม
+        btnOptimizeCode.setBackground(optShape);
+        btnOptimizeCode.setLayoutParams(params);
 
-        showFullPanelDialog(1); 
-
-        java.io.File currentFile = currentProject.getCurrentOpenFile();
-        final String fileName = (currentFile != null) ? currentFile.getName() : "UnknownFile.java";
-        final String currentCode = codeEditor.getText().toString();
-
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            aiLayoutAnalyzer.analyzeCode(fileName, currentCode, new AiLayoutAnalyzer.OnAnalysisListener() {
-                @Override
-                public void onStart() {
-                    runOnUiThread(() -> {
-                        try {
-                            android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
-                            if (currentWeb != null) {
-                                currentWeb.getSettings().setJavaScriptEnabled(true);
-                                currentWeb.removeJavascriptInterface("AndroidBridge");
-                                currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
-                                
-                                String tempHtml = AiHtmlFormatter.convertMarkdownToHtml("🤖 *MiniStudio AI กำลังวิเคราะห์โค้ด...*");
-                                currentWeb.loadDataWithBaseURL(null, tempHtml, "text/html", "utf-8", null);
-                            }
-                        } catch (Exception e) { e.printStackTrace(); }
-                    });
-                }
-
-                @Override
-                public void onSuccess(final android.text.SpannableString formattedResult) {
-                    runOnUiThread(() -> {
-                        try {
-                            android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
-                            chatHistory += "\n\n🤖 **ผลวิเคราะห์โค้ด (" + fileName + "):**\n" + formattedResult.toString();
-                            if (currentWeb != null) {
-                                currentWeb.getSettings().setJavaScriptEnabled(true);
-                                currentWeb.removeJavascriptInterface("AndroidBridge");
-                                currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
-                                
-                                String htmlResult = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
-                                currentWeb.loadDataWithBaseURL(null, htmlResult, "text/html", "utf-8", null);
-                            }
-                        } catch (Exception e) { e.printStackTrace(); }
-                    });
-                }
-
-                @Override
-                public void onError(final String errorMessage) {
-                    runOnUiThread(() -> {
-                        try {
-                            android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
-                            chatHistory += "\n\n❌ **AI เกิดข้อผิดพลาดในการวิเคราะห์:** " + errorMessage;
-                            if (currentWeb != null) {
-                                currentWeb.getSettings().setJavaScriptEnabled(true);
-                                currentWeb.removeJavascriptInterface("AndroidBridge");
-                                currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
-                                
-                                String htmlError = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
-                                currentWeb.loadDataWithBaseURL(null, htmlError, "text/html", "utf-8", null);
-                            }
-                        } catch (Exception e) { e.printStackTrace(); }
-                    });
-                }
-            });
-        }, 500); 
-    });
-
-    shortcutBar.addView(btnAskAI); 
-
-    // 🪄 3. ปุ่มปรับปรุงโค้ด (เวอร์ชันใหม่ - ดีขึ้นมาก)
-    TextView btnOptimizeCode = new TextView(this);
-    btnOptimizeCode.setText("🪄 ปรับปรุงโค้ด");
-    btnOptimizeCode.setTextSize(14);
-    btnOptimizeCode.setGravity(Gravity.CENTER);
-    btnOptimizeCode.setPadding((int)(10 * density), 0, (int)(10 * density), 0);
-    btnOptimizeCode.setTextColor(Color.parseColor("#81C784")); 
-
-    GradientDrawable optShape = new GradientDrawable();
-    optShape.setCornerRadius(6 * density);
-    optShape.setColor(Color.parseColor("#1C2A20"));
-    btnOptimizeCode.setBackground(optShape);
-    btnOptimizeCode.setLayoutParams(params);
-
-    btnOptimizeCode.setOnClickListener(v -> {
-        if (codeEditor == null || currentProject == null) return;
-        
-        java.io.File currentFile = currentProject.getCurrentOpenFile();
-        if (currentFile == null) {
-            showToast("⚠️ กรุณาเปิดไฟล์ที่ต้องการปรับปรุงก่อนครับ");
-            return;
-        }
-
-        if (aiLayoutAnalyzer != null) aiLayoutAnalyzer.stopSpeaking();
-        showFullPanelDialog(1);
-
-        final String fileName = currentFile.getName();
-        final String currentCode = codeEditor.getText().toString();
-        final String originalCode = currentCode; // เก็บไว้สำหรับ Undo / เปรียบเทียบ
-
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            String optimizePrompt = CodeOptimizerManager.createOptimizePrompt(fileName, currentCode);
+        btnOptimizeCode.setOnClickListener(v -> {
+            if (codeEditor == null || currentProject == null) return;
             
-            aiLayoutAnalyzer.askAi(optimizePrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
-                @Override
-                public void onStart() {
-                    runOnUiThread(() -> {
-                        try {
-                            android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
-                            if (currentWeb != null) {
-                                currentWeb.getSettings().setJavaScriptEnabled(true);
-                                currentWeb.removeJavascriptInterface("AndroidBridge");
-                                currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
-                                
-                                String tempHtml = AiHtmlFormatter.convertMarkdownToHtml("🤖 *กำลังสแกนและปรับปรุงโค้ดไฟล์ " + fileName + "...*");
-                                currentWeb.loadDataWithBaseURL(null, tempHtml, "text/html", "utf-8", null);
-                            }
-                        } catch (Exception e) { e.printStackTrace(); }
-                    });
-                }
+            java.io.File currentFile = currentProject.getCurrentOpenFile();
+            if (currentFile == null) {
+                showToast("⚠️ กรุณาเปิดไฟล์ที่ต้องการปรับปรุงก่อนครับ");
+                return;
+            }
 
-                @Override
-                public void onSuccess(final android.text.SpannableString formattedResult) {
-                    runOnUiThread(() -> {
-                        try {
-                            OptimizedResult result = CodeOptimizerManager.parseAiResponse(formattedResult.toString());
+            // สั่งเบรกเสียง AI เก่าที่บ่นค้างอยู่ชั่วคราวก่อนเริ่มจัดวางหน้าต่าง
+            if (aiLayoutAnalyzer != null) aiLayoutAnalyzer.stopSpeaking();
+            showFullPanelDialog(1); // เปิดหน้าจอแสดงผล AI ทันที
 
-                            chatHistory += "\n\n🤖 **[ผลลัพธ์การปรับปรุงโค้ด (" + fileName + ")]:**\n" + result.explanation;
+            final String fileName = currentFile.getName();
+            final String currentCode = codeEditor.getText().toString();
 
-                            android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
-                            if (currentWeb != null) {
-                                currentWeb.getSettings().setJavaScriptEnabled(true);
-                                currentWeb.removeJavascriptInterface("AndroidBridge");
-                                currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
-                                
-                                String htmlResult = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
-                                currentWeb.loadDataWithBaseURL(null, htmlResult, "text/html", "utf-8", null);
-                            }
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                // สร้างคำสั่งกระตุ้นพลังจากคลาสจัดการระบบที่ 3 (CodeOptimizerManager)
+                String optimizePrompt = CodeOptimizerManager.createOptimizePrompt(fileName, currentCode);
+                
+                aiLayoutAnalyzer.askAi(optimizePrompt, new AiLayoutAnalyzer.OnAnalysisListener() {
+                    @Override
+                    public void onStart() {
+                        runOnUiThread(() -> {
+                            try {
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
+                                    String tempHtml = AiHtmlFormatter.convertMarkdownToHtml("🤖 *กำลังสแกนวิเคราะห์ ค้นหาจุดกินแรมและเยิ่นเย้อเพื่อปรับปรุงโค้ดไฟล์ " + fileName + "...*");
+                                    currentWeb.loadDataWithBaseURL(null, tempHtml, "text/html", "utf-8", null);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
+                    }
 
-                            // แสดงปุ่มนำโค้ดไปใช้
-                            if (!result.updatedCode.isEmpty()) {
-                                showApplyOptimizedCodeDialog(result.updatedCode, originalCode, fileName);
-                            } else {
-                                showToast("⚠️ ไม่พบโค้ดที่ปรับปรุงจาก AI");
-                            }
-                        } catch (Exception e) { 
-                            e.printStackTrace();
-                            showToast("เกิดข้อผิดพลาดในการประมวลผลผลลัพธ์");
-                        }
-                    });
-                }
+                    @Override
+                    public void onSuccess(final android.text.SpannableString formattedResult) {
+                        runOnUiThread(() -> {
+                            try {
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                chatHistory += "\n\n🤖 **[ผลลัพธ์การปรับปรุงประสิทธิภาพของไฟล์ (" + fileName + ")]:**\n" + formattedResult.toString();
+                                if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
+                                    String htmlResult = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                                    currentWeb.loadDataWithBaseURL(null, htmlResult, "text/html", "utf-8", null);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
+                    }
 
-                @Override
-                public void onError(final String errorMessage) {
-                    runOnUiThread(() -> {
-                        try {
-                            android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
-                            chatHistory += "\n\n❌ **AI ปรับแต่งโค้ดเกิดข้อผิดพลาด:** " + errorMessage;
-                            if (currentWeb != null) {
-                                currentWeb.getSettings().setJavaScriptEnabled(true);
-                                currentWeb.removeJavascriptInterface("AndroidBridge");
-                                currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
-                                
-                                String htmlError = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
-                                currentWeb.loadDataWithBaseURL(null, htmlError, "text/html", "utf-8", null);
-                            }
-                        } catch (Exception e) { e.printStackTrace(); }
-                    });
-                }
-            });
-        }, 600);
-    });
+                    @Override
+                    public void onError(final String errorMessage) {
+                        runOnUiThread(() -> {
+                            try {
+                                android.webkit.WebView currentWeb = dialogPanelAdapter.getWebAiOutput();
+                                chatHistory += "\n\n❌ **AI ปรับแต่งโค้ดเกิดข้อผิดพลาด:** " + errorMessage;
+                                if (currentWeb != null) {
+                                    currentWeb.getSettings().setJavaScriptEnabled(true);
+                                    currentWeb.removeJavascriptInterface("AndroidBridge");
+                                    currentWeb.addJavascriptInterface(new WebAppInterface(MainActivity.this), "AndroidBridge");
+                                    
+                                    String htmlError = AiHtmlFormatter.convertMarkdownToHtml(chatHistory);
+                                    currentWeb.loadDataWithBaseURL(null, htmlError, "text/html", "utf-8", null);
+                                }
+                            } catch (Exception e) { e.printStackTrace(); }
+                        });
+                    }
+                });
+            }, 600); // ตั้งค่าหน่วง 600ms เพื่อให้แอนิเมชันสลับสเตตัสวาดวิวเสร็จเรียบร้อย
+        });
 
-    shortcutBar.addView(btnOptimizeCode); 
-}
-/**
- * แสดง Dialog ยืนยันการนำโค้ดที่ AI ปรับปรุงแล้วไปใช้
- */
-private void showApplyOptimizedCodeDialog(String newCode, String originalCode, String fileName) {
-    if (newCode == null || newCode.trim().isEmpty()) {
-        showToast("⚠️ ไม่พบโค้ดที่ปรับปรุง");
-        return;
+        shortcutBar.addView(btnOptimizeCode); 
     }
-
-    // ตรวจสอบว่ามีการเปลี่ยนแปลงจริงหรือไม่
-    boolean hasChanges = !newCode.trim().equals(originalCode.trim());
-
-    new android.app.AlertDialog.Builder(this, androidx.appcompat.R.style.ThemeOverlay_AppCompat_Dialog_Alert)
-        .setTitle("🪄 AI ปรับปรุงโค้ดสำเร็จ")
-        .setMessage("AI ได้ปรับปรุงโค้ดไฟล์ **" + fileName + "** เรียบร้อยแล้ว\n\n" +
-                   (hasChanges ? "พบการเปลี่ยนแปลง " + countChanges(originalCode, newCode) + " จุด" : "โค้ดไม่มีการเปลี่ยนแปลง"))
-        .setPositiveButton("✅ ใช้โค้ดใหม่", (dialog, which) -> {
-            codeEditor.setText(newCode);
-            showToast("✅ นำโค้ดที่ปรับปรุงแล้วไปใช้สำเร็จ!");
-            saveFile();
-        })
-        .setNegativeButton("❌ ยกเลิก", null)
-        .setNeutralButton("🔄 กลับไปโค้ดเดิม", (dialog, which) -> {
-            // Undo
-            codeEditor.setText(originalCode);
-            showToast("🔄 กลับไปใช้โค้ดเดิมแล้ว");
-            saveFile();
-        })
-        .setOnDismissListener(dialog -> {
-            // Optional: ล้าง chatHistory บางส่วนถ้าต้องการ
-        })
-        .show();
-}
-// นับคร่าวๆ ว่ามีการเปลี่ยนแปลงกี่บรรทัด
-private String countChanges(String oldCode, String newCode) {
-    if (oldCode == null || newCode == null) return "หลาย";
-    
-    String[] oldLines = oldCode.split("\n");
-    String[] newLines = newCode.split("\n");
-    
-    int diffCount = 0;
-    int minLen = Math.min(oldLines.length, newLines.length);
-    
-    for (int i = 0; i < minLen; i++) {
-        if (!oldLines[i].trim().equals(newLines[i].trim())) {
-            diffCount++;
-        }
-    }
-    
-    diffCount += Math.abs(oldLines.length - newLines.length);
-    
-    return diffCount > 0 ? diffCount + "" : "หลาย";
-}
-
     private void findAndHighlight() {
         String query = etFind.getText().toString();
         String content = codeEditor.getText().toString();
