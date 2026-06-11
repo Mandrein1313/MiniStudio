@@ -5,13 +5,10 @@ import java.util.regex.Pattern;
 
 /**
  * 🪄 คลาสผู้จัดการสกัดประมวลผลการ Refactor และ Optimize ซอร์สโค้ด (ระบบที่ 3)
- * ทำหน้าที่สร้างคำสั่ง Prompt และสกัดเอาเฉพาะท่อนรหัสโค้ดบริสุทธิ์ออกจากบล็อก Markdown
  */
 public class CodeOptimizerManager {
 
-    /**
-     * 1. ฟังก์ชันสร้างข้อความคำสั่ง (Prompt) 
-     */
+    // 1. ฟังก์ชันสร้างข้อความคำสั่ง (Prompt)
     public static String createOptimizePrompt(String fileName, String rawCode) {
         if (rawCode == null || rawCode.trim().isEmpty()) return null;
 
@@ -37,9 +34,7 @@ public class CodeOptimizerManager {
         return prompt.toString();
     }
 
-    /**
-     * ✂️ 2. ฟังก์ชันสกัดลอกคัดแยกคำตอบจาก AI 
-     */
+    // ✂️ 2. ฟังก์ชันสกัดลอกคัดแยกคำตอบจาก AI
     public static OptimizedResult parseAiResponse(String aiResponse) {
         if (aiResponse == null || aiResponse.trim().isEmpty()) {
             return new OptimizedResult("", "⚠️ ไม่ได้รับการตอบกลับจาก AI ครับน้า");
@@ -49,7 +44,7 @@ public class CodeOptimizerManager {
         String explanation = "";
 
         try {
-            // ใช้ Pattern ที่ครอบคลุมการดึงบล็อกโค้ด java
+            // แก้ไขจุดบกพร่อง: ประกาศ Pattern อย่างถูกต้อง
             Pattern codePattern = Pattern.compile("```java\\s*([\\s\\S]*?)\\s*```", Pattern.CASE_INSENSITIVE);
             Matcher matcher = codePattern.matcher(aiResponse);
 
@@ -57,25 +52,25 @@ public class CodeOptimizerManager {
                 updatedCode = matcher.group(1).trim();
             }
 
-            // แยกส่วนคำอธิบายโดยตัดที่หัวข้อ 📝 [รายละเอียดการปรับปรุง]
+            // แยกส่วนคำอธิบาย
             String searchKey = "📝 [รายละเอียดการปรับปรุง]";
             int index = aiResponse.indexOf(searchKey);
             
             if (index != -1) {
                 explanation = aiResponse.substring(index).trim();
             } else {
-                // หากไม่พบหัวข้อคำอธิบาย ให้เอาข้อความทั้งหมดที่ไม่ใช่บล็อกโค้ดมาเป็นคำอธิบายแทน
+                // ถ้าไม่เจอ header ให้เอาส่วนที่เหลือจากการลบ code block ออก
                 explanation = aiResponse.replaceAll("```[\\s\\S]*?```", "").trim();
             }
 
-            // ถ้าหาโค้ดไม่เจอ ให้ส่งข้อความทั้งหมดกลับไปเป็นคำอธิบาย (เผื่อ AI ตอบพลาด)
+            // กรณีหาโค้ดไม่เจอ ให้ส่งข้อความทั้งหมดเป็นคำอธิบาย
             if (updatedCode.isEmpty()) {
                 explanation = aiResponse;
             }
 
         } catch (Exception e) {
             e.printStackTrace();
-            explanation = "❌ เกิดข้อผิดพลาดในการประมวลผล: " + e.getMessage();
+            explanation = "❌ เกิดข้อผิดพลาดขณะแยกแยะรหัสโครงสร้างโค้ด: " + e.getMessage();
         }
 
         return new OptimizedResult(updatedCode, explanation);
