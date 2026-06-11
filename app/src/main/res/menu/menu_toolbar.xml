@@ -19,15 +19,7 @@
         android:icon="@android:drawable/ic_menu_view" 
         app:showAsAction="always" />
 
-    <item
-        android:id="@+id/action_undo"
-        android:title="Undo"
-        app:showAsAction="never" />
-        
-    <item
-        android:id="@+id/action_redo"
-        android:title="Redo"
-        app:showAsAction="never" />
+
         
         <item
     android:id="@+id/action_ai_settings"
