@@ -1038,20 +1038,7 @@ private void performUndo() {
     }
 }
 
-private void performRedo() {
-    if (codeEditor == null) return;
-    
-    try {
-        if (codeEditor.getUndoManager() != null) {
-            codeEditor.getUndoManager().redo();
-        } else {
-            codeEditor.redo(); // วิธีสำรอง
-        }
-        showToast("↪ Redo เรียบร้อย");
-    } catch (Exception e) {
-        showToast("↪ ไม่สามารถ Redo ได้");
-    }
-}
+
 
 
 // นับคร่าวๆ ว่ามีการเปลี่ยนแปลงกี่บรรทัด
