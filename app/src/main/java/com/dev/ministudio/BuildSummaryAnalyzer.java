@@ -11,17 +11,18 @@ public class BuildSummaryAnalyzer {
         void onAppendLog(String text, int color);
     }
 
-    // 🌟 Regex ปรับปรุงใหม่
+    // 🌟 [ปรับปรุงความแม่นยำสูง]: ออกแบบกลุ่ม Regex ใหม่ทั้งหมดเพื่อให้ทนทานต่อ Log ทุกรูปแบบบน GitHub
+    // รองรับทั้งแบบสั้น แบบพาธเต็ม (Absolute Path) และแบบมี "ERROR: " นำหน้า โดยจะดึงชื่อไฟล์แท้ ๆ ได้เสมอ
     private static final Pattern JAVAC_ERROR =
-            Pattern.compile("(?:.*\\s)?(.*?\\.java):(\\d+):\\s*error:\\s*(.*)",
+            Pattern.compile("(?:ERROR:\\s+)?(?:[^\\s]+/)*([^/\\s]+\\.java):(\\d+):\\s*(?:error:)?\\s*(.*)",
                     Pattern.CASE_INSENSITIVE);
                     
     private static final Pattern XML_ERROR =
-            Pattern.compile("(?:.*\\s)?(.*?\\.xml):(\\d+):.*?error:\\s*(.*)",
+            Pattern.compile("(?:ERROR:\\s+)?(?:[^\\s]+/)*([^/\\s]+\\.xml):(\\d+):\\s*(?:AAPT:\\s*error:|error:)?\\s*(.*)",
                     Pattern.CASE_INSENSITIVE);
                     
     private static final Pattern KOTLIN_ERROR =
-            Pattern.compile("(?:.*\\s)?(.*?\\.kt):(\\d+):\\s*error:\\s*(.*)",
+            Pattern.compile("(?:ERROR:\\s+)?(?:[^\\s]+/)*([^/\\s]+\\.kt):(\\d+):\\s*(?:error:)?\\s*(.*)",
                     Pattern.CASE_INSENSITIVE);
 
     private boolean hasError = false;
@@ -105,7 +106,7 @@ public class BuildSummaryAnalyzer {
     public boolean analyzeLine(String line, int defaultColor, LogOutputListener listener) {
         if (line == null) return false;
 
-        // ตรวจสอบ Error ด้วย Regex
+        // ตรวจสอบ Error ด้วย Regex (เพิ่มความมั่นใจในการดักจับคำ)
         if (checkRegexError(line, JAVAC_ERROR, "JAVA_ERROR") ||
             checkRegexError(line, XML_ERROR, "XML_AAPT2_ERROR") ||
             checkRegexError(line, KOTLIN_ERROR, "KOTLIN_ERROR")) {
@@ -151,16 +152,18 @@ public class BuildSummaryAnalyzer {
     }
 
     private boolean checkRegexError(String line, Pattern pattern, String typeStr) {
-        Matcher m = pattern.matcher(line);
+        Matcher m = pattern.matcher(line.trim());
         if (!m.find()) return false;
 
         try {
-            String file = m.group(1).trim();
+            // ดึงเฉพาะชื่อไฟล์เพียว ๆ ออกมาเลย เช่น "activity_main.xml" หรือ "MainActivity.java"
+            String file = m.group(1).trim(); 
             int lineNumber = Integer.parseInt(m.group(2));
             String message = m.group(3).trim();
 
-            if (file.contains("app/src/")) {
-                file = file.substring(file.indexOf("app/src/"));
+            // คลีนคำนำหน้ากรณีตัดคำพลาดจากพาธลึก ๆ
+            if (file.contains("/")) {
+                file = file.substring(file.lastIndexOf("/") + 1);
             }
 
             lastError = new ParsedError(file, lineNumber, 0, typeStr, message);
