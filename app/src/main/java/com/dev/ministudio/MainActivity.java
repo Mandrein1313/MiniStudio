@@ -1148,7 +1148,7 @@ public void jumpToErrorLocation(String fileName, int lineNumber) {
 // ใน Activity ของน้า
 private void showIconPickerDialog() {
     GridView gridView = new GridView(this);
-    gridView.setNumColumns(5); // ปรับจำนวนคอลัมน์ตามความสวยงาม
+    gridView.setNumColumns(5); 
     gridView.setAdapter(new IconAdapter(this, IconManager.ICON_LIST));
 
     AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -1158,9 +1158,14 @@ private void showIconPickerDialog() {
 
     gridView.setOnItemClickListener((parent, view, position, id) -> {
         int selectedIconResId = IconManager.ICON_LIST[position];
-        saveSelectedIcon(selectedIconResId); // เซฟค่าที่เลือก
+        
+        // 🌟 แก้ไขตรงนี้ครับน้า: ส่ง context (this) ไปให้ IconManager ด้วย
+        IconManager.saveSelectedIcon(this, selectedIconResId); 
+        
         dialog.dismiss();
         Toast.makeText(this, "เปลี่ยนไอคอนเรียบร้อย!", Toast.LENGTH_SHORT).show();
+        
+        // ถ้าต้องอัปเดตไอคอนบนหน้าจอทันที ให้เขียนโค้ดอัปเดตตรงนี้ต่อได้เลยครับ
     });
 
     dialog.show();

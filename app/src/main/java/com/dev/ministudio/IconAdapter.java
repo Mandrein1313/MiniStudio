@@ -16,14 +16,9 @@ public class IconAdapter extends BaseAdapter {
         this.iconList = iconList;
     }
 
-    @Override
-    public int getCount() { return iconList.length; }
-
-    @Override
-    public Object getItem(int position) { return iconList[position]; }
-
-    @Override
-    public long getItemId(int position) { return position; }
+    @Override public int getCount() { return iconList.length; }
+    @Override public Object getItem(int position) { return iconList[position]; }
+    @Override public long getItemId(int position) { return position; }
 
     @Override
     public View getView(int position, View convertView, ViewGroup parent) {
@@ -31,8 +26,7 @@ public class IconAdapter extends BaseAdapter {
         if (convertView == null) {
             imageView = new ImageView(context);
             imageView.setLayoutParams(new GridView.LayoutParams(150, 150));
-            imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            imageView.setPadding(8, 8, 8, 8);
+            imageView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
         } else {
             imageView = (ImageView) convertView;
         }
