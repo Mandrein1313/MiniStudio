@@ -419,6 +419,7 @@ public class ProjectListActivity extends AppCompatActivity {
     }
 
     // 🌟 เมธอดเวอร์ชันอัปเกรด: รับค่าตัวแปรภาษาและ SDK มาจำแนกเขียนโค้ดและสร้างโฟลเดอร์จริง
+    // 🌟 เมธอดเวอร์ชันอัปเกรด: รับค่าตัวแปรภาษาและ SDK มาจำแนกเขียนโค้ดและสร้างโฟลเดอร์จริง
     private void createNewProject(String projectName, String packageName, String language, String minSdkVersionString) {
         String rootPath = "/sdcard/MiniStudio/" + projectName;
         
@@ -429,7 +430,13 @@ public class ProjectListActivity extends AppCompatActivity {
         String[] folders = {
             sourceDirPath,
             rootPath + "/app/src/main/res/layout",
-            rootPath + "/app/src/main/res/values"
+            rootPath + "/app/src/main/res/values",
+            rootPath + "/app/src/main/res/drawable",
+            rootPath + "/app/src/main/res/mipmap-hdpi",
+            rootPath + "/app/src/main/res/mipmap-mdpi",
+            rootPath + "/app/src/main/res/mipmap-xhdpi",
+            rootPath + "/app/src/main/res/mipmap-xxhdpi",
+            rootPath + "/app/src/main/res/mipmap-xxxhdpi"
         };
 
         for (String path : folders) {
@@ -437,12 +444,9 @@ public class ProjectListActivity extends AppCompatActivity {
             if (!f.exists()) f.mkdirs();
         }
 
-        // 2. นำข้อความ SDK มาแกะเอาเฉพาะตัวเลข API ด้วย Regular Expression (เช่น "API 23: Android..." ดึงเฉพาะ "23")
+        // 2. นำข้อความ SDK มาแกะเอาเฉพาะตัวเลข API ด้วย Regular Expression
         String minSdkDigits = minSdkVersionString.replaceAll("[^0-9]", "");
-        if (minSdkDigits.length() > 2) {
-            minSdkDigits = minSdkDigits.substring(0, 2); // ป้องกันกรณีดึงเลขเวอร์ชัน Android พ่วงมาด้วย
-        }
-        int minSdk = Integer.parseInt(minSdkDigits);
+        int minSdk = Integer.parseInt(minSdkDigits.length() > 2 ? minSdkDigits.substring(0, 2) : minSdkDigits);
 
         // 3. สร้างไฟล์ AndroidManifest.xml
         String manifest = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
@@ -460,7 +464,7 @@ public class ProjectListActivity extends AppCompatActivity {
             "</manifest>";
         writeFile(rootPath + "/app/src/main/AndroidManifest.xml", manifest);
 
-        // 4. สร้างไฟล์ Layout แสดงผล (สลักตัวแปรภาษาลงบน TextView ให้เห็นชัดเจน)
+        // 4. สร้าง Resource Files (Layout, Strings, Colors, Styles)
         String layout = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
             "<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\n" +
             "    android:layout_width=\"match_parent\"\n" +
@@ -478,14 +482,21 @@ public class ProjectListActivity extends AppCompatActivity {
             "    <string name=\"app_name\">" + projectName + "</string>\n</resources>";
         writeFile(rootPath + "/app/src/main/res/values/strings.xml", stringsXml);
 
+        String colorsXml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n" +
+            "    <color name=\"purple_500\">#FF6200EE</color>\n" +
+            "    <color name=\"purple_700\">#FF3700B3</color>\n" +
+            "    <color name=\"teal_200\">#FF03DAC5</color>\n" +
+            "</resources>";
+        writeFile(rootPath + "/app/src/main/res/values/colors.xml", colorsXml);
+
         String stylesXml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n" +
             "    <style name=\"AppTheme\" parent=\"Theme.MaterialComponents.DayNight.NoActionBar\">\n" +
+            "        <item name=\"colorPrimary\">@color/purple_500</item>\n" +
             "    </style>\n</resources>";
         writeFile(rootPath + "/app/src/main/res/values/styles.xml", stylesXml);
         
-        // 5. คัดแยกการเจนไฟล์ซอร์สโค้ดเริ่มต้นตามตัวแปรภาษาที่รับมา
+        // 5. คัดแยกการเจนไฟล์ซอร์สโค้ดเริ่มต้น
         if ("Kotlin".equals(language)) {
-            // เจนโค้ดรูปแบบภาษา Kotlin (.kt)
             String kotlinCode = "package " + packageName + "\n\n" +
                 "import android.app.Activity\n" +
                 "import android.os.Bundle\n" +
@@ -498,7 +509,6 @@ public class ProjectListActivity extends AppCompatActivity {
                 "}";
             writeFile(sourceDirPath + "/MainActivity.kt", kotlinCode);
         } else {
-            // เจนโค้ดรูปแบบภาษา Java (.java)
             String javaCode = "package " + packageName + ";\n\n" +
                 "import android.app.Activity;\n" +
                 "import android.os.Bundle;\n" +
@@ -513,15 +523,11 @@ public class ProjectListActivity extends AppCompatActivity {
             writeFile(sourceDirPath + "/MainActivity.java", javaCode);
         }
 
-        // 6. ส่งโครงสร้างและเตรียมค่าสำหรับส่งไปคอมไพล์บน GitHub CI/CD ต่อไป
+        // 6. ส่งโครงสร้างและเตรียมค่าสำหรับส่งไปคอมไพล์บน GitHub CI/CD
         BuildEnvironmentManager envManager = new BuildEnvironmentManager(this);
-        // ✅ แก้ไขส่งเป็น 5 ตัวแปร
         envManager.prepareGitHubWorkflow(rootPath, projectName, packageName, language, minSdk);
-
-        
-        // หมายเหตุเพิ่มเติม: หากใน BuildEnvironmentManager ของท่านถูกอัปเกรดให้เปลี่ยนค่าตามแปรผัน 
-        // ท่านสามารถโยนตัวแปร `minSdk` หรือ `language` เสริมเข้าไปในอาร์กิวเมนต์คลาสนั้นได้เลยในอนาคตครับ
     }
+
 
     private void writeFile(String path, String content) {
         try {
