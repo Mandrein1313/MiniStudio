@@ -19,7 +19,12 @@
         android:icon="@android:drawable/ic_menu_view" 
         app:showAsAction="always" />
 
-
+    <item
+        android:id="@+id/action_change_icon"
+        android:title="เปลี่ยนไอคอนแอป"
+        android:icon="@android:drawable/ic_menu_edit"
+        app:showAsAction="never" />
+        
         
         <item
     android:id="@+id/action_ai_settings"
