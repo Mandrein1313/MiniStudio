@@ -214,115 +214,113 @@ public class ProjectListActivity extends AppCompatActivity {
 }
 
     // 🌟 เมธอดเวอร์ชันอัปเกรด: รับค่าตัวแปรภาษาและ SDK มาจำแนกเขียนโค้ดและสร้างโฟลเดอร์จริง
-    private void createNewProject(String name, String pkg, String lang, String sdk, int iconResId) {
-        String rootPath = "/sdcard/MiniStudio/" + projectName;
-        
-        // 1. นำค่าภาษามาสลับโฟลเดอร์ Source Code ให้ตรงตามไวยากรณ์ (src/main/java หรือ src/main/kotlin)
-        String langFolder = language.toLowerCase(); // คืนค่าเป็น "java" หรือ "kotlin"
-        String sourceDirPath = rootPath + "/app/src/main/" + langFolder + "/" + packageName.replace(".", "/");
-        
-        String[] folders = {
-            sourceDirPath,
-            rootPath + "/app/src/main/res/layout",
-            rootPath + "/app/src/main/res/values",
-            rootPath + "/app/src/main/res/drawable",
-            rootPath + "/app/src/main/res/mipmap-hdpi",
-            rootPath + "/app/src/main/res/mipmap-mdpi",
-            rootPath + "/app/src/main/res/mipmap-xhdpi",
-            rootPath + "/app/src/main/res/mipmap-xxhdpi",
-            rootPath + "/app/src/main/res/mipmap-xxxhdpi"
-        };
+private void createNewProject(String projectName, String packageName, String language, String minSdkVersionString, int iconResId) {
+    String rootPath = "/sdcard/MiniStudio/" + projectName;
+    
+    // 1. นำค่าภาษามาสลับโฟลเดอร์ Source Code ให้ตรงตามไวยากรณ์ (src/main/java หรือ src/main/kotlin)
+    String langFolder = language.toLowerCase(); 
+    String sourceDirPath = rootPath + "/app/src/main/" + langFolder + "/" + packageName.replace(".", "/");
+    
+    String[] folders = {
+        sourceDirPath,
+        rootPath + "/app/src/main/res/layout",
+        rootPath + "/app/src/main/res/values",
+        rootPath + "/app/src/main/res/drawable",
+        rootPath + "/app/src/main/res/mipmap-hdpi",
+        rootPath + "/app/src/main/res/mipmap-mdpi",
+        rootPath + "/app/src/main/res/mipmap-xhdpi",
+        rootPath + "/app/src/main/res/mipmap-xxhdpi",
+        rootPath + "/app/src/main/res/mipmap-xxxhdpi"
+    };
 
-        for (String path : folders) {
-            File f = new File(path);
-            if (!f.exists()) f.mkdirs();
-        }
-
-        // 2. นำข้อความ SDK มาแกะเอาเฉพาะตัวเลข API ด้วย Regular Expression
-        String minSdkDigits = minSdkVersionString.replaceAll("[^0-9]", "");
-        int minSdk = Integer.parseInt(minSdkDigits.length() > 2 ? minSdkDigits.substring(0, 2) : minSdkDigits);
-
-        // 3. สร้างไฟล์ AndroidManifest.xml
-        String manifest = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
-            "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n" +
-            "    <application \n" +
-            "        android:label=\"" + projectName + "\"\n" +
-            "        android:theme=\"@style/AppTheme\">\n" + 
-            "        <activity android:name=\".MainActivity\" android:exported=\"true\">\n" +
-            "            <intent-filter>\n" +
-            "                <action android:name=\"android.intent.action.MAIN\" />\n" +
-            "                <category android:name=\"android.intent.category.LAUNCHER\" />\n" +
-            "            </intent-filter>\n" +
-            "        </activity>\n" +
-            "    </application>\n" +
-            "</manifest>";
-        writeFile(rootPath + "/app/src/main/AndroidManifest.xml", manifest);
-
-        // 4. สร้าง Resource Files (Layout, Strings, Colors, Styles)
-        String layout = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
-            "<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\n" +
-            "    android:layout_width=\"match_parent\"\n" +
-            "    android:layout_height=\"match_parent\"\n" +
-            "    android:gravity=\"center\" \n" +
-            "    android:orientation=\"vertical\">\n" +
-            "    <TextView\n" +
-            "        android:layout_width=\"wrap_content\"\n" +
-            "        android:layout_height=\"wrap_content\"\n" +
-            "        android:text=\"Hello MiniStudio (" + language + ")!\" />\n" +
-            "</LinearLayout>";
-        writeFile(rootPath + "/app/src/main/res/layout/activity_main.xml", layout);
-
-        String stringsXml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n" +
-            "    <string name=\"app_name\">" + projectName + "</string>\n</resources>";
-        writeFile(rootPath + "/app/src/main/res/values/strings.xml", stringsXml);
-
-        String colorsXml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n" +
-            "    <color name=\"purple_500\">#FF6200EE</color>\n" +
-            "    <color name=\"purple_700\">#FF3700B3</color>\n" +
-            "    <color name=\"teal_200\">#FF03DAC5</color>\n" +
-            "</resources>";
-        writeFile(rootPath + "/app/src/main/res/values/colors.xml", colorsXml);
-
-        String stylesXml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n" +
-            "    <style name=\"AppTheme\" parent=\"Theme.MaterialComponents.DayNight.NoActionBar\">\n" +
-            "        <item name=\"colorPrimary\">@color/purple_500</item>\n" +
-            "    </style>\n</resources>";
-        writeFile(rootPath + "/app/src/main/res/values/styles.xml", stylesXml);
-        
-        // 5. คัดแยกการเจนไฟล์ซอร์สโค้ดเริ่มต้น
-        if ("Kotlin".equals(language)) {
-            String kotlinCode = "package " + packageName + "\n\n" +
-                "import android.app.Activity\n" +
-                "import android.os.Bundle\n" +
-                "import " + packageName + ".R\n\n" + 
-                "class MainActivity : Activity() {\n" +
-                "    override fun onCreate(savedInstanceState: Bundle?) {\n" +
-                "        super.onCreate(savedInstanceState)\n" +
-                "        setContentView(R.layout.activity_main)\n" +
-                "    }\n" +
-                "}";
-            writeFile(sourceDirPath + "/MainActivity.kt", kotlinCode);
-        } else {
-            String javaCode = "package " + packageName + ";\n\n" +
-                "import android.app.Activity;\n" +
-                "import android.os.Bundle;\n" +
-                "import " + packageName + ".R;\n\n" + 
-                "public class MainActivity extends Activity {\n" +
-                "    @Override\n" +
-                "    protected void onCreate(Bundle savedInstanceState) { \n" +
-                "        super.onCreate(savedInstanceState);\n" +
-                "        setContentView(R.layout.activity_main);\n" +
-                "    }\n" +
-                "}";
-            writeFile(sourceDirPath + "/MainActivity.java", javaCode);
-        }
-
-        // 6. ส่งโครงสร้างและเตรียมค่าสำหรับส่งไปคอมไพล์บน GitHub CI/CD
-        BuildEnvironmentManager envManager = new BuildEnvironmentManager(this);
-        envManager.prepareGitHubWorkflow(rootPath, projectName, packageName, language, minSdk);
+    for (String path : folders) {
+        File f = new File(path);
+        if (!f.exists()) f.mkdirs();
     }
 
+    // 2. นำข้อความ SDK มาแกะเอาเฉพาะตัวเลข API ด้วย Regular Expression
+    String minSdkDigits = minSdkVersionString.replaceAll("[^0-9]", "");
+    int minSdk = Integer.parseInt(minSdkDigits.length() > 0 ? minSdkDigits : "21");
 
+    // 3. สร้างไฟล์ AndroidManifest.xml
+    String manifest = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+        "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n" +
+        "    <application \n" +
+        "        android:label=\"" + projectName + "\"\n" +
+        "        android:theme=\"@style/AppTheme\">\n" + 
+        "        <activity android:name=\".MainActivity\" android:exported=\"true\">\n" +
+        "            <intent-filter>\n" +
+        "                <action android:name=\"android.intent.action.MAIN\" />\n" +
+        "                <category android:name=\"android.intent.category.LAUNCHER\" />\n" +
+        "            </intent-filter>\n" +
+        "        </activity>\n" +
+        "    </application>\n" +
+        "</manifest>";
+    writeFile(rootPath + "/app/src/main/AndroidManifest.xml", manifest);
+
+    // 4. สร้าง Resource Files
+    String layout = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+        "<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\n" +
+        "    android:layout_width=\"match_parent\"\n" +
+        "    android:layout_height=\"match_parent\"\n" +
+        "    android:gravity=\"center\" \n" +
+        "    android:orientation=\"vertical\">\n" +
+        "    <TextView\n" +
+        "        android:layout_width=\"wrap_content\"\n" +
+        "        android:layout_height=\"wrap_content\"\n" +
+        "        android:text=\"Hello MiniStudio (" + language + ")!\" />\n" +
+        "</LinearLayout>";
+    writeFile(rootPath + "/app/src/main/res/layout/activity_main.xml", layout);
+
+    String stringsXml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n" +
+        "    <string name=\"app_name\">" + projectName + "</string>\n</resources>";
+    writeFile(rootPath + "/app/src/main/res/values/strings.xml", stringsXml);
+
+    String colorsXml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n" +
+        "    <color name=\"purple_500\">#FF6200EE</color>\n" +
+        "    <color name=\"purple_700\">#FF3700B3</color>\n" +
+        "    <color name=\"teal_200\">#FF03DAC5</color>\n" +
+        "</resources>";
+    writeFile(rootPath + "/app/src/main/res/values/colors.xml", colorsXml);
+
+    String stylesXml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n" +
+        "    <style name=\"AppTheme\" parent=\"Theme.MaterialComponents.DayNight.NoActionBar\">\n" +
+        "        <item name=\"colorPrimary\">@color/purple_500</item>\n" +
+        "    </style>\n</resources>";
+    writeFile(rootPath + "/app/src/main/res/values/styles.xml", stylesXml);
+    
+    // 5. สร้างซอร์สโค้ด
+    if ("Kotlin".equals(language)) {
+        String kotlinCode = "package " + packageName + "\n\n" +
+            "import android.app.Activity\n" +
+            "import android.os.Bundle\n" +
+            "import " + packageName + ".R\n\n" + 
+            "class MainActivity : Activity() {\n" +
+            "    override fun onCreate(savedInstanceState: Bundle?) {\n" +
+            "        super.onCreate(savedInstanceState)\n" +
+            "        setContentView(R.layout.activity_main)\n" +
+            "    }\n" +
+            "}";
+        writeFile(sourceDirPath + "/MainActivity.kt", kotlinCode);
+    } else {
+        String javaCode = "package " + packageName + ";\n\n" +
+            "import android.app.Activity;\n" +
+            "import android.os.Bundle;\n" +
+            "import " + packageName + ".R;\n\n" + 
+            "public class MainActivity extends Activity {\n" +
+            "    @Override\n" +
+            "    protected void onCreate(Bundle savedInstanceState) { \n" +
+            "        super.onCreate(savedInstanceState);\n" +
+            "        setContentView(R.layout.activity_main);\n" +
+            "    }\n" +
+            "}";
+        writeFile(sourceDirPath + "/MainActivity.java", javaCode);
+    }
+
+    // 6. ส่งโครงสร้างและเตรียมค่า (ใช้ตัวแปรที่รับมาในหัวเมธอดทั้งหมด)
+    BuildEnvironmentManager envManager = new BuildEnvironmentManager(this);
+    envManager.prepareGitHubWorkflow(rootPath, projectName, packageName, language, minSdk);
+}
     private void writeFile(String path, String content) {
         try {
             File file = new File(path);
