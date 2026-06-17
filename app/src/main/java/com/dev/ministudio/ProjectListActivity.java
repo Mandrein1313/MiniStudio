@@ -41,6 +41,7 @@ public class ProjectListActivity extends AppCompatActivity {
     private FloatingActionsMenu fabMenu;
     private FloatingActionButton fabCreate;
     private FloatingActionButton fabGithub;
+    
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,14 +62,11 @@ public class ProjectListActivity extends AppCompatActivity {
                 this, drawerLayout, toolbar, android.R.string.ok, android.R.string.cancel);
         drawerLayout.addDrawerListener(toggle);
         toggle.syncState();
-
         // 1. ตั้งค่าปุ่ม Fab ผ่านเมธอดแยก (สะอาดและดูดีขึ้น)
         setupFabButtons();
-
         // 2. โหลดข้อมูลต่างๆ
         checkPermissions();
         refreshProjectList();
-
         // 3. ตั้งค่า Adapter
         adapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, projects) {
             @Override
@@ -83,13 +81,11 @@ public class ProjectListActivity extends AppCompatActivity {
             }
         };
         listView.setAdapter(adapter);
-
         listView.setOnItemClickListener((parent, view, position, id) -> {
             Intent intent = new Intent(ProjectListActivity.this, MainActivity.class);
             intent.putExtra("projectName", projects.get(position));
             startActivity(intent);
         });
-
         listView.setOnItemLongClickListener((parent, view, position, id) -> {
             String projectName = projects.get(position);
             new AlertDialog.Builder(ProjectListActivity.this)
@@ -154,255 +150,69 @@ public class ProjectListActivity extends AppCompatActivity {
  
     // 🟢 หน้าต่างสร้างโปรเจกต์แบบ Advance เพิ่มตัวเลือก Language และ Minimum SDK (ดีไซน์พรีเมียมดาร์กโมด)
     private void showCreateProjectDialog() {
-        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
-        
-        // 1. คอนเทนเนอร์หลัก
-        LinearLayout mainLayout = new LinearLayout(this);
-        mainLayout.setOrientation(LinearLayout.VERTICAL);
-        int paddingPx = (int) (24 * getResources().getDisplayMetrics().density);
-        mainLayout.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
-        mainLayout.setBackgroundColor(android.graphics.Color.parseColor("#1E1E1E"));
+    androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
+    LinearLayout mainLayout = new LinearLayout(this);
+    mainLayout.setOrientation(LinearLayout.VERTICAL);
+    int paddingPx = (int) (20 * getResources().getDisplayMetrics().density);
+    mainLayout.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
+    mainLayout.setBackgroundColor(android.graphics.Color.parseColor("#1E1E1E"));
 
-        // 2. แถวหัวข้อไดอะล็อกพร้อมไอคอน
-        LinearLayout titleLayout = new LinearLayout(this);
-        titleLayout.setOrientation(LinearLayout.HORIZONTAL);
-        titleLayout.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        titleLayout.setPadding(0, 0, 0, (int) (6 * getResources().getDisplayMetrics().density));
+    // --- ระบบไอคอน ---
+    final int[] currentSelectedIcon = {R.drawable.ic_launcher};
+    android.widget.ImageView iconPreview = new android.widget.ImageView(this);
+    iconPreview.setImageResource(currentSelectedIcon[0]);
+    int size = (int) (60 * getResources().getDisplayMetrics().density);
+    LinearLayout.LayoutParams imgParams = new LinearLayout.LayoutParams(size, size);
+    imgParams.gravity = android.view.Gravity.CENTER;
+    imgParams.bottomMargin = 20;
+    iconPreview.setLayoutParams(imgParams);
+    iconPreview.setOnClickListener(v -> IconPickerDialogHelper.show(this, resId -> {
+        currentSelectedIcon[0] = resId;
+        iconPreview.setImageResource(resId);
+    }));
+    mainLayout.addView(iconPreview);
 
-        TextView tvTitle = new TextView(this);
-        tvTitle.setText("🚀 New Project");
-        tvTitle.setTextColor(android.graphics.Color.WHITE);
-        tvTitle.setTextSize(18);
-        tvTitle.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
-        titleLayout.addView(tvTitle);
-        mainLayout.addView(titleLayout);
+    // --- ช่องกรอกข้อมูล ---
+    final android.widget.EditText etName = new android.widget.EditText(this);
+    etName.setHint("Project Name");
+    etName.setTextColor(-1);
+    etName.setHintTextColor(android.graphics.Color.GRAY);
+    mainLayout.addView(etName);
 
-        // 3. คำอธิบายรายละเอียด
-        TextView tvDesc = new TextView(this);
-        tvDesc.setText("กำหนดค่าโครงสร้างและสภาพแวดล้อมสำหรับโปรเจกต์ใหม่ของคุณ");
-        tvDesc.setTextColor(android.graphics.Color.parseColor("#8E8E93"));
-        tvDesc.setTextSize(13);
-        tvDesc.setLineSpacing(0, 1.2f);
-        tvDesc.setPadding(0, 0, 0, (int) (20 * getResources().getDisplayMetrics().density));
-        mainLayout.addView(tvDesc);
+    final android.widget.EditText etPkg = new android.widget.EditText(this);
+    etPkg.setHint("Package Name");
+    etPkg.setTextColor(-1);
+    etPkg.setHintTextColor(android.graphics.Color.GRAY);
+    mainLayout.addView(etPkg);
 
-        LinearLayout.LayoutParams boxParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        boxParams.bottomMargin = (int) (14 * getResources().getDisplayMetrics().density);
+    // --- Spinner (Lang & SDK) ---
+    final android.widget.Spinner spinLang = new android.widget.Spinner(this);
+    spinLang.setAdapter(new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, new String[]{"Java", "Kotlin"}));
+    mainLayout.addView(spinLang);
 
-        // สไตล์สำหรับช่องกรอกและ Dropdown (สีเทาเข้ม ขอบมน เส้นขอบบาง)
-        android.graphics.drawable.GradientDrawable inputStyle = new android.graphics.drawable.GradientDrawable();
-        inputStyle.setColor(android.graphics.Color.parseColor("#252526"));
-        inputStyle.setCornerRadius((int) (8 * getResources().getDisplayMetrics().density));
-        inputStyle.setStroke((int) (1 * getResources().getDisplayMetrics().density), android.graphics.Color.parseColor("#3F3F46"));
+    final android.widget.Spinner spinSdk = new android.widget.Spinner(this);
+    spinSdk.setAdapter(new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, new String[]{"API 21", "API 23", "API 26"}));
+    mainLayout.addView(spinSdk);
 
-        int inputPadding = (int) (12 * getResources().getDisplayMetrics().density);
+    // --- ปุ่ม Create ---
+    android.widget.Button btnCreate = new android.widget.Button(this);
+    btnCreate.setText("CREATE");
+    btnCreate.setOnClickListener(v -> {
+        // เรียกเมธอดสร้างโปรเจกต์โดยส่ง icon ไปด้วย
+        createNewProject(
+            etName.getText().toString(), 
+            etPkg.getText().toString(), 
+            spinLang.getSelectedItem().toString(), 
+            spinSdk.getSelectedItem().toString(), 
+            currentSelectedIcon[0] // <--- ตรงนี้คือการส่งไอคอน
+        );
+        refreshProjectList();
+    });
+    mainLayout.addView(btnCreate);
 
-        // --- ช่องกรอกที่ 1: Project Name ---
-        TextView labelProjectName = new TextView(this);
-        labelProjectName.setText("Project Name");
-        labelProjectName.setTextColor(android.graphics.Color.parseColor("#D4D4D8"));
-        labelProjectName.setTextSize(13);
-        labelProjectName.setPadding(0, 0, 0, (int) (6 * getResources().getDisplayMetrics().density));
-        mainLayout.addView(labelProjectName);
+    builder.setView(mainLayout).show();
+}
 
-        final EditText etProjectName = new EditText(this);
-        etProjectName.setHint("e.g., MyGame");
-        etProjectName.setHintTextColor(android.graphics.Color.parseColor("#52525B"));
-        etProjectName.setTextColor(android.graphics.Color.WHITE);
-        etProjectName.setTextSize(14);
-        etProjectName.setSingleLine(true);
-        etProjectName.setBackground(inputStyle.getConstantState().newDrawable());
-        etProjectName.setPadding(inputPadding, inputPadding, inputPadding, inputPadding);
-        mainLayout.addView(etProjectName, boxParams);
-
-        // --- ช่องกรอกที่ 2: Package Name ---
-        TextView labelPackageName = new TextView(this);
-        labelPackageName.setText("Package Name");
-        labelPackageName.setTextColor(android.graphics.Color.parseColor("#D4D4D8"));
-        labelPackageName.setTextSize(13);
-        labelPackageName.setPadding(0, 0, 0, (int) (6 * getResources().getDisplayMetrics().density));
-        mainLayout.addView(labelPackageName);
-
-        final EditText etPackageName = new EditText(this);
-        etPackageName.setHint("e.g., com.dev.mygame");
-        etPackageName.setHintTextColor(android.graphics.Color.parseColor("#52525B"));
-        etPackageName.setTextColor(android.graphics.Color.WHITE);
-        etPackageName.setTextSize(14);
-        etPackageName.setSingleLine(true);
-        etPackageName.setBackground(inputStyle.getConstantState().newDrawable());
-        etPackageName.setPadding(inputPadding, inputPadding, inputPadding, inputPadding);
-        mainLayout.addView(etPackageName, boxParams);
-
-        // ระบบแปลงชื่อ Package อัตโนมัติ
-        etProjectName.addTextChangedListener(new android.text.TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                String name = s.toString().trim().toLowerCase().replaceAll("[^a-z0-9]", "");
-                if (!name.isEmpty()) {
-                    etPackageName.setText("com.example." + name);
-                } else {
-                    etPackageName.setText("");
-                }
-            }
-
-            @Override
-            public void afterTextChanged(android.text.Editable s) {}
-        });
-
-        // --- ช่องเลือกที่ 3: Language (Spinner) ---
-        TextView labelLanguage = new TextView(this);
-        labelLanguage.setText("Language");
-        labelLanguage.setTextColor(android.graphics.Color.parseColor("#D4D4D8"));
-        labelLanguage.setTextSize(13);
-        labelLanguage.setPadding(0, 0, 0, (int) (6 * getResources().getDisplayMetrics().density));
-        mainLayout.addView(labelLanguage);
-
-        final android.widget.Spinner spinLanguage = new android.widget.Spinner(this);
-        spinLanguage.setBackground(inputStyle.getConstantState().newDrawable());
-        spinLanguage.setPadding(inputPadding, inputPadding, inputPadding, inputPadding);
-        
-        String[] languages = {"Java", "Kotlin"};
-        ArrayAdapter<String> langAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, languages) {
-            @Override
-            public View getView(int position, View convertView, ViewGroup parent) {
-                TextView tv = (TextView) super.getView(position, convertView, parent);
-                tv.setTextColor(android.graphics.Color.WHITE);
-                tv.setTextSize(14);
-                return tv;
-            }
-            @Override
-            public View getDropDownView(int position, View convertView, ViewGroup parent) {
-                TextView tv = (TextView) super.getDropDownView(position, convertView, parent);
-                tv.setTextColor(android.graphics.Color.WHITE);
-                tv.setBackgroundColor(android.graphics.Color.parseColor("#252526"));
-                tv.setPadding(30, 30, 30, 30);
-                return tv;
-            }
-        };
-        spinLanguage.setAdapter(langAdapter);
-        mainLayout.addView(spinLanguage, boxParams);
-
-        // --- ช่องเลือกที่ 4: Minimum SDK (Spinner) ---
-        TextView labelMinSdk = new TextView(this);
-        labelMinSdk.setText("Minimum SDK");
-        labelMinSdk.setTextColor(android.graphics.Color.parseColor("#D4D4D8"));
-        labelMinSdk.setTextSize(13);
-        labelMinSdk.setPadding(0, 0, 0, (int) (6 * getResources().getDisplayMetrics().density));
-        mainLayout.addView(labelMinSdk);
-
-        final android.widget.Spinner spinMinSdk = new android.widget.Spinner(this);
-        spinMinSdk.setBackground(inputStyle.getConstantState().newDrawable());
-        spinMinSdk.setPadding(inputPadding, inputPadding, inputPadding, inputPadding);
-
-        String[] sdkOptions = {
-                "API 21: Android 5.0 (Lollipop)",
-                "API 23: Android 6.0 (Marshmallow)",
-                "API 26: Android 8.0 (Oreo)",
-                "API 29: Android 10.0",
-                "API 33: Android 13.0"
-        };
-        ArrayAdapter<String> sdkAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, sdkOptions) {
-            @Override
-            public View getView(int position, View convertView, ViewGroup parent) {
-                TextView tv = (TextView) super.getView(position, convertView, parent);
-                tv.setTextColor(android.graphics.Color.WHITE);
-                tv.setTextSize(14);
-                return tv;
-            }
-            @Override
-            public View getDropDownView(int position, View convertView, ViewGroup parent) {
-                TextView tv = (TextView) super.getDropDownView(position, convertView, parent);
-                tv.setTextColor(android.graphics.Color.WHITE);
-                tv.setBackgroundColor(android.graphics.Color.parseColor("#252526"));
-                tv.setPadding(30, 30, 30, 30);
-                return tv;
-            }
-        };
-        spinMinSdk.setAdapter(sdkAdapter);
-        spinMinSdk.setSelection(1); // เลือก API 23 เป็นค่าเริ่มต้นตามสไตล์ IDE ทั่วไป
-        mainLayout.addView(spinMinSdk, boxParams);
-
-
-        final androidx.appcompat.app.AlertDialog dialog = builder.setView(mainLayout).create();
-
-        // 4. แถบปุ่มกดด้านล่าง (CANCEL / CREATE)
-        LinearLayout buttonLayout = new LinearLayout(this);
-        buttonLayout.setOrientation(LinearLayout.HORIZONTAL);
-        buttonLayout.setGravity(android.view.Gravity.END);
-        LinearLayout.LayoutParams btnLayoutParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        btnLayoutParams.topMargin = (int) (16 * getResources().getDisplayMetrics().density);
-        buttonLayout.setLayoutParams(btnLayoutParams);
-
-        // ปุ่มยกเลิก
-        android.widget.Button btnCancel = new android.widget.Button(this, null, 0, android.R.style.Widget_Material_Button_Borderless);
-        btnCancel.setText("CANCEL");
-        btnCancel.setTextColor(android.graphics.Color.parseColor("#A1A1AA"));
-        btnCancel.setTextSize(14);
-        btnCancel.setAllCaps(true);
-        btnCancel.setOnClickListener(v -> dialog.dismiss());
-        buttonLayout.addView(btnCancel);
-
-        // ปุ่มสร้างโปรเจกต์
-        android.widget.Button btnCreate = new android.widget.Button(this, null, 0, android.R.style.Widget_Material_Button_Borderless);
-        btnCreate.setText("CREATE");
-        btnCreate.setTextColor(android.graphics.Color.WHITE);
-        btnCreate.setTextSize(14);
-        btnCreate.setAllCaps(true);
-        
-        android.graphics.drawable.GradientDrawable createBtnBg = new android.graphics.drawable.GradientDrawable();
-        createBtnBg.setColor(android.graphics.Color.parseColor("#248A3D"));
-        createBtnBg.setCornerRadius((int) (6 * getResources().getDisplayMetrics().density));
-        btnCreate.setBackground(createBtnBg);
-        
-        LinearLayout.LayoutParams createBtnParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, (int) (40 * getResources().getDisplayMetrics().density));
-        createBtnParams.leftMargin = (int) (12 * getResources().getDisplayMetrics().density);
-        btnCreate.setLayoutParams(createBtnParams);
-        btnCreate.setPadding((int) (20 * getResources().getDisplayMetrics().density), 0, (int) (20 * getResources().getDisplayMetrics().density), 0);    
-
-        btnCreate.setOnClickListener(v -> {
-            String name = etProjectName.getText().toString().trim();
-            String packageName = etPackageName.getText().toString().trim();
-            String selectedLang = spinLanguage.getSelectedItem().toString(); // "Java" หรือ "Kotlin"
-            String selectedSdk = spinMinSdk.getSelectedItem().toString();   // "API 23: Android..."
-
-            if (name.isEmpty()) {
-                Toast.makeText(ProjectListActivity.this, "❌ กรุณากรอกชื่อโปรเจกต์", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (packageName.isEmpty() || !packageName.contains(".") || packageName.endsWith(".")) {
-                Toast.makeText(ProjectListActivity.this, "❌ รูปแบบ Package Name ไม่ถูกต้อง", Toast.LENGTH_LONG).show();
-                return;
-            }
-
-            // 🌟 ส่งค่าตัวแปร Language และ SDK ไปประมวลผลต่อที่ระบบสร้างโปรเจกต์หลังบ้าน
-            createNewProject(name, packageName, selectedLang, selectedSdk);
-            
-            refreshProjectList(); 
-            adapter.notifyDataSetChanged();
-            Toast.makeText(ProjectListActivity.this, "Project Created (" + selectedLang + ")!", Toast.LENGTH_SHORT).show();
-            dialog.dismiss();
-        });
-
-        buttonLayout.addView(btnCreate);
-        mainLayout.addView(buttonLayout);
-
-        if (dialog.getWindow() != null) {
-            android.graphics.drawable.GradientDrawable dialogBg = new android.graphics.drawable.GradientDrawable();
-            dialogBg.setColor(android.graphics.Color.parseColor("#1E1E1E"));
-            dialogBg.setCornerRadius((int) (14 * getResources().getDisplayMetrics().density));
-            dialog.getWindow().setBackgroundDrawable(dialogBg);
-        }
-
-        dialog.show();
-    }
-
-    // 🌟 เมธอดเวอร์ชันอัปเกรด: รับค่าตัวแปรภาษาและ SDK มาจำแนกเขียนโค้ดและสร้างโฟลเดอร์จริง
     // 🌟 เมธอดเวอร์ชันอัปเกรด: รับค่าตัวแปรภาษาและ SDK มาจำแนกเขียนโค้ดและสร้างโฟลเดอร์จริง
     private void createNewProject(String projectName, String packageName, String language, String minSdkVersionString) {
         String rootPath = "/sdcard/MiniStudio/" + projectName;
