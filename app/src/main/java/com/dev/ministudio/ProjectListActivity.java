@@ -214,7 +214,7 @@ public class ProjectListActivity extends AppCompatActivity {
 }
 
     // 🌟 เมธอดเวอร์ชันอัปเกรด: รับค่าตัวแปรภาษาและ SDK มาจำแนกเขียนโค้ดและสร้างโฟลเดอร์จริง
-    private void createNewProject(String projectName, String packageName, String language, String minSdkVersionString) {
+    private void createNewProject(String name, String pkg, String lang, String sdk, int iconResId) {
         String rootPath = "/sdcard/MiniStudio/" + projectName;
         
         // 1. นำค่าภาษามาสลับโฟลเดอร์ Source Code ให้ตรงตามไวยากรณ์ (src/main/java หรือ src/main/kotlin)
